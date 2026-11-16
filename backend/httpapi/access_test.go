@@ -3,7 +3,7 @@ package httpapi
 import (
 	"testing"
 
-	"opskeeper/backend/authorization"
+	"opsseek/backend/authorization"
 )
 
 func TestUpsertRoleBindingKeepsOneRolePerScope(t *testing.T) {

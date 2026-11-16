@@ -2,7 +2,7 @@ package organization
 
 import (
 	"context"
-	"opskeeper/backend/application"
+	"opsseek/backend/application"
 	"strings"
 )
 

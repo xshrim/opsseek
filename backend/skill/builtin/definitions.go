@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"opskeeper/backend/connector"
-	"opskeeper/backend/skill"
+	"opsseek/backend/connector"
+	"opsseek/backend/skill"
 )
 
 type Definition struct {

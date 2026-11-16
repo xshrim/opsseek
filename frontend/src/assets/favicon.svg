@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-labelledby="title desc">
-  <title id="title">OpsKeeper</title>
-  <desc id="desc">OpsKeeper light blue diagnostic lens mark</desc>
+  <title id="title">OpsSeek</title>
+  <desc id="desc">OpsSeek light blue diagnostic lens mark</desc>
   <path d="M6 24c6-10 13-14 18-14s12 4 18 14c-6 10-13 14-18 14S12 34 6 24Z" fill="none" stroke="#67c7d4" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M12 24h7l3-7 4 14 3-7h7" fill="none" stroke="#67c7d4" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

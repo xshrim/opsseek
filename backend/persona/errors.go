@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgconn"
-	"opskeeper/backend/authorization"
+	"opsseek/backend/authorization"
 )
 
 var (

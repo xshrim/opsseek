@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"opskeeper/backend/notification"
+	"opsseek/backend/notification"
 )
 
 func (s *Service) CreateNotificationTemplate(ctx context.Context, scopeID, name, actorID string, shareWithChildren bool, draft notification.TemplateDraft) (NotificationTemplateRecord, error) {
@@ -199,7 +199,7 @@ func (s *Service) testNotificationRoute(ctx context.Context, scopeID string, rou
 	if s.tester == nil {
 		return invalid("notification test sender is unavailable")
 	}
-	subject, message := "OpsKeeper notification test", string(payload)
+	subject, message := "OpsSeek notification test", string(payload)
 	_, _, _, err = s.tester.Send(ctx, channel.Channel.Kind, config, subject, message)
 	if err != nil {
 		return fmt.Errorf("notification rule test failed")
@@ -213,7 +213,7 @@ func notificationTestValues(draft notification.TemplateDraft) map[string]string 
 		"policy_name": "Test inspection policy", "resource_name": "test-resource", "scope_name": "test-scope",
 		"finding_summary": "Test notification route", "first_observed_at": "2026-01-01T00:00:00Z",
 		"last_observed_at": "2026-01-01T00:00:00Z", "run_url": "https://example.invalid/runs/test",
-		"opskeeper_url": "https://example.invalid",
+		"opsseek_url": "https://example.invalid",
 	}
 	declared := make(map[string]string, len(draft.Variables))
 	for _, variable := range draft.Variables {

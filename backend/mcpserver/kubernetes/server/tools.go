@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"opskeeper/backend/mcpserver/kubernetes/client"
-	kt "opskeeper/backend/tool/kubernetes"
+	"opsseek/backend/mcpserver/kubernetes/client"
+	kt "opsseek/backend/tool/kubernetes"
 )
 
 type baseInput struct{ client.ConnectionInput }

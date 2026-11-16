@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	mt "opskeeper/backend/tool/minio"
+	mt "opsseek/backend/tool/minio"
 )
 
 type minioAdapter struct{ connection mt.ConnectionInput }

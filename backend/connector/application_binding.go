@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"strings"
 
-	"opskeeper/backend/engine"
-	docker "opskeeper/backend/tool/docker"
-	host "opskeeper/backend/tool/host"
-	kt "opskeeper/backend/tool/kubernetes"
+	"opsseek/backend/engine"
+	docker "opsseek/backend/tool/docker"
+	host "opsseek/backend/tool/host"
+	kt "opsseek/backend/tool/kubernetes"
 )
 
 type ApplicationBindingItem struct {

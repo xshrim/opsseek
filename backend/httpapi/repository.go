@@ -7,9 +7,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"io"
 	"net/http"
-	"opskeeper/backend/authorization"
-	repositorysvc "opskeeper/backend/repository"
-	repositorytool "opskeeper/backend/tool/repository"
+	"opsseek/backend/authorization"
+	repositorysvc "opsseek/backend/repository"
+	repositorytool "opsseek/backend/tool/repository"
 )
 
 type repositoryBundleService interface {

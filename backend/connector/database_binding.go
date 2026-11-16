@@ -3,7 +3,7 @@ package connector
 import (
 	"context"
 	"encoding/json"
-	"opskeeper/backend/engine"
+	"opsseek/backend/engine"
 )
 
 func databaseScopedTools(add func(string, string, json.RawMessage, func(context.Context, map[string]any) (engine.ToolResult, error)), target, binding map[string]any) func(string, string, json.RawMessage, func(context.Context, map[string]any) (engine.ToolResult, error)) {

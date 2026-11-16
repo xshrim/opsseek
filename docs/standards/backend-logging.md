@@ -1,6 +1,6 @@
 # 后端日志规范
 
-本文是 OpsKeeper 后端日志的强制性规范，适用于 API、Worker、Scheduler、Migration 以及其他 Go 后端进程。它定义日志字段、上下文传递、输出格式和敏感信息边界；具体组件可以增加 `kind` 的消息约定，但不得改变公共日志头。
+本文是 OpsSeek 后端日志的强制性规范，适用于 API、Worker、Scheduler、Migration 以及其他 Go 后端进程。它定义日志字段、上下文传递、输出格式和敏感信息边界；具体组件可以增加 `kind` 的消息约定，但不得改变公共日志头。
 
 ## 1. 目标与原则
 
@@ -22,7 +22,7 @@ time level service kind traceid spanid func file:line msg
 |---|---|
 | `time` | 格式为 `yyyy-MM-ddTHH:mm:ss.ms`，Go 布局为 `2006-01-02T15:04:05.000`。不包含时区后缀；部署环境必须统一时区。 |
 | `level` | `DEBUG`、`INFO`、`WARN` 或 `ERROR`，使用大写。 |
-| `service` | 稳定服务名，例如 `opskeeper-api`、`opskeeper-worker`、`opskeeper-scheduler`。 |
+| `service` | 稳定服务名，例如 `opsseek-api`、`opsseek-worker`、`opsseek-scheduler`。 |
 | `kind` | 小写短横线命名的日志类别，例如 `service-start`、`http-request`、`job`、`audit`、`error`。 |
 | `traceid` | OpenTelemetry Trace ID，使用小写十六进制字符串；没有有效 Trace 时为 `-`。不得使用 request ID 代替。 |
 | `spanid` | OpenTelemetry Span ID，使用小写十六进制字符串；没有有效 Span 时为 `-`。不加入 `parentspanid` 固定字段。 |
@@ -70,7 +70,7 @@ error_code=<稳定错误码> error_summary=<已脱敏的响应原因>
 `service-start`、`job`、`audit`、`error` 等类别应优先使用稳定、低基数的标识和结果。例如：
 
 ```text
-service-start listen 127.0.0.1:8080 url http://127.0.0.1:8080/opskeeper/
+service-start listen 127.0.0.1:8080 url http://127.0.0.1:8080/opsseek/
 job inspection-run run-123 succeeded 842ms
 audit user.login user-123 succeeded
 error database timeout
@@ -128,26 +128,26 @@ JSON 必须是单行对象，不使用多行 pretty-print。公共字段使用�
 
 ```text
 # raw
-2026-08-19T08:30:12.123 INFO opskeeper-api service-start - - api.run main.go:181 listen 127.0.0.1:8080 url=http://127.0.0.1:8080/opskeeper/
+2026-08-19T08:30:12.123 INFO opsseek-api service-start - - api.run main.go:181 listen 127.0.0.1:8080 url=http://127.0.0.1:8080/opsseek/
 
 # text
-time=2026-08-19T08:30:12.123 level=INFO service=opskeeper-api kind=service-start traceid=- spanid=- func=api.run file:line=main.go:181 msg="listen 127.0.0.1:8080 url=http://127.0.0.1:8080/opskeeper/"
+time=2026-08-19T08:30:12.123 level=INFO service=opsseek-api kind=service-start traceid=- spanid=- func=api.run file:line=main.go:181 msg="listen 127.0.0.1:8080 url=http://127.0.0.1:8080/opsseek/"
 
 # json
-{"time":"2026-08-19T08:30:12.123","level":"INFO","service":"opskeeper-api","kind":"service-start","traceid":"-","spanid":"-","func":"api.run","file:line":"main.go:181","msg":"listen 127.0.0.1:8080 url=http://127.0.0.1:8080/opskeeper/"}
+{"time":"2026-08-19T08:30:12.123","level":"INFO","service":"opsseek-api","kind":"service-start","traceid":"-","spanid":"-","func":"api.run","file:line":"main.go:181","msg":"listen 127.0.0.1:8080 url=http://127.0.0.1:8080/opsseek/"}
 ```
 
 ### 5.2 `http-request`
 
 ```text
 # raw
-2026-08-19T08:30:13.456 INFO opskeeper-api http-request 4bf92f3577b34da6a3ce929d0e0e4736 00f067aa0ba902b7 httpapi.requestLogger middleware.go:138 req-7f3a 192.0.2.10 GET /opskeeper/api/v1/teams 200 12ms
+2026-08-19T08:30:13.456 INFO opsseek-api http-request 4bf92f3577b34da6a3ce929d0e0e4736 00f067aa0ba902b7 httpapi.requestLogger middleware.go:138 req-7f3a 192.0.2.10 GET /opsseek/api/v1/teams 200 12ms
 
 # text
-time=2026-08-19T08:30:13.456 level=INFO service=opskeeper-api kind=http-request traceid=4bf92f3577b34da6a3ce929d0e0e4736 spanid=00f067aa0ba902b7 func=httpapi.requestLogger file:line=middleware.go:138 msg="reqid=req-7f3a clientip=192.0.2.10 method=GET path=/opskeeper/api/v1/teams status=200 duration=12ms"
+time=2026-08-19T08:30:13.456 level=INFO service=opsseek-api kind=http-request traceid=4bf92f3577b34da6a3ce929d0e0e4736 spanid=00f067aa0ba902b7 func=httpapi.requestLogger file:line=middleware.go:138 msg="reqid=req-7f3a clientip=192.0.2.10 method=GET path=/opsseek/api/v1/teams status=200 duration=12ms"
 
 # json
-{"time":"2026-08-19T08:30:13.456","level":"INFO","service":"opskeeper-api","kind":"http-request","traceid":"4bf92f3577b34da6a3ce929d0e0e4736","spanid":"00f067aa0ba902b7","func":"httpapi.requestLogger","file:line":"middleware.go:138","msg":"reqid req-7f3a clientip 192.0.2.10 method GET path /opskeeper/api/v1/teams status 200 duration 12ms"}
+{"time":"2026-08-19T08:30:13.456","level":"INFO","service":"opsseek-api","kind":"http-request","traceid":"4bf92f3577b34da6a3ce929d0e0e4736","spanid":"00f067aa0ba902b7","func":"httpapi.requestLogger","file:line":"middleware.go:138","msg":"reqid req-7f3a clientip 192.0.2.10 method GET path /opsseek/api/v1/teams status 200 duration 12ms"}
 ```
 
 在 `raw` 中，`http-request` 的消息严格按 `reqid clientip method path status duration` 排列；`text` 和 `json` 可以同时提供结构化的消息字段，但不得改变这些字段的语义或顺序约定。
@@ -156,13 +156,13 @@ time=2026-08-19T08:30:13.456 level=INFO service=opskeeper-api kind=http-request 
 
 ```text
 # raw
-2026-08-19T08:30:14.789 INFO opskeeper-worker job - - worker.run jobs.go:81 inspection-run run-123 succeeded 842ms
+2026-08-19T08:30:14.789 INFO opsseek-worker job - - worker.run jobs.go:81 inspection-run run-123 succeeded 842ms
 
 # text
-time=2026-08-19T08:30:14.789 level=INFO service=opskeeper-worker kind=job traceid=- spanid=- func=worker.run file:line=jobs.go:81 msg="inspection-run run-123 succeeded 842ms"
+time=2026-08-19T08:30:14.789 level=INFO service=opsseek-worker kind=job traceid=- spanid=- func=worker.run file:line=jobs.go:81 msg="inspection-run run-123 succeeded 842ms"
 
 # json
-{"time":"2026-08-19T08:30:14.789","level":"INFO","service":"opskeeper-worker","kind":"job","traceid":"-","spanid":"-","func":"worker.run","file:line":"jobs.go:81","msg":"inspection-run run-123 succeeded 842ms"}
+{"time":"2026-08-19T08:30:14.789","level":"INFO","service":"opsseek-worker","kind":"job","traceid":"-","spanid":"-","func":"worker.run","file:line":"jobs.go:81","msg":"inspection-run run-123 succeeded 842ms"}
 ```
 
 ## 6. 安全、隐私与可运维性

@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/robfig/cron/v3"
-	"opskeeper/backend/notification"
+	"opsseek/backend/notification"
 )
 
 type Store interface {
@@ -709,7 +709,7 @@ func (s *store) enqueueEventDeliveries(ctx context.Context, tx pgx.Tx, eventID s
 			return mapError(err)
 		}
 		if result.RowsAffected() == 1 {
-			if _, err := tx.Exec(ctx, `SELECT pg_notify('opskeeper_notification','')`); err != nil {
+			if _, err := tx.Exec(ctx, `SELECT pg_notify('opsseek_notification','')`); err != nil {
 				return err
 			}
 		}

@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"opskeeper/backend/diagnosis"
-	"opskeeper/backend/llm"
-	"opskeeper/backend/migrations"
-	"opskeeper/backend/resource"
+	"opsseek/backend/diagnosis"
+	"opsseek/backend/llm"
+	"opsseek/backend/migrations"
+	"opsseek/backend/resource"
 )
 
 func TestStorePersistsTraceableEvidenceAndRejectsCrossSessionReference(t *testing.T) {

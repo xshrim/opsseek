@@ -10,7 +10,7 @@ T01-T09、T11-T16 已完成验收，确认日期更新为 2026-09-14。T10 按�
 
 ## 2. 验收环境和范围
 
-- **PostgreSQL：** 本机 Docker PostgreSQL 16，`127.0.0.1:5432`，仅对已有 OpsKeeper 数据库执行固定只读查询；连接串、用户名和密码未写入报告或测试输出。
+- **PostgreSQL：** 本机 Docker PostgreSQL 16，`127.0.0.1:5432`，仅对已有 OpsSeek 数据库执行固定只读查询；连接串、用户名和密码未写入报告或测试输出。
 - **MCP：** `httptest` 启动 PostgreSQL MCP HTTP Server，经项目 MCP 客户端完成 `tools/list` 与 `postgresql_health` 调用。
 - **前端：** Svelte 类型检查与生产构建。
 
@@ -307,7 +307,7 @@ Application T06、PostgreSQL T07、Redis T08 和 Nacos T09 验收通过；三项
 
 ### 实施内容
 
-- Repository 保留 `Git`、`Bundle` 两种子类型：Git 和 Bundle 均按需读取，第一次工具调用为当前 Engine 执行创建固定源码快照，Bundle 通过 `.bundle` 上传到 OpsKeeper；资源目录继续按统一 Direct/Agent 样式展示。
+- Repository 保留 `Git`、`Bundle` 两种子类型：Git 和 Bundle 均按需读取，第一次工具调用为当前 Engine 执行创建固定源码快照，Bundle 通过 `.bundle` 上传到 OpsSeek；资源目录继续按统一 Direct/Agent 样式展示。
 - 新增 `backend/tool/repository` 公共只读工具：`repository_branches`、`repository_checkout`、`repository_status`、`repository_tree`、`repository_file`、`repository_search`、`repository_metadata`。工具固定使用受控 Git 参数，限制分支、路径、文件大小、搜索结果和执行超时，不开放任意 Shell/Git 命令。
 - Connector Direct Provider 和 Repository MCP Server 使用同名工具；Agent 资源通过 `agent_ref` 发现远端 MCP 工具，连接字段由服务端注入，Direct/Agent 不互相回退。
 - 新增 `POST /api/v1/resources/{resourceID}/bundle` multipart 上传 API，并在 Repository 详情页提供文件上传控件。服务端执行 `git bundle verify`，导入 bare 仓库；同名分支用强制 ref 更新覆盖，新分支自动追加，串行锁保证并发上传不会破坏仓库。

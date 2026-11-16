@@ -48,7 +48,7 @@ Engine 内置能力词条使用中文 Agent 能力术语：智能体循环、上
 
 但当前还不是“可选择多个 Agent 框架”的完整实现。生产实例目前只有一个 `Runtime`，其默认 `AgentRunner` 将 Google ADK Go 的 Agent Loop、工具调用、流式响应和结构化输出直接接入 `backend/engine/runner.go`。Provider 层已经可以适配多个模型厂商和 OpenAI-compatible 接口，但这属于模型接入多样化，不等于 Agent 引擎框架可切换。
 
-后续如果需要多引擎，建议保持上层 `engine.Engine` 契约不变，增加 Engine Adapter/Factory：每个实际框架实现统一的 `Runner` 和 `StreamingRunner`，由 Engine 配置选择 `adk`、`eino`、`ingenimax` 或其他适配器；工具策略、Scope 权限、上下文解析、预算、审计和事件格式仍由 OpsKeeper 外层控制，避免被某个框架重新接管。四个候选框架、整体迁移与双引擎共存的详细评估见 [Engine 多 Agent Runtime 候选方案](ai-engine.md#19-多-agent-runtime-候选方案)。
+后续如果需要多引擎，建议保持上层 `engine.Engine` 契约不变，增加 Engine Adapter/Factory：每个实际框架实现统一的 `Runner` 和 `StreamingRunner`，由 Engine 配置选择 `adk`、`eino`、`ingenimax` 或其他适配器；工具策略、Scope 权限、上下文解析、预算、审计和事件格式仍由 OpsSeek 外层控制，避免被某个框架重新接管。四个候选框架、整体迁移与双引擎共存的详细评估见 [Engine 多 Agent Runtime 候选方案](ai-engine.md#19-多-agent-runtime-候选方案)。
 
 该多引擎方案已经完成设计确认，但当前暂缓实施：不新增 Runtime Adapter，不引入候选框架依赖，不修改执行数据库结构，也不改变现有 ADK 执行链路。启动实施时应先完成契约冻结和 ADK Adapter 化，再进行 Ingenimax 验证。
 
@@ -60,7 +60,7 @@ Engine 内置能力词条使用中文 Agent 能力术语：智能体循环、上
 | CloudWeGo Eino | Go 原生 Agent/Graph 框架 | 可作为第二个 Agent Adapter，适合图编排、工具和多 Agent | 最值得优先评估的替代框架 |
 | LangChainGo | Go Agent/Chain/RAG 框架 | 能覆盖链、工具、检索和 Agent，但需要额外收敛其运行状态与事件模型 | 适合快速验证和集成较多第三方组件 |
 | Google Genkit Go | Flow/Tool/Model 应用框架 | 更偏应用流程和可观测性，可作为轻量流程型适配器 | 适合工作流场景，不宜直接替代核心 Agent Loop |
-| OpenAI Go SDK | 厂商模型 SDK | 负责 Responses/Chat 等模型 API，不提供 OpsKeeper 所需的完整 Agent 运行时 | 作为 Provider Adapter，不作为 Engine 框架 |
+| OpenAI Go SDK | 厂商模型 SDK | 负责 Responses/Chat 等模型 API，不提供 OpsSeek 所需的完整 Agent 运行时 | 作为 Provider Adapter，不作为 Engine 框架 |
 | Anthropic Go SDK | 厂商模型 SDK | 负责 Claude Messages 等模型 API，不负责 Scope、工具策略和审计 | 作为 Provider Adapter，不作为 Engine 框架 |
 | Vercel AI SDK | TypeScript/JavaScript SDK | 主要面向 JS/TS 服务和前端流式协议，暂无同等定位的官方 Go Agent Runtime | 不建议作为 Go Engine 依赖，可参考其流式协议 |
 

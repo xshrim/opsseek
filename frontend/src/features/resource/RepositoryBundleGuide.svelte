@@ -8,10 +8,10 @@
   let open = false;
   let copied = '';
   $: resourceID = resource?.id ?? '<资源 ID>';
-  $: apiBase = 'https://opskeeper.example.com';
+  $: apiBase = 'https://opsseek.example.com';
   $: apiUpload = [
     'curl -fsS -b "$COOKIE_FILE" \\',
-    "  -F 'bundle=@opskeeper.bundle' \\",
+    "  -F 'bundle=@opsseek.bundle' \\",
     '  "' + apiBase + '/api/v1/resources/' + resourceID + '/bundle"'
   ].join('\n');
 
@@ -54,8 +54,8 @@
         <li>
           <strong>在仓库工作副本中生成并验证</strong>
           <pre><code
-              >git bundle create opskeeper.bundle --all
-git bundle verify opskeeper.bundle</code
+              >git bundle create opsseek.bundle --all
+git bundle verify opsseek.bundle</code
             ></pre>
         </li>
         <li>

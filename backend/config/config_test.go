@@ -142,10 +142,10 @@ func TestLoadRequiresRedisURLOnlyForRedisCache(t *testing.T) {
 
 func TestLoadUsesGenericStorageEnvironment(t *testing.T) {
 	t.Setenv("OPSK_STORAGE_BACKEND", "s3")
-	t.Setenv("OPSK_REPOSITORY_LOCAL_ROOT", "/srv/opskeeper/repositories")
+	t.Setenv("OPSK_REPOSITORY_LOCAL_ROOT", "/srv/opsseek/repositories")
 	t.Setenv("OPSK_STORAGE_S3_PROVIDER", "minio")
 	t.Setenv("OPSK_STORAGE_S3_ENDPOINT", "https://storage.example.test")
-	t.Setenv("OPSK_STORAGE_S3_BUCKET", "opskeeper")
+	t.Setenv("OPSK_STORAGE_S3_BUCKET", "opsseek")
 	t.Setenv("OPSK_STORAGE_S3_PREFIX", "bundles")
 	t.Setenv("OPSK_STORAGE_S3_ACCESS_KEY", "access")
 	t.Setenv("OPSK_STORAGE_S3_SECRET_KEY", "secret")
@@ -155,7 +155,7 @@ func TestLoadUsesGenericStorageEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if cfg.StorageBackend != "s3" || cfg.RepositoryLocalRoot != "/srv/opskeeper/repositories" || cfg.StorageS3Provider != "minio" || cfg.StorageS3Endpoint != "https://storage.example.test" || cfg.StorageS3Bucket != "opskeeper" || cfg.StorageS3Prefix != "bundles" || cfg.StorageS3AccessKey != "access" || cfg.StorageS3SecretKey != "secret" || !cfg.StorageS3UseSSL {
+	if cfg.StorageBackend != "s3" || cfg.RepositoryLocalRoot != "/srv/opsseek/repositories" || cfg.StorageS3Provider != "minio" || cfg.StorageS3Endpoint != "https://storage.example.test" || cfg.StorageS3Bucket != "opsseek" || cfg.StorageS3Prefix != "bundles" || cfg.StorageS3AccessKey != "access" || cfg.StorageS3SecretKey != "secret" || !cfg.StorageS3UseSSL {
 		t.Fatalf("Load() storage config = %#v", cfg)
 	}
 }
@@ -373,7 +373,7 @@ func TestLoadRejectsInvalidListenPort(t *testing.T) {
 }
 
 func TestLoadAcceptsBasePaths(t *testing.T) {
-	for _, basePath := range []string{"/", "/opskeeper", "/platform/opskeeper"} {
+	for _, basePath := range []string{"/", "/opsseek", "/platform/opsseek"} {
 		t.Run(basePath, func(t *testing.T) {
 			t.Setenv("OPSK_BASE_PATH", basePath)
 			cfg, err := Load()
@@ -388,7 +388,7 @@ func TestLoadAcceptsBasePaths(t *testing.T) {
 }
 
 func TestLoadRejectsInvalidBasePath(t *testing.T) {
-	invalidBasePaths := []string{"", "opskeeper", "OpsKeeper", "/ops_keeper", "/opskeeper/", "//opskeeper", "/-opskeeper", "/opskeeper-"}
+	invalidBasePaths := []string{"", "opsseek", "OpsSeek", "/ops_seek", "/opsseek/", "//opsseek", "/-opsseek", "/opsseek-"}
 	invalidBasePaths = append(invalidBasePaths, "/"+strings.Repeat("a", maxBasePathLength))
 	for _, basePath := range invalidBasePaths {
 		t.Run(basePath, func(t *testing.T) {

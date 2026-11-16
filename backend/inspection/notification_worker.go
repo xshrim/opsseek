@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"opskeeper/backend/notification"
-	"opskeeper/backend/secret"
+	"opsseek/backend/notification"
+	"opsseek/backend/secret"
 )
 
 type NotificationWorker struct {
@@ -85,7 +85,7 @@ func aggregateTemplateValues(items []NotificationDeliveryItem) map[string]string
 	for index, item := range items {
 		if index == 0 {
 			values["event_type"] = item.EventType
-			for _, key := range []string{"severity", "rule_name", "policy_name", "resource_name", "scope_name", "first_observed_at", "last_observed_at", "run_url", "opskeeper_url"} {
+			for _, key := range []string{"severity", "rule_name", "policy_name", "resource_name", "scope_name", "first_observed_at", "last_observed_at", "run_url", "opsseek_url"} {
 				if value, ok := item.Payload[key].(string); ok {
 					values[key] = value
 				}

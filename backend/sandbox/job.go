@@ -17,7 +17,7 @@ func BuildJob(input JobSpec) (map[string]any, error) {
 		return nil, fmt.Errorf("name, namespace, image and command are required")
 	}
 	if input.ServiceAccount == "" {
-		input.ServiceAccount = "opskeeper-sandbox"
+		input.ServiceAccount = "opsseek-sandbox"
 	}
 	if input.CPU == "" {
 		input.CPU = "500m"
@@ -31,5 +31,5 @@ func BuildJob(input JobSpec) (map[string]any, error) {
 		"securityContext": map[string]any{"allowPrivilegeEscalation": false, "readOnlyRootFilesystem": true, "privileged": false, "capabilities": map[string]any{"drop": []string{"ALL"}}},
 	}
 	pod := map[string]any{"serviceAccountName": input.ServiceAccount, "automountServiceAccountToken": input.AutomountServiceAccountToken, "restartPolicy": "Never", "securityContext": map[string]any{"runAsNonRoot": true, "seccompProfile": map[string]string{"type": "RuntimeDefault"}}, "containers": []any{container}}
-	return map[string]any{"apiVersion": "batch/v1", "kind": "Job", "metadata": map[string]any{"name": input.Name, "namespace": input.Namespace, "labels": map[string]string{"app.kubernetes.io/managed-by": "opskeeper", "opskeeper.io/sandbox": "true"}}, "spec": map[string]any{"backoffLimit": 0, "ttlSecondsAfterFinished": 300, "template": map[string]any{"spec": pod}}}, nil
+	return map[string]any{"apiVersion": "batch/v1", "kind": "Job", "metadata": map[string]any{"name": input.Name, "namespace": input.Namespace, "labels": map[string]string{"app.kubernetes.io/managed-by": "opsseek", "opsseek.io/sandbox": "true"}}, "spec": map[string]any{"backoffLimit": 0, "ttlSecondsAfterFinished": 300, "template": map[string]any{"spec": pod}}}, nil
 }

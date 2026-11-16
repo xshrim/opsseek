@@ -4,7 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"opskeeper/backend/mcpserver/kafka/server"
+	"opsseek/backend/mcpserver/kafka/server"
 	"os"
 )
 

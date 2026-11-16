@@ -3,7 +3,7 @@ package connector
 import (
 	"context"
 	"fmt"
-	mt "opskeeper/backend/tool/mysql"
+	mt "opsseek/backend/tool/mysql"
 	"time"
 )
 

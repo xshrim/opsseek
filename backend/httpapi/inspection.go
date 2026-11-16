@@ -10,11 +10,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"opskeeper/backend/application"
-	"opskeeper/backend/audit"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/inspection"
-	"opskeeper/backend/notification"
+	"opsseek/backend/application"
+	"opsseek/backend/audit"
+	"opsseek/backend/authorization"
+	"opsseek/backend/inspection"
+	"opsseek/backend/notification"
 )
 
 type inspectionService interface {

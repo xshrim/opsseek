@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 COMPOSE_FILE := deploy/compose/docker-compose.yml
 WEBUI_DIST := backend/webui/dist
-IMAGE_REPOSITORY ?= opskeeper
+IMAGE_REPOSITORY ?= opsseek
 IMAGE_TAG ?= local
 DOCKERFILE ?= deploy/Dockerfile
 # Use pipe fallback semantics so an unavailable proxy does not block the
@@ -18,7 +18,7 @@ CGO_ENABLED ?= 0
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 BUILD_TIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-VERSION_PACKAGE := opskeeper/backend/version
+VERSION_PACKAGE := opsseek/backend/version
 GO_LDFLAGS := -s -w -X $(VERSION_PACKAGE).Value=$(VERSION) -X $(VERSION_PACKAGE).Commit=$(COMMIT) -X $(VERSION_PACKAGE).BuildTime=$(BUILD_TIME)
 
 define docker-image
@@ -69,7 +69,7 @@ endef
 	quality format format-check llm-provider-test
 
 help: ## Show available commands.
-	@awk 'BEGIN {FS = ":.*## "; printf "OpsKeeper development commands:\n\n"} /^[a-zA-Z_-]+:.*## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "; printf "OpsSeek development commands:\n\n"} /^[a-zA-Z_-]+:.*## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 deps: ## Download backend and frontend dependencies.
 	cd backend && go mod download
@@ -136,15 +136,15 @@ build: api-build worker-build scheduler-build frontend-build app-build ## Build 
 
 api-build: ## Build the API binary.
 	mkdir -p backend/bin
-	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opskeeper-api ./cmd/api
+	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opsseek-api ./cmd/api
 
 worker-build: ## Build the Worker binary.
 	mkdir -p backend/bin
-	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opskeeper-worker ./cmd/worker
+	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opsseek-worker ./cmd/worker
 
 scheduler-build: ## Build the Scheduler binary.
 	mkdir -p backend/bin
-	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opskeeper-scheduler ./cmd/scheduler
+	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opsseek-scheduler ./cmd/scheduler
 
 frontend-build: ## Build the frontend static assets.
 	cd frontend && npm run build
@@ -156,7 +156,7 @@ webui-assets: frontend-build ## Copy frontend assets for the embedded App.
 
 app-build: webui-assets ## Build the embedded App binary.
 	mkdir -p backend/bin
-	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -tags=embed_webui -o bin/opskeeper-app ./cmd/api
+	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -tags=embed_webui -o bin/opsseek-app ./cmd/api
 
 backend-build: api-build worker-build scheduler-build app-build ## Build all backend service binaries.
 
@@ -288,15 +288,15 @@ mcp-build: docker-mcp-build host-mcp-build kubernetes-mcp-build ## Build all MCP
 
 docker-mcp-build: ## Build the standalone Docker MCP server binary.
 	mkdir -p backend/bin
-	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opskeeper-docker-mcp ./cmd/docker-mcp
+	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opsseek-docker-mcp ./cmd/docker-mcp
 
 host-mcp-build: ## Build the standalone Host MCP agent binary.
 	mkdir -p backend/bin
-	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opskeeper-host-mcp-agent ./cmd/host-mcp-agent
+	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opsseek-host-mcp-agent ./cmd/host-mcp-agent
 
 kubernetes-mcp-build: ## Build the standalone Kubernetes MCP server binary.
 	mkdir -p backend/bin
-	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opskeeper-kubernetes-mcp ./cmd/kubernetes-mcp
+	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opsseek-kubernetes-mcp ./cmd/kubernetes-mcp
 
 # MCP processes
 mcp-run: docker-mcp-run host-mcp-run kubernetes-mcp-run ## Run the MCP services.
@@ -342,11 +342,11 @@ frontend-lint: ## Run frontend static checks.
 	cd frontend && npm run check
 
 deploy-lint: ## Validate deployment shell scripts.
-	sh -n deploy/compose/postgres/check-ready.sh deploy/compose/postgres/init/001-create-opskeeper.sh
+	sh -n deploy/compose/postgres/check-ready.sh deploy/compose/postgres/init/001-create-opsseek.sh
 
 helm-lint: ## Validate and render the production Helm chart.
-	helm lint deploy/helm/opskeeper
-	helm template opskeeper deploy/helm/opskeeper >/dev/null
+	helm lint deploy/helm/opsseek
+	helm template opsseek deploy/helm/opsseek >/dev/null
 
 lint: backend-lint frontend-lint deploy-lint helm-lint ## Run all static checks.
 

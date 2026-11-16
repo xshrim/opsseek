@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"opskeeper/backend/notification"
+	"opsseek/backend/notification"
 )
 
 type notificationDeliveryQueue interface {

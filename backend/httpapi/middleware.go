@@ -14,7 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 	"golang.org/x/time/rate"
-	"opskeeper/backend/observability"
+	"opsseek/backend/observability"
 )
 
 const repositoryBundleMultipartOverhead = 1 << 20

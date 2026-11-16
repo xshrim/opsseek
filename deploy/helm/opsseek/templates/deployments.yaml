@@ -4,42 +4,42 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "opskeeper.fullname" $root }}-{{ $component }}
+  name: {{ include "opsseek.fullname" $root }}-{{ $component }}
   labels:
-    {{- include "opskeeper.labels" $root | nindent 4 }}
+    {{- include "opsseek.labels" $root | nindent 4 }}
     app.kubernetes.io/component: {{ $component }}
 spec:
   replicas: {{ (index $root.Values $component).replicas }}
   selector:
     matchLabels:
-      {{- include "opskeeper.selectorLabels" $root | nindent 6 }}
+      {{- include "opsseek.selectorLabels" $root | nindent 6 }}
       app.kubernetes.io/component: {{ $component }}
   template:
     metadata:
       labels:
-        {{- include "opskeeper.selectorLabels" $root | nindent 8 }}
+        {{- include "opsseek.selectorLabels" $root | nindent 8 }}
         app.kubernetes.io/component: {{ $component }}
         {{- with $root.Values.podLabels }}{{ toYaml . | nindent 8 }}{{- end }}
       annotations:
         checksum/config: {{ toJson (dict "basePath" $root.Values.basePath "logHealthIgnore" $root.Values.logHealthIgnore "trustedProxies" $root.Values.trustedProxies "otel" $root.Values.otelExporterEndpoint) | sha256sum }}
         {{- with $root.Values.podAnnotations }}{{ toYaml . | nindent 8 }}{{- end }}
     spec:
-      serviceAccountName: {{ include "opskeeper.fullname" $root }}
+      serviceAccountName: {{ include "opsseek.fullname" $root }}
       automountServiceAccountToken: {{ and $root.Values.operation.enabled (ne $component "scheduler") }}
       securityContext:
-        {{- include "opskeeper.podSecurityContext" $root | nindent 8 }}
+        {{- include "opsseek.podSecurityContext" $root | nindent 8 }}
       {{- with $root.Values.imagePullSecrets }}
       imagePullSecrets: {{ toYaml . | nindent 8 }}
       {{- end }}
       containers:
         - name: {{ $component }}
-          image: {{ include "opskeeper.image" (dict "root" $root "component" $component) }}
+          image: {{ include "opsseek.image" (dict "root" $root "component" $component) }}
           imagePullPolicy: {{ $root.Values.image.pullPolicy }}
-          command: ["/app/opskeeper-{{ if eq $component "api" }}app{{ else }}{{ $component }}{{ end }}"]
+          command: ["/app/opsseek-{{ if eq $component "api" }}app{{ else }}{{ $component }}{{ end }}"]
           securityContext:
-            {{- include "opskeeper.containerSecurityContext" $root | nindent 12 }}
+            {{- include "opsseek.containerSecurityContext" $root | nindent 12 }}
           env:
-            {{- include "opskeeper.commonEnv" $root | nindent 12 }}
+            {{- include "opsseek.commonEnv" $root | nindent 12 }}
           envFrom:
             - secretRef:
                 name: {{ $root.Values.existingSecret | required "existingSecret is required" }}

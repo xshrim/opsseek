@@ -18,7 +18,7 @@ func TestNotifyWebhookRequiresHTTPS(t *testing.T) {
 
 func TestNotifyWebhookSignsPayload(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.Header.Get("X-OpsKeeper-Signature"), "sha256=") {
+		if !strings.HasPrefix(r.Header.Get("X-OpsSeek-Signature"), "sha256=") {
 			t.Error("signature missing")
 		}
 		w.WriteHeader(http.StatusNoContent)

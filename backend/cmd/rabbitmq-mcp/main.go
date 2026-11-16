@@ -4,7 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"opskeeper/backend/mcpserver/rabbitmq/server"
+	"opsseek/backend/mcpserver/rabbitmq/server"
 	"os"
 )
 

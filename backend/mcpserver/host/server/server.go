@@ -48,7 +48,7 @@ func New(cfg Config) (http.Handler, error) {
 	if strings.TrimSpace(cfg.Address) == "" {
 		return nil, errors.New("Host MCP HTTP address must not be empty")
 	}
-	s := mcp.NewServer(&mcp.Implementation{Name: "opskeeper-host-mcp", Title: "OpsKeeper Host MCP", Description: "Read-only Linux host inspection tools.", Version: "dev"}, nil)
+	s := mcp.NewServer(&mcp.Implementation{Name: "opsseek-host-mcp", Title: "OpsSeek Host MCP", Description: "Read-only Linux host inspection tools.", Version: "dev"}, nil)
 	RegisterTools(s)
 	getServer := func(*http.Request) *mcp.Server { return s }
 	stream := mcp.NewStreamableHTTPHandler(getServer, nil)

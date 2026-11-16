@@ -5,7 +5,7 @@ const basePathPattern =
   /^\/(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)(?:\/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/;
 
 export default defineConfig(({ command, mode }) => {
-  const basePath = process.env.OPSK_BASE_PATH ?? '/opskeeper';
+  const basePath = process.env.OPSK_BASE_PATH ?? '/opsseek';
   if (
     basePath !== '/' &&
     (basePath.length > 128 || !basePathPattern.test(basePath))
@@ -32,7 +32,7 @@ export default defineConfig(({ command, mode }) => {
     plugins: [
       svelte(),
       {
-        name: 'opskeeper-development-base',
+        name: 'opsseek-development-base',
         transformIndexHtml(html) {
           if (command !== 'serve') {
             return html;

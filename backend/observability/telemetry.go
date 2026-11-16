@@ -157,18 +157,18 @@ var instruments struct {
 
 func initializeInstruments() {
 	instruments.once.Do(func() {
-		meter := otel.Meter("opskeeper/backend")
-		instruments.tasks, _ = meter.Int64Counter("opskeeper.tasks", metric.WithDescription("Completed background tasks"))
-		instruments.taskDuration, _ = meter.Float64Histogram("opskeeper.task.duration", metric.WithUnit("s"))
-		instruments.connectors, _ = meter.Int64Counter("opskeeper.connector.calls")
-		instruments.connectorDuration, _ = meter.Float64Histogram("opskeeper.connector.duration", metric.WithUnit("s"))
-		instruments.llmExecutions, _ = meter.Int64Counter("opskeeper.llm.executions")
-		instruments.llmTokens, _ = meter.Int64Counter("opskeeper.llm.tokens")
-		instruments.errors, _ = meter.Int64Counter("opskeeper.errors")
-		instruments.notificationQueued, _ = meter.Int64Gauge("opskeeper.notification.queue.queued")
-		instruments.notificationLeased, _ = meter.Int64Gauge("opskeeper.notification.queue.delivering")
-		instruments.notificationDead, _ = meter.Int64Gauge("opskeeper.notification.queue.dead_letter")
-		instruments.notificationOldest, _ = meter.Float64Gauge("opskeeper.notification.queue.oldest_age", metric.WithUnit("s"))
+		meter := otel.Meter("opsseek/backend")
+		instruments.tasks, _ = meter.Int64Counter("opsseek.tasks", metric.WithDescription("Completed background tasks"))
+		instruments.taskDuration, _ = meter.Float64Histogram("opsseek.task.duration", metric.WithUnit("s"))
+		instruments.connectors, _ = meter.Int64Counter("opsseek.connector.calls")
+		instruments.connectorDuration, _ = meter.Float64Histogram("opsseek.connector.duration", metric.WithUnit("s"))
+		instruments.llmExecutions, _ = meter.Int64Counter("opsseek.llm.executions")
+		instruments.llmTokens, _ = meter.Int64Counter("opsseek.llm.tokens")
+		instruments.errors, _ = meter.Int64Counter("opsseek.errors")
+		instruments.notificationQueued, _ = meter.Int64Gauge("opsseek.notification.queue.queued")
+		instruments.notificationLeased, _ = meter.Int64Gauge("opsseek.notification.queue.delivering")
+		instruments.notificationDead, _ = meter.Int64Gauge("opsseek.notification.queue.dead_letter")
+		instruments.notificationOldest, _ = meter.Float64Gauge("opsseek.notification.queue.oldest_age", metric.WithUnit("s"))
 	})
 }
 

@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"opskeeper/backend/config"
-	coremcp "opskeeper/backend/mcp"
+	"opsseek/backend/config"
+	coremcp "opsseek/backend/mcp"
 )
 
 func TestRealPostgreSQLMCPHealth(t *testing.T) {

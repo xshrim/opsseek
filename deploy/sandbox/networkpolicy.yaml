@@ -3,12 +3,12 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: opskeeper-sandbox-default-deny-egress
-  namespace: opskeeper
+  name: opsseek-sandbox-default-deny-egress
+  namespace: opsseek
 spec:
   podSelector:
     matchLabels:
-      opskeeper.io/sandbox: "true"
+      opsseek.io/sandbox: "true"
   policyTypes:
     - Egress
   egress: []

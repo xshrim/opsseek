@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/segmentio/kafka-go"
-	"opskeeper/backend/resource"
+	"opsseek/backend/resource"
 )
 
 func TestPostgreSQLAdapterRequiresCompleteConfiguration(t *testing.T) {
@@ -15,7 +15,7 @@ func TestPostgreSQLAdapterRequiresCompleteConfiguration(t *testing.T) {
 		t.Fatalf("newPostgreSQLAdapter() error = %v, category = %s", err, category)
 	}
 	secret, _ := json.Marshal(map[string]string{"username": "user@name", "password": "p@ss:/?word"})
-	adapter, err := newPostgreSQLAdapter(Target{Resource: resource.Resource{Config: map[string]any{"host": "db.example", "database": "opskeeper"}}, Secret: secret}, DefaultLimits())
+	adapter, err := newPostgreSQLAdapter(Target{Resource: resource.Resource{Config: map[string]any{"host": "db.example", "database": "opsseek"}}, Secret: secret}, DefaultLimits())
 	if err != nil || adapter == nil {
 		t.Fatalf("newPostgreSQLAdapter() = %v, %v", adapter, err)
 	}

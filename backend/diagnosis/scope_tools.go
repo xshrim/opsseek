@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	"opskeeper/backend/application"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/engine"
+	"opsseek/backend/application"
+	"opsseek/backend/authorization"
+	"opsseek/backend/engine"
 )
 
 type scopeQueryReader interface {

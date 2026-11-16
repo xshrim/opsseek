@@ -11,13 +11,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"opskeeper/backend/audit"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/connector"
-	"opskeeper/backend/llm"
-	"opskeeper/backend/persona"
-	"opskeeper/backend/resource"
-	"opskeeper/backend/skill"
+	"opsseek/backend/audit"
+	"opsseek/backend/authorization"
+	"opsseek/backend/connector"
+	"opsseek/backend/llm"
+	"opsseek/backend/persona"
+	"opsseek/backend/resource"
+	"opsseek/backend/skill"
 )
 
 type llmService interface {

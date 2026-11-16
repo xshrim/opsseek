@@ -8,7 +8,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"log"
 	"net/http"
-	kt "opskeeper/backend/tool/kafka"
+	kt "opsseek/backend/tool/kafka"
 	"os"
 	"strings"
 	"time"
@@ -36,7 +36,7 @@ func New(cfg Config) (http.Handler, error) {
 	if strings.TrimSpace(cfg.Address) == "" {
 		return nil, errors.New("Kafka MCP HTTP address must not be empty")
 	}
-	s := mcp.NewServer(&mcp.Implementation{Name: "opskeeper-kafka-mcp", Title: "OpsKeeper Kafka MCP", Description: "Read-only Kafka inspection tools.", Version: "dev"}, nil)
+	s := mcp.NewServer(&mcp.Implementation{Name: "opsseek-kafka-mcp", Title: "OpsSeek Kafka MCP", Description: "Read-only Kafka inspection tools.", Version: "dev"}, nil)
 	RegisterTools(s)
 	get := func(*http.Request) *mcp.Server { return s }
 	stream, sse := mcp.NewStreamableHTTPHandler(get, nil), mcp.NewSSEHandler(get, nil)

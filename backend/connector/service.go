@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"opskeeper/backend/observability"
-	"opskeeper/backend/resource"
+	"opsseek/backend/observability"
+	"opsseek/backend/resource"
 )
 
 type ResourceReader interface {

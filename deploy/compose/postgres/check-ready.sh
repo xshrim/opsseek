@@ -3,8 +3,8 @@ set -eu
 
 POSTGRES_USER=${POSTGRES_USER:-postgres}
 POSTGRES_DB=${POSTGRES_DB:-$POSTGRES_USER}
-OPSK_DB_NAME=${OPSK_DB_NAME:-opskeeper}
-OPSK_DB_USER=${OPSK_DB_USER:-opskeeper}
+OPSK_DB_NAME=${OPSK_DB_NAME:-opsseek}
+OPSK_DB_USER=${OPSK_DB_USER:-opsseek}
 
 pg_isready --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" >/dev/null
 

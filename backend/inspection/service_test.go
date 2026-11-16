@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/resource"
+	"opsseek/backend/authorization"
+	"opsseek/backend/resource"
 )
 
 type memoryStore struct{ policy Policy }

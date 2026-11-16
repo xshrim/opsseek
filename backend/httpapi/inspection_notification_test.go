@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/inspection"
-	"opskeeper/backend/notification"
+	"opsseek/backend/authorization"
+	"opsseek/backend/inspection"
+	"opsseek/backend/notification"
 )
 
 type inspectionNotificationFake struct {

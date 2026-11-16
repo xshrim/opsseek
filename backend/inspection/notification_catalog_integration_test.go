@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/migrations"
-	"opskeeper/backend/notification"
-	"opskeeper/backend/secret"
+	"opsseek/backend/authorization"
+	"opsseek/backend/migrations"
+	"opsseek/backend/notification"
+	"opsseek/backend/secret"
 )
 
 func TestNotificationCatalogScopeRoutesAndTemplateLifecycle(t *testing.T) {

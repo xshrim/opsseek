@@ -72,9 +72,9 @@ func toolParameterDescription(resourceKind, key string) string {
 		"workload_name":  "Exact Kubernetes workload name in the specified namespace.",
 		"pod":            "Exact Kubernetes Pod name in the specified namespace.",
 		"container_name": "Exact container name inside the selected Docker container or Kubernetes Pod; not a container ID.",
-		"object_name":    "Exact name of the Kubernetes API object to retrieve; not an OpsKeeper database ID.",
-		"resource":       "Kubernetes API resource type, such as pods, deployments, or services; not an OpsKeeper resource ID.",
-		"path":           "Resource-relative or absolute path as required by this tool; do not pass an OpsKeeper database ID.",
+		"object_name":    "Exact name of the Kubernetes API object to retrieve; not an OpsSeek database ID.",
+		"resource":       "Kubernetes API resource type, such as pods, deployments, or services; not an OpsSeek resource ID.",
+		"path":           "Resource-relative or absolute path as required by this tool; do not pass an OpsSeek database ID.",
 		"revision":       "Git branch, tag, or commit revision to inspect; omit to use the configured revision.",
 		"offset":         "Zero-based offset for continuing a bounded result page or file read.",
 		"limit":          "Maximum number of results to return; subject to the tool's documented maximum.",
@@ -98,7 +98,7 @@ func toolParameterDescription(resourceKind, key string) string {
 		"tail":           "Maximum number of recent log lines to request, subject to the tool's output limit.",
 		"since":          "Return logs at or after this timestamp or duration.",
 		"until":          "Return logs up to this timestamp.",
-		"pid":            "Exact operating-system process ID returned by a host process listing; never an OpsKeeper database ID.",
+		"pid":            "Exact operating-system process ID returned by a host process listing; never an OpsSeek database ID.",
 		"node":           "Exact Kubernetes node name returned by the cluster.",
 		"continue":       "Opaque Kubernetes continuation token returned by the previous page; do not invent one.",
 		"page":           "One-based result page number.",
@@ -106,7 +106,7 @@ func toolParameterDescription(resourceKind, key string) string {
 		"healthy_only":   "When true, return only healthy service instances.",
 		"search":         "Optional substring used to filter registry or configuration entries.",
 		"sample_seconds": "Sampling duration in seconds; zero requests a single current snapshot.",
-		"container_id":   "Real Docker container ID returned by Docker, not a container name or an OpsKeeper database ID.",
+		"container_id":   "Real Docker container ID returned by Docker, not a container name or an OpsSeek database ID.",
 		"timestamps":     "When true, include timestamps with returned log lines.",
 		"details":        "When true, include additional metadata provided by the resource API.",
 		"all":            "When true, include non-default or stopped objects where supported.",
@@ -114,5 +114,5 @@ func toolParameterDescription(resourceKind, key string) string {
 	if description := descriptions[key]; description != "" {
 		return description
 	}
-	return fmt.Sprintf("Value used to select or filter %s data for this tool; follow the tool description and do not use an OpsKeeper database ID.", strings.ToLower(resourceKind))
+	return fmt.Sprintf("Value used to select or filter %s data for this tool; follow the tool description and do not use an OpsSeek database ID.", strings.ToLower(resourceKind))
 }

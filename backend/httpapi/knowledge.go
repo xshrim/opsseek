@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/engine"
+	"opsseek/backend/authorization"
+	"opsseek/backend/engine"
 )
 
 type knowledgeHandler struct{ resources resourceService }

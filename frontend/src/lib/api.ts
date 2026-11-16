@@ -882,7 +882,7 @@ export class ApiError extends Error {
 }
 
 const API_UNAVAILABLE_MESSAGE =
-  '无法连接到 OpsKeeper API，请确认后端服务已启动且代理或网络配置正确。';
+  '无法连接到 OpsSeek API，请确认后端服务已启动且代理或网络配置正确。';
 
 let refreshPromise: Promise<boolean> | null = null;
 

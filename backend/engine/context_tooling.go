@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"opskeeper/backend/resource"
+	"opsseek/backend/resource"
 )
 
 // ContextTooling is the standard T02 composition root for resource context

@@ -1,6 +1,6 @@
 # Worker、Scheduler 与缓存故障恢复
 
-1. 检查 PostgreSQL readiness、配置的缓存后端状态、Worker/Scheduler Pod 重启和 `opskeeper.errors` 指标。
+1. 检查 PostgreSQL readiness、配置的缓存后端状态、Worker/Scheduler Pod 重启和 `opsseek.errors` 指标。
 2. 缓存后端不可用时，授权缓存会回源 PostgreSQL；不要为恢复缓存而放宽授权。后端恢复后允许缓存自然重建。
 3. Worker 中断时不直接修改运行状态。等待租约过期，由新 Worker 通过 `SKIP LOCKED` 重新领取。
 4. Scheduler 恢复后根据幂等调度窗口补建运行；不手工复制任务行。

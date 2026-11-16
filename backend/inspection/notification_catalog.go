@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/notification"
+	"opsseek/backend/authorization"
+	"opsseek/backend/notification"
 )
 
 type NotificationTemplateRecord struct {
@@ -453,7 +453,7 @@ func (s *store) RetryNotificationDelivery(ctx context.Context, scopeID, id strin
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
-	_, err = s.pool.Exec(ctx, `SELECT pg_notify('opskeeper_notification','')`)
+	_, err = s.pool.Exec(ctx, `SELECT pg_notify('opsseek_notification','')`)
 	return mapError(err)
 }
 

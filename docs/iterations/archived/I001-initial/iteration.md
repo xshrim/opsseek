@@ -8,7 +8,7 @@
 
 ## 1. 迭代目标
 
-从空仓库建立可本地启动、可测试、可部署的 OpsKeeper 首个完整版本，覆盖组织与权限、统一资源目录、Kubernetes 发现、外部 Connector、LLM 与 Skill、AI 诊断、自动巡检、受控操作以及生产化基线。
+从空仓库建立可本地启动、可测试、可部署的 OpsSeek 首个完整版本，覆盖组织与权限、统一资源目录、Kubernetes 发现、外部 Connector、LLM 与 Skill、AI 诊断、自动巡检、受控操作以及生产化基线。
 
 ## 2. 迭代范围
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	es "opskeeper/backend/tool/elasticsearch"
+	es "opsseek/backend/tool/elasticsearch"
 )
 
 type ElasticsearchDraftInput struct {

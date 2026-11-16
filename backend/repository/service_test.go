@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"opskeeper/backend/resource"
+	"opsseek/backend/resource"
 )
 
 type bundleTestResources struct {

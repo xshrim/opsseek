@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/engine"
-	"opskeeper/backend/resource"
+	"opsseek/backend/authorization"
+	"opsseek/backend/engine"
+	"opsseek/backend/resource"
 )
 
 type workflowRunHandler struct {

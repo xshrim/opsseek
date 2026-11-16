@@ -10,6 +10,6 @@ OpenAI Chat Completions adapter in
 Copyright 2026 Alby Hernández <hola@achetronic.com>.
 
 The referenced work is licensed under the Apache License, Version 2.0. The
-OpsKeeper implementation keeps only the text, streaming, token usage and
-function calling behavior required by its ADK model boundary. OpsKeeper does
+OpsSeek implementation keeps only the text, streaming, token usage and
+function calling behavior required by its ADK model boundary. OpsSeek does
 not import or depend on the `achetronic/adk-utils-go` module.

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"opskeeper/backend/engine"
-	ot "opskeeper/backend/tool/oracle"
+	"opsseek/backend/engine"
+	ot "opsseek/backend/tool/oracle"
 )
 
 func (s *Service) resolveOracleTools(ctx context.Context, item engine.ContextResource, add func(string, string, json.RawMessage, func(context.Context, map[string]any) (engine.ToolResult, error))) error {

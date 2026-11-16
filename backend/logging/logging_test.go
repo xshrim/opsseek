@@ -14,10 +14,10 @@ func TestNewTextLogger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
-	logger.With("service", "opskeeper-api").Info("started")
+	logger.With("service", "opsseek-api").Info("started")
 
 	line := output.String()
-	if strings.HasPrefix(line, "{") || !strings.Contains(line, "msg=started") || !strings.Contains(line, "service=opskeeper-api") {
+	if strings.HasPrefix(line, "{") || !strings.Contains(line, "msg=started") || !strings.Contains(line, "service=opsseek-api") {
 		t.Fatalf("text log output = %q", line)
 	}
 }
@@ -28,14 +28,14 @@ func TestNewRawLoggerUsesStableHeaderAndSanitizesControlCharacters(t *testing.T)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
-	logger.With("service", "opskeeper-api", "kind", "service-start").Info("started\nnext")
+	logger.With("service", "opsseek-api", "kind", "service-start").Info("started\nnext")
 
 	line := strings.TrimSuffix(output.String(), "\n")
 	fields := strings.SplitN(line, " ", 9)
 	if len(fields) != 9 {
 		t.Fatalf("raw log fields = %d, output = %q", len(fields), line)
 	}
-	if fields[0] == "" || fields[1] != "INFO" || fields[2] != "opskeeper-api" || fields[3] != "service-start" || fields[4] != "-" || fields[5] != "-" {
+	if fields[0] == "" || fields[1] != "INFO" || fields[2] != "opsseek-api" || fields[3] != "service-start" || fields[4] != "-" || fields[5] != "-" {
 		t.Fatalf("raw log header = %q", fields[:6])
 	}
 	if strings.ContainsAny(line, "\r\n\t") || fields[8] != "started next" {
@@ -49,13 +49,13 @@ func TestNewJSONLogger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
-	logger.With("service", "opskeeper-api").Info("started")
+	logger.With("service", "opsseek-api").Info("started")
 
 	var record map[string]any
 	if err := json.Unmarshal(output.Bytes(), &record); err != nil {
 		t.Fatalf("unmarshal JSON log: %v", err)
 	}
-	if record["msg"] != "started" || record["service"] != "opskeeper-api" {
+	if record["msg"] != "started" || record["service"] != "opsseek-api" {
 		t.Fatalf("JSON log record = %#v", record)
 	}
 }
@@ -66,7 +66,7 @@ func TestErrorAttributesKeepRedactedCause(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
-	logger.Error("request failed", "kind", "error", "error_type", "database", "error", errors.New("password=super-secret postgres://db-user:db-secret@db.internal/opskeeper connection refused"))
+	logger.Error("request failed", "kind", "error", "error_type", "database", "error", errors.New("password=super-secret postgres://db-user:db-secret@db.internal/opsseek connection refused"))
 	line := output.String()
 	if !strings.Contains(line, "connection refused") || strings.Contains(line, "super-secret") || strings.Contains(line, "db-secret") {
 		t.Fatalf("redacted error log = %q", line)

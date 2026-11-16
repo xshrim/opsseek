@@ -4,7 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	s "opskeeper/backend/mcpserver/elasticsearch/server"
+	s "opsseek/backend/mcpserver/elasticsearch/server"
 	"os"
 )
 

@@ -1,5 +1,5 @@
 INSERT INTO resources (scope_id, kind, schema_version, name, config, status)
-SELECT platform.scope_id, 'Skill', 2, item.name, jsonb_build_object('summary', item.summary, 'owner', 'OpsKeeper builtin'), 'active'
+SELECT platform.scope_id, 'Skill', 2, item.name, jsonb_build_object('summary', item.summary, 'owner', 'OpsSeek builtin'), 'active'
   FROM platforms platform
  CROSS JOIN (VALUES
     ('Kubernetes 工作负载诊断', 'Kubernetes 工作负载、Pod、事件、探针和发布状态的只读诊断。'),
@@ -23,5 +23,5 @@ SELECT resource.id, 1,
 	    ('Redis 健康诊断', '只调用 Redis 固定诊断快照；不得请求写命令。输出 JSON，且必须包含 facts、findings、evidence、hypotheses、confidence 和 recommendations。', '["Redis"]', '[{"name":"connector_redis_inspect","description":"读取固定 Redis 健康快照。","input_schema":{"type":"object","required":["target_resource_id"],"properties":{"target_resource_id":{"type":"string"}},"additionalProperties":false}}]'),
 	    ('Kafka 健康诊断', '只调用 Kafka 固定诊断快照；不得请求管理操作。输出 JSON，且必须包含 facts、findings、evidence、hypotheses、confidence 和 recommendations。', '["Kafka"]', '[{"name":"connector_kafka_inspect","description":"读取固定 Kafka 健康快照。","input_schema":{"type":"object","required":["target_resource_id"],"properties":{"target_resource_id":{"type":"string"}},"additionalProperties":false}}]')
   ) AS item(name, instruction, target_kinds, tools) ON item.name = resource.name
- WHERE resource.kind = 'Skill' AND resource.config->>'owner' = 'OpsKeeper builtin'
+ WHERE resource.kind = 'Skill' AND resource.config->>'owner' = 'OpsSeek builtin'
 ON CONFLICT (skill_resource_id, version) DO NOTHING;

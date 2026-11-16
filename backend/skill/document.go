@@ -188,7 +188,7 @@ func documentFromMap(value map[string]any) (Document, error) {
 
 func validateDocument(document Document) error {
 	if document.APIVersion != DocumentAPIVersion {
-		return invalid("Skill document api_version must be opskeeper.skill/v1")
+		return invalid("Skill document api_version must be opsseek.skill/v1")
 	}
 	if document.Kind != DocumentKind {
 		return invalid("Skill document kind must be Skill")

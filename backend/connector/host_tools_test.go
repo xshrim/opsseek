@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"opskeeper/backend/engine"
+	"opsseek/backend/engine"
 )
 
 func TestHostToolDescriptionsExplainEvidenceScope(t *testing.T) {

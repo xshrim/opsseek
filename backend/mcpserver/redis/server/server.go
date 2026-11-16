@@ -8,7 +8,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"log"
 	"net/http"
-	rt "opskeeper/backend/tool/redis"
+	rt "opsseek/backend/tool/redis"
 	"os"
 	"strings"
 	"time"
@@ -36,7 +36,7 @@ func New(cfg Config) (http.Handler, error) {
 	if strings.TrimSpace(cfg.Address) == "" {
 		return nil, errors.New("Redis MCP HTTP address must not be empty")
 	}
-	s := mcp.NewServer(&mcp.Implementation{Name: "opskeeper-redis-mcp", Title: "OpsKeeper Redis MCP", Description: "Read-only Redis inspection tools.", Version: "dev"}, nil)
+	s := mcp.NewServer(&mcp.Implementation{Name: "opsseek-redis-mcp", Title: "OpsSeek Redis MCP", Description: "Read-only Redis inspection tools.", Version: "dev"}, nil)
 	RegisterTools(s)
 	get := func(*http.Request) *mcp.Server { return s }
 	stream, sse := mcp.NewStreamableHTTPHandler(get, nil), mcp.NewSSEHandler(get, nil)

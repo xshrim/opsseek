@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/migrations"
-	"opskeeper/backend/notification"
-	"opskeeper/backend/secret"
+	"opsseek/backend/authorization"
+	"opsseek/backend/migrations"
+	"opsseek/backend/notification"
+	"opsseek/backend/secret"
 )
 
 type notificationSenderFunc func(context.Context, string, map[string]string, string, string) (int, string, time.Duration, error)

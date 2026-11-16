@@ -60,7 +60,7 @@ func notifyMessage(payload []byte) (string, string) {
 	if json.Unmarshal(payload, &text) == nil && (text.Title != "" || text.Body != "") {
 		return text.Title, text.Body
 	}
-	return "OpsKeeper notification", string(payload)
+	return "OpsSeek notification", string(payload)
 }
 
 func (s NotifySender) Send(ctx context.Context, kind string, config map[string]string, subject, message string) (int, string, time.Duration, error) {
@@ -209,7 +209,7 @@ func (s NotifySender) service(kind string, c map[string]string) (notify.Notifier
 }
 
 func (s NotifySender) sendFCM(ctx context.Context, c map[string]string, subject, message string) (int, string, time.Duration, error) {
-	temp, err := os.CreateTemp("", "opskeeper-fcm-*.json")
+	temp, err := os.CreateTemp("", "opsseek-fcm-*.json")
 	if err != nil {
 		return 0, "", 0, err
 	}
@@ -264,9 +264,9 @@ func (s NotifySender) sendWebhook(ctx context.Context, c map[string]string, subj
 		if s.Now != nil {
 			now = s.Now()
 		}
-		req.Header.Set("X-OpsKeeper-Timestamp", strconv.FormatInt(now.UTC().Unix(), 10))
+		req.Header.Set("X-OpsSeek-Timestamp", strconv.FormatInt(now.UTC().Unix(), 10))
 		if secret := c["signing_secret"]; secret != "" {
-			req.Header.Set("X-OpsKeeper-Signature", signWebhook(req.Header.Get("X-OpsKeeper-Timestamp"), raw, []byte(secret)))
+			req.Header.Set("X-OpsSeek-Signature", signWebhook(req.Header.Get("X-OpsSeek-Timestamp"), raw, []byte(secret)))
 		}
 		return nil
 	})

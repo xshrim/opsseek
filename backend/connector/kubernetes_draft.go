@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	kclient "opskeeper/backend/mcpserver/kubernetes/client"
-	kt "opskeeper/backend/tool/kubernetes"
+	kclient "opsseek/backend/mcpserver/kubernetes/client"
+	kt "opsseek/backend/tool/kubernetes"
 )
 
 type KubernetesDraftInput struct {

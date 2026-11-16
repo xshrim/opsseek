@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"opskeeper/backend/version"
+	"opsseek/backend/version"
 )
 
 type Check struct {

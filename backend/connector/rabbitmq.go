@@ -3,7 +3,7 @@ package connector
 import (
 	"context"
 	"errors"
-	rmq "opskeeper/backend/tool/rabbitmq"
+	rmq "opsseek/backend/tool/rabbitmq"
 	"strings"
 )
 

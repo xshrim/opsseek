@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/engine"
+	"opsseek/backend/authorization"
+	"opsseek/backend/engine"
 )
 
 type investigationTarget struct {

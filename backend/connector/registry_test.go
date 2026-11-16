@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"opskeeper/backend/resource"
+	"opsseek/backend/resource"
 )
 
 type stubAdapter struct {

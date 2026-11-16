@@ -53,7 +53,7 @@ CREATE INDEX engine_scope_bindings_engine_idx ON engine_scope_bindings(engine_id
 -- The built-in runtime is available at every platform scope. Future engines
 -- can be added without changing the execution contract.
 INSERT INTO engines (tenant_id, scope_id, name, description, icon, config)
-SELECT s.tenant_id, s.id, 'OpsKeeper Engine',
+SELECT s.tenant_id, s.id, 'OpsSeek Engine',
        '统一承载诊断、巡检、技能和工作流的智能执行引擎。', 'Cpu',
        jsonb_build_object('capabilities', jsonb_build_array('诊断编排', '工具调用', '结构化输出', '流式响应'))
   FROM scopes s
@@ -63,7 +63,7 @@ INSERT INTO engine_scope_bindings (scope_id, engine_id, tag)
 SELECT e.scope_id, e.id, tags.tag
   FROM engines e
  CROSS JOIN unnest(ARRAY['general', 'diagnosis', 'inspection', 'workflow']) AS tags(tag)
- WHERE e.name = 'OpsKeeper Engine'
+ WHERE e.name = 'OpsSeek Engine'
 ON CONFLICT (scope_id, tag) DO NOTHING;
 
 CREATE OR REPLACE FUNCTION validate_engine_scope_binding()

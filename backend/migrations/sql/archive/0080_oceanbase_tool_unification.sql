@@ -51,7 +51,7 @@ END;
 $$;
 
 INSERT INTO skills(id,scope_id,name,identifier,category,maintainer,status)
-SELECT gen_random_uuid(),p.scope_id,'OceanBase 健康诊断','oceanbase-health-diagnosis','diagnosis','OpsKeeper builtin','active'
+SELECT gen_random_uuid(),p.scope_id,'OceanBase 健康诊断','oceanbase-health-diagnosis','diagnosis','OpsSeek builtin','active'
 FROM platforms p
 WHERE p.code='default'
 ON CONFLICT (scope_id,lower(identifier)) WHERE deleted_at IS NULL DO NOTHING;
@@ -65,5 +65,5 @@ SELECT s.id,
        '[{"name":"oceanbase_health"},{"name":"oceanbase_status"},{"name":"oceanbase_performance"},{"name":"oceanbase_database_info"},{"name":"oceanbase_tables"},{"name":"oceanbase_table_columns"},{"name":"oceanbase_table_structure"}]'::jsonb,
        'read_only','published',now()
 FROM skills s
-WHERE s.identifier='oceanbase-health-diagnosis' AND s.maintainer='OpsKeeper builtin' AND s.deleted_at IS NULL
+WHERE s.identifier='oceanbase-health-diagnosis' AND s.maintainer='OpsSeek builtin' AND s.deleted_at IS NULL
 ON CONFLICT (skill_id,version) DO NOTHING;

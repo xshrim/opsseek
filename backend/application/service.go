@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"opskeeper/backend/authorization"
+	"opsseek/backend/authorization"
 )
 
 var ErrNotFound = errors.New("application not found")

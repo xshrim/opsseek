@@ -9,10 +9,10 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"opskeeper/backend/application"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/identity"
-	"opskeeper/backend/organization"
+	"opsseek/backend/application"
+	"opsseek/backend/authorization"
+	"opsseek/backend/identity"
+	"opsseek/backend/organization"
 )
 
 const maxRequestBodyBytes = 1 << 20

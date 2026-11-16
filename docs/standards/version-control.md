@@ -1,13 +1,13 @@
 # Git 版本控制与开发模式
 
-本文档规定 OpsKeeper 的 Git 分支、提交、验收、合并和发布方式。项目采用**轻量级主干开发**：只有 `main` 是长期分支，具体任务使用短生命周期分支，完成开发和验收后才合并回 `main`。
+本文档规定 OpsSeek 的 Git 分支、提交、验收、合并和发布方式。项目采用**轻量级主干开发**：只有 `main` 是长期分支，具体任务使用短生命周期分支，完成开发和验收后才合并回 `main`。
 
 ## 1. 仓库信息
 
 - 默认分支：`main`
 - 远端名称：`origin`
-- GitHub 仓库：`https://github.com/xshrim/opskeeper.git`
-- 当前 SSH 远端：`ssh://git@ssh.github.com:443/xshrim/opskeeper.git`
+- GitHub 仓库：`https://github.com/xshrim/opsseek.git`
+- 当前 SSH 远端：`ssh://git@ssh.github.com:443/xshrim/opsseek.git`
 
 检查当前分支和远端：
 
@@ -165,7 +165,7 @@ v1.0.0
 ```bash
 git switch main
 git pull --ff-only
-git tag -a v0.2.0 -m "OpsKeeper v0.2.0"
+git tag -a v0.2.0 -m "OpsSeek v0.2.0"
 git push origin v0.2.0
 ```
 
@@ -182,7 +182,7 @@ Hotfix 通过 Pull Request 发布修订版本后，必须将同一修复同步�
 远端使用 GitHub SSH over HTTPS 443：
 
 ```text
-ssh://git@ssh.github.com:443/xshrim/opskeeper.git
+ssh://git@ssh.github.com:443/xshrim/opsseek.git
 ```
 
 SSH 使用本机密钥，并通过 HTTP 代理连接 `ssh.github.com:443`。建议将代理和密钥配置在用户级 `~/.ssh/config`，使拉取、推送和 PR 辅助命令统一生效，而不是为每次 Git 命令临时设置 `GIT_SSH_COMMAND`：

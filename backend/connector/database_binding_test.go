@@ -2,26 +2,26 @@ package connector
 
 import (
 	"context"
-	"opskeeper/backend/engine"
+	"opsseek/backend/engine"
 	"testing"
 )
 
 func TestDatabaseConnectionsUseBusinessTargetAndDiagnosticCredentials(t *testing.T) {
 	s := NewService(nil, dockerResourceReader{secret: []byte(`{"username":"diagnostic_reader","password":"secret","database":"postgres"}`)}, nil, nil, DefaultLimits())
 	ctx := context.Background()
-	item := engine.ContextResource{Kind: "PostgreSQL", Config: map[string]any{"host": "db", "database": "postgres"}, Binding: map[string]any{"database": "opskeeper", "username": "app"}}
+	item := engine.ContextResource{Kind: "PostgreSQL", Config: map[string]any{"host": "db", "database": "postgres"}, Binding: map[string]any{"database": "opsseek", "username": "app"}}
 	pg, err := s.postgreSQLConnection(ctx, item)
-	if err != nil || pg.Database != "opskeeper" || pg.Username != "diagnostic_reader" || pg.Password != "secret" {
+	if err != nil || pg.Database != "opsseek" || pg.Username != "diagnostic_reader" || pg.Password != "secret" {
 		t.Fatalf("PostgreSQL connection target or credentials incorrect: %v", err)
 	}
 	item.Kind = "MySQL"
 	my, err := s.mySQLConnection(ctx, item)
-	if err != nil || my.Database != "opskeeper" || my.Username != "diagnostic_reader" {
+	if err != nil || my.Database != "opsseek" || my.Username != "diagnostic_reader" {
 		t.Fatalf("MySQL connection target or credentials incorrect: %v", err)
 	}
 	item.Kind = "OceanBase"
 	ob, err := s.oceanBaseConnection(ctx, item)
-	if err != nil || ob.Database != "opskeeper" || ob.Username != "diagnostic_reader" {
+	if err != nil || ob.Database != "opsseek" || ob.Username != "diagnostic_reader" {
 		t.Fatalf("OceanBase connection target or credentials incorrect: %v", err)
 	}
 	item.Kind = "Oracle"

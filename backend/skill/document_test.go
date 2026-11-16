@@ -6,7 +6,7 @@ import (
 )
 
 const testDocumentBody = `
-api_version: opskeeper.skill/v1
+api_version: opsseek.skill/v1
 kind: Skill
 metadata:
   name: PostgreSQL-health
@@ -29,9 +29,9 @@ spec:
 
 func TestParseDocumentNormalizesJSONYAMLAndMarkdown(t *testing.T) {
 	yamlSource := []byte(testDocumentBody)
-	jsonSource := []byte(`{"api_version":"opskeeper.skill/v1","kind":"Skill","metadata":{"name":"PostgreSQL-health","identifier":"postgresql-health","version":"1.2.3","category":"diagnosis","tags":["database","readonly"],"maintainer":"user-123"},"spec":{"description":"Inspect PostgreSQL health without changing the resource.","input_schema":{"type":"object","properties":{"target_resource_id":{"type":"string"}}},"output_schema":{"type":"object","required":["findings"]},"body":"Inspect the resource and report evidence."}}`)
+	jsonSource := []byte(`{"api_version":"opsseek.skill/v1","kind":"Skill","metadata":{"name":"PostgreSQL-health","identifier":"postgresql-health","version":"1.2.3","category":"diagnosis","tags":["database","readonly"],"maintainer":"user-123"},"spec":{"description":"Inspect PostgreSQL health without changing the resource.","input_schema":{"type":"object","properties":{"target_resource_id":{"type":"string"}}},"output_schema":{"type":"object","required":["findings"]},"body":"Inspect the resource and report evidence."}}`)
 	markdownSource := []byte(`---
-api_version: opskeeper.skill/v1
+api_version: opsseek.skill/v1
 kind: Skill
 metadata:
   name: PostgreSQL-health

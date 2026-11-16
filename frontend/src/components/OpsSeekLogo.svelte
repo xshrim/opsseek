@@ -6,7 +6,7 @@
 </script>
 
 <svg
-  class={`opskeeper-logo ${className}`}
+  class={`opsseek-logo ${className}`}
   width={size}
   height={size}
   viewBox="0 0 48 48"
@@ -36,7 +36,7 @@
 </svg>
 
 <style>
-  .opskeeper-logo {
+  .opsseek-logo {
     display: block;
     flex: none;
     color: var(--theme-logo-fg, var(--theme-accent));

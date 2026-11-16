@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync"
 
-	"opskeeper/backend/application"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/resource"
+	"opsseek/backend/application"
+	"opsseek/backend/authorization"
+	"opsseek/backend/resource"
 )
 
 type ResourceReader interface {

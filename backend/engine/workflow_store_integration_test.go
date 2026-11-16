@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"opskeeper/backend/config"
+	"opsseek/backend/config"
 )
 
 func TestPostgresWorkflowRunStorePersistsTransitionsAndSnapshots(t *testing.T) {

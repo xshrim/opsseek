@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	rmq "opskeeper/backend/tool/rabbitmq"
+	rmq "opsseek/backend/tool/rabbitmq"
 )
 
 type input struct{ rmq.ConnectionInput }

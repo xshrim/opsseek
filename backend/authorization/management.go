@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"opskeeper/backend/audit"
+	"opsseek/backend/audit"
 )
 
 type Group struct {

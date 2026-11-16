@@ -4,7 +4,7 @@
   import { api, ApiError, type User } from '../../lib/api';
   import { errorMessage as formatErrorMessage } from '../../lib/errorMessage';
   import MessageBanner from '../../components/MessageBanner.svelte';
-  import OpsKeeperLogo from '../../components/OpsKeeperLogo.svelte';
+  import OpsSeekLogo from '../../components/OpsSeekLogo.svelte';
   import Dialog from '../../components/Dialog.svelte';
   import PasswordInput from '../../components/PasswordInput.svelte';
 
@@ -171,16 +171,16 @@
   </div>
 {:else if authState === 'login'}
   <main class="login-shell">
-    <div class="login-brand" aria-label="OpsKeeper 智能值守平台">
-      <OpsKeeperLogo size={56} /><span class="login-brand-copy"
-        ><strong>OpsKeeper</strong><small>智能值守平台</small></span
+    <div class="login-brand" aria-label="OpsSeek 智能值守平台">
+      <OpsSeekLogo size={56} /><span class="login-brand-copy"
+        ><strong>OpsSeek</strong><small>智能值守平台</small></span
       >
     </div>
     <section class="login-panel" aria-labelledby="login-heading">
       <header class="login-panel-header">
         <p class="login-kicker">账号登录</p>
         <h1 id="login-heading">欢迎回来</h1>
-        <p class="login-intro">使用平台账号继续访问 OpsKeeper。</p>
+        <p class="login-intro">使用平台账号继续访问 OpsSeek。</p>
         {#if authError}<MessageBanner message={authError} tone="error" />{/if}
       </header>
       <form class="stack-form login-form" on:submit|preventDefault={login}>

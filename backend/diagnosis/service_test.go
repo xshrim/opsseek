@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	appdomain "opskeeper/backend/application"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/resource"
+	appdomain "opsseek/backend/application"
+	"opsseek/backend/authorization"
+	"opsseek/backend/resource"
 )
 
 func TestServiceStartRequiresAuthorizedSameScopeTarget(t *testing.T) {

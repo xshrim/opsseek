@@ -10,9 +10,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"opskeeper/backend/audit"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/resource"
+	"opsseek/backend/audit"
+	"opsseek/backend/authorization"
+	"opsseek/backend/resource"
 )
 
 type resourceService interface {

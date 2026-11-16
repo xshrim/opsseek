@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"opskeeper/backend/engine"
+	"opsseek/backend/engine"
 )
 
 // applicationResourceFocus is a compact index of the selected applications'

@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"opskeeper/backend/authorization"
+	"opsseek/backend/authorization"
 )
 
 var EngineTags = []string{"general", "diagnosis", "inspection", "workflow"}

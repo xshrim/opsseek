@@ -66,8 +66,8 @@ func New(cfg Config) (http.Handler, error) {
 		return nil, errors.New("Docker MCP HTTP address must not be empty")
 	}
 	mcpServer := mcp.NewServer(&mcp.Implementation{
-		Name:        "opskeeper-docker-mcp",
-		Title:       "OpsKeeper Docker MCP",
+		Name:        "opsseek-docker-mcp",
+		Title:       "OpsSeek Docker MCP",
 		Description: "Read-only Docker Engine inspection tools.",
 		Version:     "dev",
 	}, nil)

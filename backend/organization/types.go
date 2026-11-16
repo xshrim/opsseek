@@ -1,7 +1,7 @@
 package organization
 
 import (
-	"opskeeper/backend/application"
+	"opsseek/backend/application"
 	"time"
 )
 

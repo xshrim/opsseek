@@ -63,8 +63,8 @@ GET  /api/v1/diagnosis-sessions/{id}/events
 需要复现同一种错误时，携带编号，例如：
 
 ```bash
-# 使用登录接口保存的 Cookie；默认 basePath 为 /opskeeper
-curl -i -b cookies.txt 'http://localhost:8080/opskeeper/api/v1/mock/errors?number=1007'
+# 使用登录接口保存的 Cookie；默认 basePath 为 /opsseek
+curl -i -b cookies.txt 'http://localhost:8080/opsseek/api/v1/mock/errors?number=1007'
 ```
 
 | 编号 | HTTP | 模拟场景 |

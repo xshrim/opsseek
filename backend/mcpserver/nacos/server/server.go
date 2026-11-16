@@ -8,7 +8,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"log"
 	"net/http"
-	nt "opskeeper/backend/tool/nacos"
+	nt "opsseek/backend/tool/nacos"
 	"os"
 	"strings"
 )
@@ -35,7 +35,7 @@ func New(cfg Config) (http.Handler, error) {
 	if strings.TrimSpace(cfg.Address) == "" {
 		return nil, errors.New("Nacos MCP HTTP address must not be empty")
 	}
-	s := mcp.NewServer(&mcp.Implementation{Name: "opskeeper-nacos-mcp", Title: "OpsKeeper Nacos MCP", Description: "Read-only Nacos API tools.", Version: "dev"}, nil)
+	s := mcp.NewServer(&mcp.Implementation{Name: "opsseek-nacos-mcp", Title: "OpsSeek Nacos MCP", Description: "Read-only Nacos API tools.", Version: "dev"}, nil)
 	RegisterTools(s)
 	get := func(*http.Request) *mcp.Server { return s }
 	stream, sse := mcp.NewStreamableHTTPHandler(get, nil), mcp.NewSSEHandler(get, nil)

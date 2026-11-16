@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"opskeeper/backend/version"
+	"opsseek/backend/version"
 )
 
 func TestReadinessReportsFailedDependency(t *testing.T) {

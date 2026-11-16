@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"opskeeper/backend/tool/relational"
+	"opsseek/backend/tool/relational"
 )
 
 type SlowQueriesInput = relational.SlowQueriesInput

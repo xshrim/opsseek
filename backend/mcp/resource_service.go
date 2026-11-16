@@ -15,8 +15,8 @@ import (
 	"time"
 
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/resource"
+	"opsseek/backend/authorization"
+	"opsseek/backend/resource"
 )
 
 var ErrInvalid = errors.New("invalid MCP server configuration")
@@ -195,7 +195,7 @@ func (s *Service) callConfigured(ctx context.Context, server resource.Resource, 
 	timeout := time.Duration(config.TimeoutSeconds) * time.Second
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	client := gomcp.NewClient(&gomcp.Implementation{Name: "opskeeper", Version: "t14"}, nil)
+	client := gomcp.NewClient(&gomcp.Implementation{Name: "opsseek", Version: "t14"}, nil)
 	session, err := client.Connect(ctx, clientTransport(config.Transport, normalized.String(), httpClient(timeout, s.enhancedSecurity, headers, tlsConfig)), nil)
 	if err != nil {
 		return nil, err

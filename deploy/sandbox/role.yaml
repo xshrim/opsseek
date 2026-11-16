@@ -4,15 +4,15 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: opskeeper-sandbox-noop
-  namespace: opskeeper
+  name: opsseek-sandbox-noop
+  namespace: opsseek
 rules: []
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: opskeeper-operation-runner
-  namespace: opskeeper
+  name: opsseek-operation-runner
+  namespace: opsseek
 rules:
   - apiGroups: ["apps"]
     resources: ["deployments", "statefulsets", "daemonsets"]
@@ -24,22 +24,22 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: opskeeper-operation-runner
-  namespace: opskeeper
+  name: opsseek-operation-runner
+  namespace: opsseek
 subjects:
   - kind: ServiceAccount
-    name: opskeeper-operation-runner
-    namespace: opskeeper
+    name: opsseek-operation-runner
+    namespace: opsseek
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: opskeeper-operation-runner
+  name: opsseek-operation-runner
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: opskeeper-operation-submitter
-  namespace: opskeeper
+  name: opsseek-operation-submitter
+  namespace: opsseek
 rules:
   - apiGroups: ["batch"]
     resources: ["jobs"]
@@ -48,13 +48,13 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: opskeeper-operation-submitter
-  namespace: opskeeper
+  name: opsseek-operation-submitter
+  namespace: opsseek
 subjects:
   - kind: ServiceAccount
-    name: opskeeper
-    namespace: opskeeper
+    name: opsseek
+    namespace: opsseek
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: opskeeper-operation-submitter
+  name: opsseek-operation-submitter

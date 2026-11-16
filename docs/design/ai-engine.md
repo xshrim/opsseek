@@ -830,35 +830,35 @@ Skill 专属执行表由硬切迁移删除，运行时不再读取或写入这�
 工作流业务代码的情况下自由切换。因此候选框架必须被视为 **Engine Runtime 的实现方案**，
 而不是新的 Provider、Skill 或 Resource 类型。框架选择不能改变以下平台边界：
 
-- Provider、模型凭据和模型能力由 OpsKeeper 的 Provider/Model 领域管理；
-- Scope、RBAC、工具白名单、审批、预算、取消和资源上下文由 OpsKeeper 管理；
+- Provider、模型凭据和模型能力由 OpsSeek 的 Provider/Model 领域管理；
+- Scope、RBAC、工具白名单、审批、预算、取消和资源上下文由 OpsSeek 管理；
 - Tool Gateway 是唯一的外部资源访问入口，框架不能直接连接 Connector、MCP Server 或资源凭据；
-- 执行事件、工具审计、脱敏和断线续读继续写入 OpsKeeper 的统一 Store；
+- 执行事件、工具审计、脱敏和断线续读继续写入 OpsSeek 的统一 Store；
 - 框架自带的 Skill、Session、Memory、多租户和持久化只有在完成边界映射后才能使用，不能自动成为平台第二套主数据。
 
 ### 19.2 候选框架对比
 
-| 候选 | 定位 | 主要优势 | 主要风险 | 对 OpsKeeper 的建议 |
+| 候选 | 定位 | 主要优势 | 主要风险 | 对 OpsSeek 的建议 |
 |---|---|---|---|---|
 | **Google ADK Go** | 当前已使用的 Agent Runtime | 与现有 AgentRunner、模型适配、工具调用和流式事件已经打通；改造风险最低 | 当前 Runner 仍包含较多 ADK 细节，切换运行时前需要抽出框架无关边界 | 继续作为默认和兼容基线，先完成 Adapter 化 |
-| **CloudWeGo Eino** | Go 原生 Agent/Graph 框架 | 图编排、工具和多 Agent 组合灵活，Go 生态集成成本较低 | 需要由 OpsKeeper 自己补齐统一的权限、审计、预算、恢复和事件语义 | 作为第二个 Go 原生候选，适合验证图编排和流式能力 |
-| **Ingenimax/agent-sdk-go** | 功能完整的可嵌入 Agent SDK | 原生覆盖 Skills、Session、Memory、后台任务、取消、多 Agent、Graph、Hooks/Plugins、MCP、A2A 和 Evaluation；适合快速获得完整 Agent 能力 | `0.x` API 仍可能变化；功能面与 OpsKeeper 的 Skill、Session、Audit、Run、Memory 和多租户边界大量重叠；依赖面和社区规模需要持续审查 | 当版本和行为相对稳定后，优先作为功能型 Runtime 集成；必须禁用或映射其平台治理能力，不直接接管 OpsKeeper 数据模型 |
-| **Covoyage Covonaut** | Go 原生、可嵌入的完整 Agent Runtime | 覆盖 Agent Loop、工具调用、流式响应、上下文压缩、重试、结构化输出、Checkpoint、MCP、A2A、Graph、Workflow 和 OpenTelemetry；MIT 许可证，Go 1.25+ 与项目兼容 | 功能面与 OpsKeeper 的 Skill、Session、Store、MCP、审计和多租户边界重叠；事件语义和 Provider 接口需要适配；内置 Shell、Browser、Filesystem 等工具存在安全边界风险；项目较新，API 稳定性需要锁定版本验证 | 纳入第五个候选 Runtime，先以实验性 Adapter 和离线契约测试验证；固定 `v1.1.6` 或经核验的提交，不作为默认 Runtime，不启用内置危险工具和平台型主数据 |
+| **CloudWeGo Eino** | Go 原生 Agent/Graph 框架 | 图编排、工具和多 Agent 组合灵活，Go 生态集成成本较低 | 需要由 OpsSeek 自己补齐统一的权限、审计、预算、恢复和事件语义 | 作为第二个 Go 原生候选，适合验证图编排和流式能力 |
+| **Ingenimax/agent-sdk-go** | 功能完整的可嵌入 Agent SDK | 原生覆盖 Skills、Session、Memory、后台任务、取消、多 Agent、Graph、Hooks/Plugins、MCP、A2A 和 Evaluation；适合快速获得完整 Agent 能力 | `0.x` API 仍可能变化；功能面与 OpsSeek 的 Skill、Session、Audit、Run、Memory 和多租户边界大量重叠；依赖面和社区规模需要持续审查 | 当版本和行为相对稳定后，优先作为功能型 Runtime 集成；必须禁用或映射其平台治理能力，不直接接管 OpsSeek 数据模型 |
+| **Covoyage Covonaut** | Go 原生、可嵌入的完整 Agent Runtime | 覆盖 Agent Loop、工具调用、流式响应、上下文压缩、重试、结构化输出、Checkpoint、MCP、A2A、Graph、Workflow 和 OpenTelemetry；MIT 许可证，Go 1.25+ 与项目兼容 | 功能面与 OpsSeek 的 Skill、Session、Store、MCP、审计和多租户边界重叠；事件语义和 Provider 接口需要适配；内置 Shell、Browser、Filesystem 等工具存在安全边界风险；项目较新，API 稳定性需要锁定版本验证 | 纳入第五个候选 Runtime，先以实验性 Adapter 和离线契约测试验证；固定 `v1.1.6` 或经核验的提交，不作为默认 Runtime，不启用内置危险工具和平台型主数据 |
 | **Microsoft Agent Framework Go** | 面向生产工作流和治理的 Agent Framework | Workflow、Checkpoint、Restartability、Human-in-the-loop、Middleware、OpenTelemetry、MCP、A2A 和 AG-UI 方向与巡检、诊断编排较匹配 | Go SDK 仍是 public preview；与 Python/.NET 能力不同步，部分工作流、Foundry 和声明式能力尚未完成，版本变化较快 | 作为工作流、检查点和人工审批 PoC 候选；在 Go 版本稳定前不作为默认 Runtime |
 
 Ingenimax 的价值在于可以较快补足当前基于 ADK 拼装的 Skills、Session、后台运行和多 Agent
 能力；Covonaut 的价值在于提供较完整的 Go 原生 Agent Loop、工具、流式和上下文运行时；Microsoft Agent Framework Go 的价值在于工作流治理、检查点和人工介入。三者都不是
-Provider 的替代品，也不能因为具备 MCP、A2A 或多租户能力就绕开 OpsKeeper 的策略边界。
+Provider 的替代品，也不能因为具备 MCP、A2A 或多租户能力就绕开 OpsSeek 的策略边界。
 
 Covonaut 的验证基线为 `v1.1.6`（或固定提交
 `7d24f700b0f5b482bfb8c50374a6ea89f7122087`）。它的 `agentcore.Tool` 可以包装
-OpsKeeper 已授权的 `ToolInvoker`，`agentcore.Provider` 可以承载框架无关的模型调用端口；
+OpsSeek 已授权的 `ToolInvoker`，`agentcore.Provider` 可以承载框架无关的模型调用端口；
 但 Covonaut 的 `Store`、`Session`、`Checkpoint`、Skill Extension、MCP Extension 和内置
 工具不能直接成为平台主路径。其内置 Shell、Browser、Filesystem 等工具必须禁用，所有
-资源和 MCP 调用必须先经过 OpsKeeper Tool Gateway、RBAC、审计和脱敏。
+资源和 MCP 调用必须先经过 OpsSeek Tool Gateway、RBAC、审计和脱敏。
 
 候选框架的版本、提交号和已验证能力必须在适配器注册表中固定。文档或 README 的能力
-宣称不等于 OpsKeeper 的可用能力；只有通过本项目的契约测试、权限测试和事件测试后，能力
+宣称不等于 OpsSeek 的可用能力；只有通过本项目的契约测试、权限测试和事件测试后，能力
 才可以出现在 Engine 页面并用于默认绑定。
 
 ### 19.3 集成路线评估
@@ -872,7 +872,7 @@ Runner 重构为 `ADK Adapter`，再增加一个或多个候选 Runtime Adapter�
 ```text
 Diagnosis / Inspection / Skill / Workflow
                     |
-             OpsKeeper Engine Contract
+             OpsSeek Engine Contract
                     |
         Runtime Factory + Capability Check
              /                       \
@@ -893,7 +893,7 @@ Diagnosis / Inspection / Skill / Workflow
 
 Covonaut 的同进程集成可行性较高，但前提是先完成 ADK Adapter 化和框架无关的模型入口。
 当前 `ModelBuildResult` 仍携带 ADK 专属的 `model.LLM`，不能直接把该句柄传给 Covonaut；
-需要由 OpsKeeper 解析 Provider、模型、能力、限制和一次性凭据，再由各 Adapter 构造自己的
+需要由 OpsSeek 解析 Provider、模型、能力、限制和一次性凭据，再由各 Adapter 构造自己的
 模型客户端。Covonaut 的事件（如 `agent_start`、`turn_start`、`message_delta`、
 `tool_call_start`、`tool_call_end`、`compaction_*`）必须映射为统一的 Engine 事件，不能
 让框架事件直接写入平台 Store。
@@ -977,7 +977,7 @@ type EngineAdapter interface {
 
 当前 `ModelBuildResult` 仍包含 ADK 的 `model.LLM` 句柄。为了支持多个 Runtime，模型解析层
 需要逐步抽象为框架无关的模型描述或 `ModelInvoker`：Provider/Model、协议、能力、限制和
-一次性内存凭据由 OpsKeeper 解析，ADK Adapter 可以构造 ADK 模型句柄，各候选 Adapter
+一次性内存凭据由 OpsSeek 解析，ADK Adapter 可以构造 ADK 模型句柄，各候选 Adapter
 可以构造自己的模型客户端，但凭据不能落入适配器持久化状态。这个改造应先以兼容字段实现，
 待两个适配器的契约测试通过后再删除 ADK 专属字段。
 
@@ -992,13 +992,13 @@ type EngineAdapter interface {
 |---|---|---|---|---|
 | 智能体循环 | Agent/Runner Loop | Agent Loop | `agentcore.Agent` Loop | 拒绝选择该 Engine |
 | 工具调用 | Function Tool Calling | Tool Registry/Execution | `agentcore.Tool`/Executor | 拒绝需要工具的请求 |
-| 技能编排 | 由 OpsKeeper Skill Plan 注入 | SDK Skill 可作为内部实现 | Skill Extension 仅可作为非权威内部实现 | 必须经过 OpsKeeper Skill 解析 |
+| 技能编排 | 由 OpsSeek Skill Plan 注入 | SDK Skill 可作为内部实现 | Skill Extension 仅可作为非权威内部实现 | 必须经过 OpsSeek Skill 解析 |
 | 流式事件 | Runner Events/SSE | SDK Stream/Hook | `message_delta`/EventBus | 同步降级不能伪造流式能力 |
-| 检查点恢复 | 由 OpsKeeper Workflow Store | SDK Checkpoint 可适配 | Checkpoint 仅可作为非权威缓存 | 未验证前不宣称支持 |
-| 人工审批 | OpsKeeper Approval | Hook/Workflow 能力 | Hook/Middleware 仅作回调 | 必须由平台审批链决定 |
+| 检查点恢复 | 由 OpsSeek Workflow Store | SDK Checkpoint 可适配 | Checkpoint 仅可作为非权威缓存 | 未验证前不宣称支持 |
+| 人工审批 | OpsSeek Approval | Hook/Workflow 能力 | Hook/Middleware 仅作回调 | 必须由平台审批链决定 |
 
 只有在适配器能保证同等语义时才标记能力为可用。候选框架的 Session 或 Checkpoint 即使
-存在，也不能自动替代 OpsKeeper 的执行事件和工作流快照。
+存在，也不能自动替代 OpsSeek 的执行事件和工作流快照。
 
 #### 事件归一化
 
@@ -1016,19 +1016,19 @@ assistant.completed
 execution.completed / execution.failed / execution.cancelled
 ```
 
-工具调用必须先产生 `tool.requested`，经过 OpsKeeper 策略后才能进入框架执行；框架内部
+工具调用必须先产生 `tool.requested`，经过 OpsSeek 策略后才能进入框架执行；框架内部
 的工具结果、重试或并行信息不能绕过 `engine_execution_tool_calls`。不能因为切换 Runtime
 而让同一诊断在页面上出现两种时间线语义。
 
 #### 状态和持久化归属
 
-OpsKeeper 是执行状态和治理数据的唯一事实来源。候选 Runtime 的 Session、Memory、后台运行
+OpsSeek 是执行状态和治理数据的唯一事实来源。候选 Runtime 的 Session、Memory、后台运行
 和 Checkpoint 可以作为适配器内部的临时优化，但必须满足以下之一：
 
-- 映射到 OpsKeeper 已有的执行、工作流、Observation 和审计记录；或
-- 明确标记为非权威缓存，并可在丢失后由 OpsKeeper 状态恢复。
+- 映射到 OpsSeek 已有的执行、工作流、Observation 和审计记录；或
+- 明确标记为非权威缓存，并可在丢失后由 OpsSeek 状态恢复。
 
-不得同时让 SDK 和 OpsKeeper 都决定执行终态、工具是否允许、租户是否可见或凭据是否有效。
+不得同时让 SDK 和 OpsSeek 都决定执行终态、工具是否允许、租户是否可见或凭据是否有效。
 
 ### 19.6 分阶段实施与切换策略
 
@@ -1052,7 +1052,7 @@ OpsKeeper 是执行状态和治理数据的唯一事实来源。候选 Runtime �
 
 ### 19.7 最终建议
 
-**当前决策：** 采用“OpsKeeper Engine 契约 + Runtime Adapter”作为多引擎长期架构。保留
+**当前决策：** 采用“OpsSeek Engine 契约 + Runtime Adapter”作为多引擎长期架构。保留
 当前 ADK Engine 作为生产默认和回滚基线；Ingenimax 和 Covonaut 均纳入候选 Runtime，
 分别以独立 Adapter 和实验性 Engine 进行 PoC。Eino 和 Microsoft Agent Framework Go
 继续保留为候选适配器，分别用于图编排和工作流治理方向的后续 PoC。
@@ -1068,7 +1068,7 @@ ADK 诊断、巡检、技能和工作流链路。后续启动时必须先完成�
 2. 把 ADK 现有实现改造成第一个 Runtime Adapter，而不是继续让 ADK 细节扩散到业务层；
 3. 在候选 Runtime 的版本和行为通过验证后，按同一契约增加 Covonaut 或 Ingenimax Adapter；
 4. 让 Engine 目录、Scope 场景标签和 `engine:use` 权限决定可见和默认的运行时；
-5. 由 OpsKeeper 继续统一 Provider、资源上下文、工具策略、审计、预算、取消和执行状态；
+5. 由 OpsSeek 继续统一 Provider、资源上下文、工具策略、审计、预算、取消和执行状态；
 6. 将 Eino 和 Microsoft Agent Framework Go 保留为候选适配器，分别在图编排和工作流治理场景完成 PoC 后再决定是否进入生产目录。
 
 这条路线既不否定 Ingenimax 或 Covonaut 可能比当前 ADK 拼装实现更完整的判断，也不需要在

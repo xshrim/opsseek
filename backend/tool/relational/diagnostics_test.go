@@ -4,10 +4,10 @@ import (
 	"reflect"
 	"testing"
 
-	"opskeeper/backend/tool/mysql"
-	"opskeeper/backend/tool/oceanbase"
-	"opskeeper/backend/tool/oracle"
-	"opskeeper/backend/tool/postgresql"
+	"opsseek/backend/tool/mysql"
+	"opsseek/backend/tool/oceanbase"
+	"opsseek/backend/tool/oracle"
+	"opsseek/backend/tool/postgresql"
 )
 
 func TestDatabaseDiagnosticsShareWireContracts(t *testing.T) {

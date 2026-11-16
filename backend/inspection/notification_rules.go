@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"opskeeper/backend/notification"
+	"opsseek/backend/notification"
 )
 
 func reserveNotificationRuleCooldown(ctx context.Context, tx pgx.Tx, scopeID, ruleID string, event notificationEventInput, cooldown time.Duration) (bool, error) {

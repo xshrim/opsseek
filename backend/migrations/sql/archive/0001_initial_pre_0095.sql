@@ -2482,7 +2482,7 @@ INSERT INTO engine_scope_bindings VALUES ('2817fc61-c924-4760-84a7-06a0d3f8995f'
 -- Data for Name: engines; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-INSERT INTO engines VALUES ('a6689eb4-6fad-415f-87b4-d436d54d4cdc', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'OpsKeeper Engine', '统一承载诊断、巡检、技能和工作流的智能执行引擎。', 'lucide:Cpu', '{"capabilities": ["智能体循环", "上下文编排", "工具调用", "工具网关", "技能编排", "专家路由", "结构化输出", "检索增强", "工作流编排", "流式事件"]}', 'active', '2026-10-22 01:22:40.306365+00', '2026-10-22 01:22:40.306365+00', NULL);
+INSERT INTO engines VALUES ('a6689eb4-6fad-415f-87b4-d436d54d4cdc', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'OpsSeek Engine', '统一承载诊断、巡检、技能和工作流的智能执行引擎。', 'lucide:Cpu', '{"capabilities": ["智能体循环", "上下文编排", "工具调用", "工具网关", "技能编排", "专家路由", "结构化输出", "检索增强", "工作流编排", "流式事件"]}', 'active', '2026-10-22 01:22:40.306365+00', '2026-10-22 01:22:40.306365+00', NULL);
 
 
 --
@@ -2633,7 +2633,7 @@ INSERT INTO engines VALUES ('a6689eb4-6fad-415f-87b4-d436d54d4cdc', 'default', '
 -- Data for Name: platforms; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-INSERT INTO platforms VALUES ('0e2355e0-eda3-4810-a9f3-4d78f9ecccd5', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'OpsKeeper', 'default', '2026-10-22 01:22:31.617466+00', '2026-10-22 01:22:31.617466+00', NULL, 'lucide:Building2');
+INSERT INTO platforms VALUES ('0e2355e0-eda3-4810-a9f3-4d78f9ecccd5', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'OpsSeek', 'default', '2026-10-22 01:22:31.617466+00', '2026-10-22 01:22:31.617466+00', NULL, 'lucide:Building2');
 
 
 --
@@ -3008,16 +3008,16 @@ INSERT INTO skill_versions VALUES ('9c696f02-b296-4bc1-91b2-3a2d70d66345', 'fd0e
 -- Data for Name: skills; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-INSERT INTO skills VALUES ('61e943a6-07db-4b4b-b893-b6f1cca9d17a', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'Kubernetes-工作负载诊断', 'kubernetes-', 'diagnosis', '[]', 'OpsKeeper builtin', 'active', '2026-10-22 01:22:31.617466+00', '2026-10-22 01:22:31.617466+00', NULL);
-INSERT INTO skills VALUES ('e79aa588-b389-4ed9-88a1-d93b2f69cd7f', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'PostgreSQL-健康诊断', 'postgresql-', 'diagnosis', '[]', 'OpsKeeper builtin', 'active', '2026-10-22 01:22:31.617466+00', '2026-10-22 01:22:31.617466+00', NULL);
-INSERT INTO skills VALUES ('d2b66149-b2bc-41a4-a9b3-23d6f94835a2', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'Redis-健康诊断', 'redis-', 'diagnosis', '[]', 'OpsKeeper builtin', 'active', '2026-10-22 01:22:31.617466+00', '2026-10-22 01:22:31.617466+00', NULL);
-INSERT INTO skills VALUES ('b8a85717-7d66-4d0a-b1ff-f4375aba1ee1', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'Kafka-健康诊断', 'kafka-', 'diagnosis', '[]', 'OpsKeeper builtin', 'active', '2026-10-22 01:22:31.617466+00', '2026-10-22 01:22:31.617466+00', NULL);
-INSERT INTO skills VALUES ('f789ea56-a16d-4b3b-a288-8071cd9c20aa', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'MySQL-健康诊断', 'mysql-', 'diagnosis', '[]', 'OpsKeeper builtin', 'active', '2026-10-22 01:22:37.601013+00', '2026-10-22 01:22:37.601013+00', NULL);
-INSERT INTO skills VALUES ('1eb3ad07-eb37-4674-b513-46b2dd73a5b3', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'Elasticsearch-健康诊断', 'elasticsearch-', 'diagnosis', '[]', 'OpsKeeper builtin', 'active', '2026-10-22 01:22:37.850777+00', '2026-10-22 01:22:37.850777+00', NULL);
-INSERT INTO skills VALUES ('ce262bcf-ce9a-408d-8c03-30f9c3a24eb9', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'Oracle-健康诊断', 'oracle-', 'diagnosis', '[]', 'OpsKeeper builtin', 'active', '2026-10-22 01:22:38.017579+00', '2026-10-22 01:22:38.017579+00', NULL);
-INSERT INTO skills VALUES ('fb20a40a-986c-40c8-b025-0595f1feb3fb', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'RabbitMQ-健康诊断', 'rabbitmq-', 'diagnosis', '[]', 'OpsKeeper builtin', 'active', '2026-10-22 01:22:38.145502+00', '2026-10-22 01:22:38.145502+00', NULL);
-INSERT INTO skills VALUES ('b1354c01-f99c-4995-8f9b-645fe1248066', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'MinIO-健康诊断', 'minio-', 'diagnosis', '[]', 'OpsKeeper builtin', 'active', '2026-10-22 01:22:38.411951+00', '2026-10-22 01:22:38.411951+00', NULL);
-INSERT INTO skills VALUES ('fd0e8fcd-7837-4cb3-959f-b7d0e047a943', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'OceanBase-健康诊断', 'oceanbase-health-diagnosis', 'diagnosis', '[]', 'OpsKeeper builtin', 'active', '2026-10-22 01:22:42.94243+00', '2026-10-22 01:22:42.94243+00', NULL);
+INSERT INTO skills VALUES ('61e943a6-07db-4b4b-b893-b6f1cca9d17a', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'Kubernetes-工作负载诊断', 'kubernetes-', 'diagnosis', '[]', 'OpsSeek builtin', 'active', '2026-10-22 01:22:31.617466+00', '2026-10-22 01:22:31.617466+00', NULL);
+INSERT INTO skills VALUES ('e79aa588-b389-4ed9-88a1-d93b2f69cd7f', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'PostgreSQL-健康诊断', 'postgresql-', 'diagnosis', '[]', 'OpsSeek builtin', 'active', '2026-10-22 01:22:31.617466+00', '2026-10-22 01:22:31.617466+00', NULL);
+INSERT INTO skills VALUES ('d2b66149-b2bc-41a4-a9b3-23d6f94835a2', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'Redis-健康诊断', 'redis-', 'diagnosis', '[]', 'OpsSeek builtin', 'active', '2026-10-22 01:22:31.617466+00', '2026-10-22 01:22:31.617466+00', NULL);
+INSERT INTO skills VALUES ('b8a85717-7d66-4d0a-b1ff-f4375aba1ee1', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'Kafka-健康诊断', 'kafka-', 'diagnosis', '[]', 'OpsSeek builtin', 'active', '2026-10-22 01:22:31.617466+00', '2026-10-22 01:22:31.617466+00', NULL);
+INSERT INTO skills VALUES ('f789ea56-a16d-4b3b-a288-8071cd9c20aa', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'MySQL-健康诊断', 'mysql-', 'diagnosis', '[]', 'OpsSeek builtin', 'active', '2026-10-22 01:22:37.601013+00', '2026-10-22 01:22:37.601013+00', NULL);
+INSERT INTO skills VALUES ('1eb3ad07-eb37-4674-b513-46b2dd73a5b3', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'Elasticsearch-健康诊断', 'elasticsearch-', 'diagnosis', '[]', 'OpsSeek builtin', 'active', '2026-10-22 01:22:37.850777+00', '2026-10-22 01:22:37.850777+00', NULL);
+INSERT INTO skills VALUES ('ce262bcf-ce9a-408d-8c03-30f9c3a24eb9', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'Oracle-健康诊断', 'oracle-', 'diagnosis', '[]', 'OpsSeek builtin', 'active', '2026-10-22 01:22:38.017579+00', '2026-10-22 01:22:38.017579+00', NULL);
+INSERT INTO skills VALUES ('fb20a40a-986c-40c8-b025-0595f1feb3fb', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'RabbitMQ-健康诊断', 'rabbitmq-', 'diagnosis', '[]', 'OpsSeek builtin', 'active', '2026-10-22 01:22:38.145502+00', '2026-10-22 01:22:38.145502+00', NULL);
+INSERT INTO skills VALUES ('b1354c01-f99c-4995-8f9b-645fe1248066', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'MinIO-健康诊断', 'minio-', 'diagnosis', '[]', 'OpsSeek builtin', 'active', '2026-10-22 01:22:38.411951+00', '2026-10-22 01:22:38.411951+00', NULL);
+INSERT INTO skills VALUES ('fd0e8fcd-7837-4cb3-959f-b7d0e047a943', 'default', '2817fc61-c924-4760-84a7-06a0d3f8995f', 'OceanBase-健康诊断', 'oceanbase-health-diagnosis', 'diagnosis', '[]', 'OpsSeek builtin', 'active', '2026-10-22 01:22:42.94243+00', '2026-10-22 01:22:42.94243+00', NULL);
 
 
 --

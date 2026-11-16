@@ -5,8 +5,8 @@ import "testing"
 func TestDatabaseConnectionTargetKeepsResourceCredentials(t *testing.T) {
 	for _, kind := range []string{"PostgreSQL", "MySQL", "OceanBase"} {
 		defaults := map[string]any{"host": "db", "database": "postgres", "username": "reader", "password": "secret"}
-		got, err := DatabaseConnectionTarget(kind, defaults, map[string]any{"database": "opskeeper", "username": "app", "password": "wrong"})
-		if err != nil || got["database"] != "opskeeper" || got["username"] != "reader" || got["password"] != "secret" || defaults["database"] != "postgres" {
+		got, err := DatabaseConnectionTarget(kind, defaults, map[string]any{"database": "opsseek", "username": "app", "password": "wrong"})
+		if err != nil || got["database"] != "opsseek" || got["username"] != "reader" || got["password"] != "secret" || defaults["database"] != "postgres" {
 			t.Fatalf("%s: target=%v err=%v", kind, got, err)
 		}
 	}

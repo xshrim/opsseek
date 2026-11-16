@@ -57,7 +57,7 @@
 - 不允许 Skill 正文、Front Matter、模型输出或远端资源内容直接增加工具权限；
 - 不允许 Skill 或智能巡检直接执行任意 SQL、Shell、Redis 命令、Kubernetes exec 或未审批写操作；
 - 不把调度、通知渠道和巡检对象固化到 Skill 本身；
-- 不引入 Redis、Kafka、独立对象存储或独立任务系统作为 OpsKeeper 默认依赖；
+- 不引入 Redis、Kafka、独立对象存储或独立任务系统作为 OpsSeek 默认依赖；
 - 不以 LLM 自由输出直接替代确定性健康评分；
 - 不把 `target_kinds` 作为 Skill 身份或固定硬编码字段。
 

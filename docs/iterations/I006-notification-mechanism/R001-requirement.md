@@ -67,7 +67,7 @@
 
 模板是通知页面中的独立可复用对象，按版本发布。每个版本包含名称、格式（文本/Markdown/JSON）、标题、正文或 payload、变量声明、内容哈希、状态和创建者；已发布版本不可原地修改，编辑生成新草稿版本。
 
-模板只允许受限变量，例如事件类型、严重级别、规则名、策略名、资源名称、Scope 名称、Finding 摘要、首次/最近观察时间、运行链接和 OpsKeeper 链接。变量缺失、类型不符或输出超过 provider 限制时，投递在发送前失败并记录可操作错误。模板不能执行代码、访问数据库、读取未声明字段或调用工具。
+模板只允许受限变量，例如事件类型、严重级别、规则名、策略名、资源名称、Scope 名称、Finding 摘要、首次/最近观察时间、运行链接和 OpsSeek 链接。变量缺失、类型不符或输出超过 provider 限制时，投递在发送前失败并记录可操作错误。模板不能执行代码、访问数据库、读取未声明字段或调用工具。
 
 ### 3.5 规则和巡检关联
 
@@ -79,7 +79,7 @@
 
 当前项目使用 `pgx/v5`，可在专用连接上执行 `LISTEN` 并调用 `WaitForNotification`；不需要增加 PostgreSQL 扩展。实现采用以下组合：
 
-1. 巡检状态变化、`notification_events` 和每渠道一条、带不可变路由快照的 `notification_deliveries` 在同一事务中写入；事务内调用 `pg_notify('opskeeper_notification', '')`，PostgreSQL 仅在事务提交后发出唤醒信号。
+1. 巡检状态变化、`notification_events` 和每渠道一条、带不可变路由快照的 `notification_deliveries` 在同一事务中写入；事务内调用 `pg_notify('opsseek_notification', '')`，PostgreSQL 仅在事务提交后发出唤醒信号。
 2. Worker 使用 `notification_deliveries` 的状态、`available_at`、租约和 `FOR UPDATE SKIP LOCKED` 并发领取，不在事务锁内执行网络请求。
 3. Worker 持有独立监听连接以低延迟唤醒；监听连接断开、通知合并或 payload 丢失时，按 `OPSK_NOTIFICATION_QUEUE_POLL_INTERVAL` 轮询兜底。
 4. 租约过期可重新领取；每次发送按 `delivery_id` 和幂等键记录，外部响应只保存限长、脱敏结果。

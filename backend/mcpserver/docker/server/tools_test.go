@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"opskeeper/backend/mcpserver/docker/client"
-	docker "opskeeper/backend/tool/docker"
+	"opsseek/backend/mcpserver/docker/client"
+	docker "opsseek/backend/tool/docker"
 )
 
 func TestToolsUseDockerEngineReadOnlyEndpoints(t *testing.T) {

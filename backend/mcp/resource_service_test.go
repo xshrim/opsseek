@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/resource"
+	"opsseek/backend/authorization"
+	"opsseek/backend/resource"
 )
 
 type fakeResources struct{ item resource.Resource }

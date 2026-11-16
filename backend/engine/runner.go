@@ -199,7 +199,7 @@ type AgentRunner struct {
 }
 
 func NewAgentRunner(buildModel ModelBuilder) *AgentRunner {
-	return &AgentRunner{BuildModel: buildModel, AppName: "opskeeper-engine"}
+	return &AgentRunner{BuildModel: buildModel, AppName: "opsseek-engine"}
 }
 
 func (r *AgentRunner) Run(ctx context.Context, request Request) (Result, error) {
@@ -352,7 +352,7 @@ func (r *AgentRunner) execute(parent context.Context, request Request, sink Even
 		if request.ResolvedPersona != nil && strings.TrimSpace(request.ResolvedPersona.Instruction) != "" {
 			instruction = request.ResolvedPersona.Instruction
 		} else {
-			instruction = "你是一个受控的 OpsKeeper AI 助手。只基于授权上下文回答问题，不执行未授权的写操作。"
+			instruction = "你是一个受控的 OpsSeek AI 助手。只基于授权上下文回答问题，不执行未授权的写操作。"
 		}
 	}
 	// Keep progress user-safe and make dependent tool calls observation-driven.

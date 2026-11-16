@@ -82,7 +82,7 @@ func discoverWithSecurityTLS(ctx context.Context, endpoint string, timeout time.
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	client := gomcp.NewClient(&gomcp.Implementation{Name: "opskeeper", Version: "t14"}, nil)
+	client := gomcp.NewClient(&gomcp.Implementation{Name: "opsseek", Version: "t14"}, nil)
 	session, err := client.Connect(ctx, clientTransport(transport, u.String(), httpClient(timeout, enhancedSecurity, headers, tlsConfig)), nil)
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("connect MCP server: %w", err)
@@ -141,7 +141,7 @@ func CallBoundedWithSecurity(ctx context.Context, endpoint, name string, allowed
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	client := gomcp.NewClient(&gomcp.Implementation{Name: "opskeeper", Version: "t14"}, nil)
+	client := gomcp.NewClient(&gomcp.Implementation{Name: "opsseek", Version: "t14"}, nil)
 	session, err := client.Connect(ctx, clientTransport("streamable_http", normalized.String(), httpClient(timeout, enhancedSecurity, firstHeaders(headers))), nil)
 	if err != nil {
 		return nil, err

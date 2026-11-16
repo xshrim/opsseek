@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"opskeeper/backend/resource"
+	"opsseek/backend/resource"
 )
 
 func TestHTTPExecutorAuthenticationAndTenantHeaders(t *testing.T) {

@@ -47,7 +47,7 @@ func FromEnvironment(environment string) (Cipher, error) {
 		if environment == "production" {
 			return nil, fmt.Errorf("OPSK_CREDENTIAL_KEY is required in production")
 		}
-		digest := sha256.Sum256([]byte("opskeeper-development-credential-key"))
+		digest := sha256.Sum256([]byte("opsseek-development-credential-key"))
 		return NewLocalEncryptor(digest[:])
 	}
 	key, err := base64.StdEncoding.DecodeString(value)

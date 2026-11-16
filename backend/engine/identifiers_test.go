@@ -67,11 +67,11 @@ func TestApplyLocatorHintsMapsHostApplicationSelector(t *testing.T) {
 }
 
 func TestNormalizeDockerLocatorArgumentsMovesNamesOutOfContainerID(t *testing.T) {
-	got := NormalizeDockerLocatorArguments(map[string]any{"container_id": "opskeeper-postgres"})
+	got := NormalizeDockerLocatorArguments(map[string]any{"container_id": "opsseek-postgres"})
 	if _, exists := got["container_id"]; exists {
 		t.Fatalf("container name must not remain in container_id: %#v", got)
 	}
-	if got["container_name"] != "opskeeper-postgres" {
+	if got["container_name"] != "opsseek-postgres" {
 		t.Fatalf("container name = %#v", got["container_name"])
 	}
 
@@ -80,8 +80,8 @@ func TestNormalizeDockerLocatorArgumentsMovesNamesOutOfContainerID(t *testing.T)
 		t.Fatalf("real Docker ID must remain an ID: %#v", got)
 	}
 
-	got = ApplyLocatorHints(map[string]any{"container_id": "opskeeper-postgres"}, map[string]any{"container_name": "opskeeper-postgres"})
-	if _, exists := got["container_id"]; exists || got["container_name"] != "opskeeper-postgres" {
+	got = ApplyLocatorHints(map[string]any{"container_id": "opsseek-postgres"}, map[string]any{"container_name": "opsseek-postgres"})
+	if _, exists := got["container_id"]; exists || got["container_name"] != "opsseek-postgres" {
 		t.Fatalf("application binding must canonicalize the name field: %#v", got)
 	}
 }

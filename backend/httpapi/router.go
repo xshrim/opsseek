@@ -10,11 +10,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"opskeeper/backend/audit"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/engine"
-	"opskeeper/backend/health"
-	"opskeeper/backend/version"
+	"opsseek/backend/audit"
+	"opsseek/backend/authorization"
+	"opsseek/backend/engine"
+	"opsseek/backend/health"
+	"opsseek/backend/version"
 )
 
 type Options struct {
@@ -185,7 +185,7 @@ func NewRouter(logger *slog.Logger, healthService *health.Service, build version
 		writeError(writer, request, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
 	})
 
-	return otelhttp.NewHandler(router, "opskeeper.http")
+	return otelhttp.NewHandler(router, "opsseek.http")
 }
 
 func canServeWebUI(request *http.Request, basePath string) bool {

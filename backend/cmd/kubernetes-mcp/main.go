@@ -4,7 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"opskeeper/backend/mcpserver/kubernetes/server"
+	"opsseek/backend/mcpserver/kubernetes/server"
 	"os"
 	"time"
 )

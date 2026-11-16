@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"opskeeper/backend/engine"
-	nt "opskeeper/backend/tool/nacos"
+	"opsseek/backend/engine"
+	nt "opsseek/backend/tool/nacos"
 )
 
 func (s *Service) resolveNacosTools(ctx context.Context, item engine.ContextResource, add func(string, string, json.RawMessage, func(context.Context, map[string]any) (engine.ToolResult, error))) error {

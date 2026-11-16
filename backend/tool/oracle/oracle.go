@@ -12,7 +12,7 @@ import (
 	"time"
 
 	_ "github.com/sijms/go-ora/v2"
-	"opskeeper/backend/tool/relational"
+	"opsseek/backend/tool/relational"
 )
 
 // ConnectionInput is transport-neutral and intentionally contains only the

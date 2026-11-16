@@ -1,9 +1,9 @@
 apiVersion: 1
 
 providers:
-  - name: OpsKeeper
+  - name: OpsSeek
     orgId: 1
-    folder: OpsKeeper
+    folder: OpsSeek
     type: file
     disableDeletion: true
     editable: false

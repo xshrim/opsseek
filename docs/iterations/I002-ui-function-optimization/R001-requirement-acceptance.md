@@ -30,7 +30,7 @@ T01 登录页面优化、T02 页面框架优化和 T03 团队与用户管理页�
 
 ### T01 登录页面优化
 
-- 设计：提供五种候选方案，用户确认根目录 `background.jpeg`、左上角 OpsKeeper 双行品牌和右侧暖白悬浮登录区。
+- 设计：提供五种候选方案，用户确认根目录 `background.jpeg`、左上角 OpsSeek 双行品牌和右侧暖白悬浮登录区。
 - 交互：账号与密码占位提示、密码 Lucide 显隐图标、禁用原因、提交 Loading、失败提示、键盘焦点和窄屏重排均已实现。
 - 健康状态：未登录页不触发健康检查；登录后才开始刷新。`OPSK_LOG_HEALTH_IGNORE=true` 默认抑制健康接口访问日志，不影响健康接口、前端刷新或 Kubernetes 探针。
 - 自动化：`npm run check`、`npm run test`、`npm run build`、`npm run test:e2e`、`make webui-assets` 均通过；`go test ./config ./httpapi ./cmd/api` 和 Helm lint/render 通过。

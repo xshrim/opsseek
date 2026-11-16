@@ -1,13 +1,13 @@
 image:
-  repository: opskeeper
+  repository: opsseek
   tag: ""
   digest: ""
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 
-basePath: /opskeeper
+basePath: /opsseek
 logHealthIgnore: true
-existingSecret: opskeeper-runtime
+existingSecret: opsseek-runtime
 trustedProxies: ""
 otelExporterEndpoint: ""
 cacheBackend: postgres
@@ -39,7 +39,7 @@ service:
 ingress:
   enabled: false
   className: ""
-  host: opskeeper.example.com
+  host: opsseek.example.com
   tlsSecretName: ""
   annotations: {}
 

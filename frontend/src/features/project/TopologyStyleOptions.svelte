@@ -117,13 +117,13 @@
 </script>
 
 <svelte:head>
-  <title>拓扑样式方案对比 · OpsKeeper</title>
+  <title>拓扑样式方案对比 · OpsSeek</title>
 </svelte:head>
 
 <main class="options-page" class:dark>
   <header class="page-heading">
     <div>
-      <p class="eyebrow">OPSKEEPER / TOPOLOGY STUDY</p>
+      <p class="eyebrow">OPSSEEK / TOPOLOGY STUDY</p>
       <h1>拓扑视觉方案</h1>
       <p class="subtitle">同一组组件与关系，10 种节点和连线语言</p>
     </div>

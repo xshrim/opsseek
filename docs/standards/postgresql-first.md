@@ -1,8 +1,8 @@
 # PostgreSQL First 规约
 
-OpsKeeper 平台自身的持久化、缓存和异步处理默认只依赖 PostgreSQL。不得为平台内部功能默认引入 Redis、Kafka/Redpanda、Elasticsearch、MongoDB、独立时序数据库或对象存储服务。
+OpsSeek 平台自身的持久化、缓存和异步处理默认只依赖 PostgreSQL。不得为平台内部功能默认引入 Redis、Kafka/Redpanda、Elasticsearch、MongoDB、独立时序数据库或对象存储服务。
 
-这条规则不限制资源目录接入和诊断用户已有的 Redis、Kafka、S3、Elasticsearch 等外部资源；它们不是 OpsKeeper 自身的部署依赖。
+这条规则不限制资源目录接入和诊断用户已有的 Redis、Kafka、S3、Elasticsearch 等外部资源；它们不是 OpsSeek 自身的部署依赖。
 
 ## 1. 优先实现
 

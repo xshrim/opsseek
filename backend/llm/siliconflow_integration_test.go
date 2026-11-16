@@ -33,7 +33,7 @@ func TestSiliconFlowThroughADKRunner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	adkRunner, err := runner.NewInMemory("opskeeper-provider-check", agentRoot)
+	adkRunner, err := runner.NewInMemory("opsseek-provider-check", agentRoot)
 	if err != nil {
 		t.Fatal(err)
 	}

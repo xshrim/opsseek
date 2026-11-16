@@ -1,6 +1,6 @@
-# OpsKeeper
+# OpsSeek
 
-OpsKeeper 是面向 Kubernetes 和中间件的 AI 运维平台，提供资源目录、证据驱动诊断、自动巡检、受控操作和审计。权限以平台、团队、项目三级 Scope 为边界。
+OpsSeek 是面向 Kubernetes 和中间件的 AI 运维平台，提供资源目录、证据驱动诊断、自动巡检、受控操作和审计。权限以平台、团队、项目三级 Scope 为边界。
 
 ## 快速开始
 
@@ -12,7 +12,7 @@ OpsKeeper 是面向 Kubernetes 和中间件的 AI 运维平台，提供资源目
 make up
 ```
 
-`make up` 会创建 `.env`、构建 `opskeeper-app` 镜像，并启动 PostgreSQL 与嵌入式 App。App 启动时自动迁移数据库；首次打开登录页时初始化管理员密码。不需要单独执行 `migrate` 或 `admin` 命令。
+`make up` 会创建 `.env`、构建 `opsseek-app` 镜像，并启动 PostgreSQL 与嵌入式 App。App 启动时自动迁移数据库；首次打开登录页时初始化管理员密码。不需要单独执行 `migrate` 或 `admin` 命令。
 
 停止或清理：
 

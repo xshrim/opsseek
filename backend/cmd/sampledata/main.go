@@ -14,13 +14,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"opskeeper/backend/config"
-	"opskeeper/backend/identity"
-	"opskeeper/backend/secret"
+	"opsseek/backend/config"
+	"opsseek/backend/identity"
+	"opsseek/backend/secret"
 )
 
 const (
-	markerKey   = "opskeeper.dev-sample"
+	markerKey   = "opsseek.dev-sample"
 	markerValue = "access-v1"
 	emailDomain = "yunops.test"
 )
@@ -229,8 +229,8 @@ func ensureLocalDatabase(environment, databaseURL string) error {
 	if parsed.Scheme != "postgres" && parsed.Scheme != "postgresql" {
 		return errors.New("sample data commands require a local PostgreSQL database")
 	}
-	if environment != "development" || !isLoopback(host) || strings.TrimPrefix(parsed.Path, "/") != "opskeeper" {
-		return errors.New("refusing sample data operation: only development database opskeeper on localhost is allowed")
+	if environment != "development" || !isLoopback(host) || strings.TrimPrefix(parsed.Path, "/") != "opsseek" {
+		return errors.New("refusing sample data operation: only development database opsseek on localhost is allowed")
 	}
 	return nil
 }
@@ -380,7 +380,7 @@ func seed(ctx context.Context, pool *pgxpool.Pool, samplePassword string, settin
 			}
 			if err := tx.QueryRow(ctx, `
 					INSERT INTO teams (scope_id, platform_id, name, description, icon, labels)
-					VALUES ($1::uuid, $2::uuid, $3, 'OpsKeeper 权限演示数据', $4, jsonb_build_object($5::text, $6::text))
+					VALUES ($1::uuid, $2::uuid, $3, 'OpsSeek 权限演示数据', $4, jsonb_build_object($5::text, $6::text))
 					RETURNING id::text`, scopeID, platformID, item.name, item.icon, markerKey, markerValue).Scan(&teamID); err != nil {
 				return fmt.Errorf("create sample team %s: %w", item.key, err)
 			}
@@ -581,6 +581,6 @@ func clean(ctx context.Context, pool *pgxpool.Pool) error {
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit sample cleanup: %w", err)
 	}
-	fmt.Println("Removed marked OpsKeeper sample data.")
+	fmt.Println("Removed marked OpsSeek sample data.")
 	return nil
 }

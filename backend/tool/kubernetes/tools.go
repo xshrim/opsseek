@@ -21,7 +21,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 
-	"opskeeper/backend/mcpserver/kubernetes/client"
+	"opsseek/backend/mcpserver/kubernetes/client"
 )
 
 const maxListLimit = 500
@@ -257,7 +257,7 @@ func GetInputProperties() map[string]any {
 	return map[string]any{
 		"resource":    map[string]any{"type": "string", "description": "Kubernetes API resource type, such as pods, deployments, or services."},
 		"namespace":   map[string]any{"type": "string", "description": "Namespace containing the object; omit only for cluster-scoped objects."},
-		"object_name": map[string]any{"type": "string", "description": "Exact Kubernetes API object name; this is not an OpsKeeper database ID."},
+		"object_name": map[string]any{"type": "string", "description": "Exact Kubernetes API object name; this is not an OpsSeek database ID."},
 	}
 }
 

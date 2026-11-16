@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"opskeeper/backend/diagnosis"
-	"opskeeper/backend/identity"
+	"opsseek/backend/diagnosis"
+	"opsseek/backend/identity"
 )
 
 var testDiagnosisHTTPUser = identity.User{ID: "user-1"}

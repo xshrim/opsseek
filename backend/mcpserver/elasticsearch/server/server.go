@@ -8,7 +8,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"log"
 	"net/http"
-	es "opskeeper/backend/tool/elasticsearch"
+	es "opsseek/backend/tool/elasticsearch"
 	"os"
 	"strings"
 	"time"
@@ -36,7 +36,7 @@ func New(c Config) (http.Handler, error) {
 	if strings.TrimSpace(c.Address) == "" {
 		return nil, errors.New("Elasticsearch MCP HTTP address must not be empty")
 	}
-	s := mcp.NewServer(&mcp.Implementation{Name: "opskeeper-elasticsearch-mcp", Title: "OpsKeeper Elasticsearch MCP", Description: "Read-only Elasticsearch tools.", Version: "dev"}, nil)
+	s := mcp.NewServer(&mcp.Implementation{Name: "opsseek-elasticsearch-mcp", Title: "OpsSeek Elasticsearch MCP", Description: "Read-only Elasticsearch tools.", Version: "dev"}, nil)
 	RegisterTools(s)
 	get := func(*http.Request) *mcp.Server { return s }
 	stream, sse := mcp.NewStreamableHTTPHandler(get, nil), mcp.NewSSEHandler(get, nil)

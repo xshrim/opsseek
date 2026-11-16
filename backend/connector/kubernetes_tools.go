@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"opskeeper/backend/engine"
-	kclient "opskeeper/backend/mcpserver/kubernetes/client"
-	kt "opskeeper/backend/tool/kubernetes"
+	"opsseek/backend/engine"
+	kclient "opsseek/backend/mcpserver/kubernetes/client"
+	kt "opsseek/backend/tool/kubernetes"
 )
 
 func (s *Service) resolveKubernetesTools(ctx context.Context, item engine.ContextResource, add func(string, string, json.RawMessage, func(context.Context, map[string]any) (engine.ToolResult, error))) error {

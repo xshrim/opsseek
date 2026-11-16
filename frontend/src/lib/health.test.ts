@@ -5,7 +5,7 @@ describe('toStatusRows', () => {
   it('maps dependency health to stable status rows', () => {
     const report: HealthReport = {
       status: 'not_ready',
-      service: 'opskeeper-api',
+      service: 'opsseek-api',
       version: 'test',
       commit: 'abc123',
       build_time: '2026-01-01T00:00:00Z',
@@ -27,11 +27,11 @@ describe('toStatusRows', () => {
 describe('appURL', () => {
   it('resolves application paths from the document base URI', () => {
     const base = document.createElement('base');
-    base.href = 'http://localhost:5173/opskeeper/';
+    base.href = 'http://localhost:5173/opsseek/';
     document.head.append(base);
 
     expect(appURL('/api/v1/teams').toString()).toBe(
-      'http://localhost:5173/opskeeper/api/v1/teams'
+      'http://localhost:5173/opsseek/api/v1/teams'
     );
 
     base.remove();

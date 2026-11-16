@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"opskeeper/backend/audit"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/identity"
-	"opskeeper/backend/organization"
-	"opskeeper/backend/resource"
+	"opsseek/backend/audit"
+	"opsseek/backend/authorization"
+	"opsseek/backend/identity"
+	"opsseek/backend/organization"
+	"opsseek/backend/resource"
 )
 
 type memoryScopeCache struct {

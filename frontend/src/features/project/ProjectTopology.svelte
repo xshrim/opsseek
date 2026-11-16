@@ -703,7 +703,7 @@
     event.preventDefault();
     if (configurationOpen || mode !== 'edit') return;
     const raw = event.dataTransfer?.getData(
-      'application/x-opskeeper-topology-component'
+      'application/x-opsseek-topology-component'
     );
     if (!raw) return;
     try {
@@ -717,7 +717,7 @@
   }
   function dragComponent(event: DragEvent, intent: ComponentIntent) {
     event.dataTransfer?.setData(
-      'application/x-opskeeper-topology-component',
+      'application/x-opsseek-topology-component',
       JSON.stringify(intent)
     );
     if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy';

@@ -1,6 +1,6 @@
 # 文档规范
 
-本文是 OpsKeeper 文档组织、编写、验收和归档的强制性规范。详细入口见 [docs/README.md](../README.md)；本文只保留边界和规则。
+本文是 OpsSeek 文档组织、编写、验收和归档的强制性规范。详细入口见 [docs/README.md](../README.md)；本文只保留边界和规则。
 
 ## 1. 文档原则
 

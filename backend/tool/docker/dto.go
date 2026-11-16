@@ -7,7 +7,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/system"
-	dockerclient "opskeeper/backend/mcpserver/docker/client"
+	dockerclient "opsseek/backend/mcpserver/docker/client"
 )
 
 // DockerInfoDTO is the stable public subset of Docker Engine information.

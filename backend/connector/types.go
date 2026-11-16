@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"opskeeper/backend/resource"
+	"opsseek/backend/resource"
 )
 
 type Capability string

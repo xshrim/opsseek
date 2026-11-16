@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	nt "opskeeper/backend/tool/nacos"
+	nt "opsseek/backend/tool/nacos"
 )
 
 type nacosAdapter struct{ input nt.ConnectionInput }

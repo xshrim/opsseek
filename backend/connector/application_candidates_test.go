@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	kt "opskeeper/backend/tool/kubernetes"
+	kt "opsseek/backend/tool/kubernetes"
 )
 
 func TestFinalizeApplicationCandidatesUsesUniqueIntersection(t *testing.T) {

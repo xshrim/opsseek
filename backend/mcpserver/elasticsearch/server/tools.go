@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	es "opskeeper/backend/tool/elasticsearch"
+	es "opsseek/backend/tool/elasticsearch"
 )
 
 type input struct{ es.ConnectionInput }

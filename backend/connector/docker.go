@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"opskeeper/backend/mcpserver/docker/client"
+	"opsseek/backend/mcpserver/docker/client"
 )
 
 type DockerDraftInput struct {

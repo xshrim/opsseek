@@ -1,16 +1,16 @@
-{{- define "opskeeper.name" -}}opskeeper{{- end }}
-{{- define "opskeeper.fullname" -}}{{ printf "%s-opskeeper" .Release.Name | trunc 63 | trimSuffix "-" }}{{- end }}
-{{- define "opskeeper.labels" -}}
-app.kubernetes.io/name: {{ include "opskeeper.name" . }}
+{{- define "opsseek.name" -}}opsseek{{- end }}
+{{- define "opsseek.fullname" -}}{{ printf "%s-opsseek" .Release.Name | trunc 63 | trimSuffix "-" }}{{- end }}
+{{- define "opsseek.labels" -}}
+app.kubernetes.io/name: {{ include "opsseek.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version }}
 {{- end }}
-{{- define "opskeeper.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "opskeeper.name" . }}
+{{- define "opsseek.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "opsseek.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
-{{- define "opskeeper.image" -}}
+{{- define "opsseek.image" -}}
 {{- $root := .root | default . -}}
 {{- $component := .component | default "api" -}}
 {{- if eq $component "api" }}{{- $component = "app" }}{{- end -}}
@@ -20,7 +20,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{ printf "%s-%s:%s" $root.Values.image.repository $component (default $root.Chart.AppVersion $root.Values.image.tag) }}
 {{- end -}}
 {{- end }}
-{{- define "opskeeper.podSecurityContext" -}}
+{{- define "opsseek.podSecurityContext" -}}
 runAsNonRoot: true
 runAsUser: 65532
 runAsGroup: 65532
@@ -28,13 +28,13 @@ fsGroup: 65532
 seccompProfile:
   type: RuntimeDefault
 {{- end }}
-{{- define "opskeeper.containerSecurityContext" -}}
+{{- define "opsseek.containerSecurityContext" -}}
 allowPrivilegeEscalation: false
 readOnlyRootFilesystem: true
 capabilities:
   drop: ["ALL"]
 {{- end }}
-{{- define "opskeeper.commonEnv" -}}
+{{- define "opsseek.commonEnv" -}}
 - name: OPSK_ENVIRONMENT
   value: production
 - name: OPSK_LOG_FORMAT

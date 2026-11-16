@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"opskeeper/backend/engine"
-	kclient "opskeeper/backend/mcpserver/kubernetes/client"
-	kt "opskeeper/backend/tool/kubernetes"
+	"opsseek/backend/engine"
+	kclient "opsseek/backend/mcpserver/kubernetes/client"
+	kt "opsseek/backend/tool/kubernetes"
 )
 
 type DiscoveredWorkload struct {

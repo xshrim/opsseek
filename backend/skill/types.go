@@ -30,7 +30,7 @@ const (
 	BodyFormatYAML     = "yaml"
 	BodyFormatMarkdown = "markdown"
 
-	DocumentAPIVersion = "opskeeper.skill/v1"
+	DocumentAPIVersion = "opsseek.skill/v1"
 	DocumentKind       = "Skill"
 )
 

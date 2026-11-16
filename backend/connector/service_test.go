@@ -17,8 +17,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
-	"opskeeper/backend/engine"
-	"opskeeper/backend/resource"
+	"opsseek/backend/engine"
+	"opsseek/backend/resource"
 )
 
 type stubResourceReader struct {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	ot "opskeeper/backend/tool/oceanbase"
+	ot "opsseek/backend/tool/oceanbase"
 )
 
 type OceanBaseDraftInput struct{ ot.ConnectionInput }

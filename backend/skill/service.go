@@ -6,9 +6,9 @@ import (
 	"slices"
 	"strings"
 
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/engine"
-	"opskeeper/backend/resource"
+	"opsseek/backend/authorization"
+	"opsseek/backend/engine"
+	"opsseek/backend/resource"
 )
 
 type ResourceReader interface {

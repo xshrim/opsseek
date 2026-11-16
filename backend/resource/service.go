@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"strings"
 
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/secret"
+	"opsseek/backend/authorization"
+	"opsseek/backend/secret"
 )
 
 type Store interface {

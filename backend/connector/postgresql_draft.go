@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	pt "opskeeper/backend/tool/postgresql"
+	pt "opsseek/backend/tool/postgresql"
 )
 
 type PostgreSQLDraftInput struct {

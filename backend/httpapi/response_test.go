@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5/middleware"
-	"opskeeper/backend/logging"
+	"opsseek/backend/logging"
 )
 
 func TestWriteErrorReturnsDisplayCodeAndType(t *testing.T) {
@@ -33,7 +33,7 @@ func TestWriteInternalErrorCorrelatesResponseAndLogs(t *testing.T) {
 	var output bytes.Buffer
 	logger := logging.NewRaw(&output).With("service", "test-api")
 	handler := middleware.RequestID(requestLogger(logger, "/", false)(requestLoggerContext(logger)(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		writeInternalError(writer, request, "resource lookup", errors.New("database password=secret postgres://db-user:db-secret@db.internal/opskeeper connection refused"))
+		writeInternalError(writer, request, "resource lookup", errors.New("database password=secret postgres://db-user:db-secret@db.internal/opsseek connection refused"))
 	}))))
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/resources", nil))

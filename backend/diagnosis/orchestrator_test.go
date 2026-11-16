@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	appdomain "opskeeper/backend/application"
-	"opskeeper/backend/engine"
-	"opskeeper/backend/resource"
+	appdomain "opsseek/backend/application"
+	"opsseek/backend/engine"
+	"opsseek/backend/resource"
 )
 
 func TestOrchestratorCreatesTraceableReportFromObservedEvidence(t *testing.T) {

@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"opskeeper/backend/application"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/notification"
-	"opskeeper/backend/persona"
-	"opskeeper/backend/resource"
-	"opskeeper/backend/secret"
+	"opsseek/backend/application"
+	"opsseek/backend/authorization"
+	"opsseek/backend/notification"
+	"opsseek/backend/persona"
+	"opsseek/backend/resource"
+	"opsseek/backend/secret"
 )
 
 type ResourceReader interface {
@@ -406,7 +406,7 @@ func (s *Service) TestConfiguredChannel(ctx context.Context, scopeID, id string)
 	if s.tester == nil {
 		return invalid("notification test sender is unavailable")
 	}
-	_, _, _, err = s.tester.Send(ctx, item.Channel.Kind, config, "OpsKeeper notification test", "This is a test notification from OpsKeeper.")
+	_, _, _, err = s.tester.Send(ctx, item.Channel.Kind, config, "OpsSeek notification test", "This is a test notification from OpsSeek.")
 	if err != nil {
 		return fmt.Errorf("notification channel test failed")
 	}

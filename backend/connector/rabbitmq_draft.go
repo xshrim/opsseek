@@ -3,7 +3,7 @@ package connector
 import (
 	"context"
 	"fmt"
-	rmq "opskeeper/backend/tool/rabbitmq"
+	rmq "opsseek/backend/tool/rabbitmq"
 	"time"
 )
 

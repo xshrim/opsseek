@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/identity"
+	"opsseek/backend/authorization"
+	"opsseek/backend/identity"
 )
 
 type authorizationService interface {

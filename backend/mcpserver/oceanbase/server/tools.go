@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	ot "opskeeper/backend/tool/oceanbase"
+	ot "opsseek/backend/tool/oceanbase"
 )
 
 type input struct{ ot.ConnectionInput }

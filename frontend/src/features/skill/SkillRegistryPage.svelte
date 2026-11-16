@@ -268,7 +268,7 @@
       const version = await api.createSkillVersion(selectedSkillId, {
         manifest: {
           name: selectedSkill?.name || '技能',
-          description: description || '由 OpsKeeper 管理的声明式技能',
+          description: description || '由 OpsSeek 管理的声明式技能',
           instruction
         },
         input_schema: JSON.parse(inputSchema),

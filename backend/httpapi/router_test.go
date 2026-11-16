@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"opskeeper/backend/health"
-	"opskeeper/backend/version"
+	"opsseek/backend/health"
+	"opsseek/backend/version"
 )
 
 var testBuild = version.Info{Version: "test", Commit: "abc123", BuildTime: "2026-01-01T00:00:00Z"}
@@ -96,7 +96,7 @@ func TestRouterSupportsRootBasePath(t *testing.T) {
 		writer.Header().Set("Content-Type", "text/html")
 		_, _ = writer.Write([]byte("web UI"))
 	})
-	router := NewRouter(logger, health.NewService("opskeeper-api", time.Second, nil), testBuild, Options{BasePath: "/"}, nil, webUI)
+	router := NewRouter(logger, health.NewService("opsseek-api", time.Second, nil), testBuild, Options{BasePath: "/"}, nil, webUI)
 
 	for _, test := range []struct {
 		path        string

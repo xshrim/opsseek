@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"opskeeper/backend/health"
-	"opskeeper/backend/organization"
+	"opsseek/backend/health"
+	"opsseek/backend/organization"
 )
 
 const handlerTestUUID = "11111111-1111-4111-8111-111111111111"
-const handlerTestBasePath = "/opskeeper"
+const handlerTestBasePath = "/opsseek"
 
 type stubOrganizationService struct {
 	createTeamInput organization.CreateTeamInput
@@ -23,7 +23,7 @@ type stubOrganizationService struct {
 }
 
 func (s *stubOrganizationService) GetPlatform(context.Context) (organization.Platform, error) {
-	return organization.Platform{ID: handlerTestUUID, Name: "OpsKeeper"}, nil
+	return organization.Platform{ID: handlerTestUUID, Name: "OpsSeek"}, nil
 }
 
 func (s *stubOrganizationService) CreateTeam(_ context.Context, input organization.CreateTeamInput) (organization.Team, error) {
@@ -76,7 +76,7 @@ func newOrganizationTestRouter(service organizationService) http.Handler {
 
 func newOrganizationTestRouterAt(basePath string, service organizationService) http.Handler {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return NewRouter(logger, health.NewService("opskeeper-api", time.Second, nil), testBuild, Options{BasePath: basePath}, service, nil)
+	return NewRouter(logger, health.NewService("opsseek-api", time.Second, nil), testBuild, Options{BasePath: basePath}, service, nil)
 }
 
 func TestCreateTeam(t *testing.T) {

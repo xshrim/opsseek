@@ -32,7 +32,7 @@ func (s *store) ResolveScopes(ctx context.Context, subject Subject, permission P
 	if err := s.pool.QueryRow(ctx, "SELECT revision FROM authorization_revision WHERE id = true").Scan(&revision); err != nil {
 		return ScopeFilter{}, fmt.Errorf("read authorization revision: %w", err)
 	}
-	cacheKey := fmt.Sprintf("opskeeper:authorization:%d:%s:%s", revision, subject.UserID, permission)
+	cacheKey := fmt.Sprintf("opsseek:authorization:%d:%s:%s", revision, subject.UserID, permission)
 	if s.cache != nil {
 		if cached, found, err := s.cache.Get(ctx, cacheKey); err == nil && found {
 			return cached, nil

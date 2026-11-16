@@ -16,7 +16,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	kt "opskeeper/backend/tool/kubernetes"
+	kt "opsseek/backend/tool/kubernetes"
 )
 
 const (
@@ -41,7 +41,7 @@ func New(cfg Config) (http.Handler, error) {
 	if strings.TrimSpace(cfg.Address) == "" {
 		return nil, errors.New("Kubernetes MCP HTTP address must not be empty")
 	}
-	s := mcp.NewServer(&mcp.Implementation{Name: "opskeeper-kubernetes-mcp", Title: "OpsKeeper Kubernetes MCP", Description: "Read-only Kubernetes inspection tools.", Version: "dev"}, nil)
+	s := mcp.NewServer(&mcp.Implementation{Name: "opsseek-kubernetes-mcp", Title: "OpsSeek Kubernetes MCP", Description: "Read-only Kubernetes inspection tools.", Version: "dev"}, nil)
 	RegisterTools(s)
 	getServer := func(*http.Request) *mcp.Server { return s }
 	stream := mcp.NewStreamableHTTPHandler(getServer, nil)

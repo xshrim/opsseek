@@ -7,7 +7,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"log"
 	"net/http"
-	rmq "opskeeper/backend/tool/rabbitmq"
+	rmq "opsseek/backend/tool/rabbitmq"
 	"os"
 	"strings"
 )
@@ -34,7 +34,7 @@ func New(cfg Config) (http.Handler, error) {
 	if strings.TrimSpace(cfg.Address) == "" {
 		return nil, errors.New("RabbitMQ MCP HTTP address must not be empty")
 	}
-	s := mcp.NewServer(&mcp.Implementation{Name: "opskeeper-rabbitmq-mcp", Title: "OpsKeeper RabbitMQ MCP", Description: "Read-only RabbitMQ Management API tools.", Version: "dev"}, nil)
+	s := mcp.NewServer(&mcp.Implementation{Name: "opsseek-rabbitmq-mcp", Title: "OpsSeek RabbitMQ MCP", Description: "Read-only RabbitMQ Management API tools.", Version: "dev"}, nil)
 	RegisterTools(s)
 	get := func(*http.Request) *mcp.Server { return s }
 	stream, sse := mcp.NewStreamableHTTPHandler(get, nil), mcp.NewSSEHandler(get, nil)

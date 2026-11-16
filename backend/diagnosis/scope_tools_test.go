@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	appdomain "opskeeper/backend/application"
-	"opskeeper/backend/authorization"
+	appdomain "opsseek/backend/application"
+	"opsseek/backend/authorization"
 )
 
 type scopeToolApplications struct{}

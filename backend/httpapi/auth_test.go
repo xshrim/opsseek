@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"opskeeper/backend/health"
-	"opskeeper/backend/identity"
+	"opsseek/backend/health"
+	"opsseek/backend/identity"
 )
 
 type stubIdentityService struct {

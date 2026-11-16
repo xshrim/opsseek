@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"opskeeper/backend/engine"
-	rt "opskeeper/backend/tool/redis"
+	"opsseek/backend/engine"
+	rt "opsseek/backend/tool/redis"
 )
 
 func (s *Service) resolveRedisTools(ctx context.Context, item engine.ContextResource, add func(string, string, json.RawMessage, func(context.Context, map[string]any) (engine.ToolResult, error))) error {

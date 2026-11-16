@@ -7,7 +7,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"log"
 	"net/http"
-	ot "opskeeper/backend/tool/oracle"
+	ot "opsseek/backend/tool/oracle"
 	"os"
 	"strings"
 )
@@ -34,7 +34,7 @@ func New(cfg Config) (http.Handler, error) {
 	if strings.TrimSpace(cfg.Address) == "" {
 		return nil, errors.New("Oracle MCP HTTP address must not be empty")
 	}
-	s := mcp.NewServer(&mcp.Implementation{Name: "opskeeper-oracle-mcp", Title: "OpsKeeper Oracle MCP", Description: "Read-only Oracle inspection tools.", Version: "dev"}, nil)
+	s := mcp.NewServer(&mcp.Implementation{Name: "opsseek-oracle-mcp", Title: "OpsSeek Oracle MCP", Description: "Read-only Oracle inspection tools.", Version: "dev"}, nil)
 	RegisterTools(s)
 	get := func(*http.Request) *mcp.Server { return s }
 	stream, sse := mcp.NewStreamableHTTPHandler(get, nil), mcp.NewSSEHandler(get, nil)

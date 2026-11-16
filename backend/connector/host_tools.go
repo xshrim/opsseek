@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"opskeeper/backend/engine"
-	host "opskeeper/backend/tool/host"
+	"opsseek/backend/engine"
+	host "opsseek/backend/tool/host"
 )
 
 func (s *Service) resolveHostTools(ctx context.Context, item engine.ContextResource, add func(string, string, json.RawMessage, func(context.Context, map[string]any) (engine.ToolResult, error))) error {

@@ -198,7 +198,7 @@ function pageData(page: Page, requireLogin = false, platformAdmin = false) {
             identifier: 'default-diagnostic',
             category: 'diagnosis',
             tags: [],
-            maintainer: 'OpsKeeper',
+            maintainer: 'OpsSeek',
             status: 'active'
           }
         ]
@@ -612,7 +612,7 @@ test.describe('T07 console', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           status: 'ready',
-          service: 'opskeeper-api',
+          service: 'opsseek-api',
           version: 'test',
           commit: 'test',
           build_time: '2026-01-01T00:00:00Z',
@@ -623,7 +623,7 @@ test.describe('T07 console', () => {
     });
     await pageData(page, true);
     await page.goto('/');
-    await expect(page.getByLabel('OpsKeeper 智能值守平台')).toBeVisible();
+    await expect(page.getByLabel('OpsSeek 智能值守平台')).toBeVisible();
     await expect(page.getByRole('heading', { name: '欢迎回来' })).toBeVisible();
     expect(healthRequests).toBe(0);
     expect(

@@ -10,7 +10,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	ot "opskeeper/backend/tool/oceanbase"
+	ot "opsseek/backend/tool/oceanbase"
 )
 
 const StreamableHTTPPath = "/mcp"
@@ -35,7 +35,7 @@ func New(cfg Config) (http.Handler, error) {
 	if strings.TrimSpace(cfg.Address) == "" {
 		return nil, errors.New("OceanBase MCP HTTP address must not be empty")
 	}
-	s := mcp.NewServer(&mcp.Implementation{Name: "opskeeper-oceanbase-mcp", Title: "OpsKeeper OceanBase MCP", Description: "Read-only OceanBase inspection tools.", Version: "dev"}, nil)
+	s := mcp.NewServer(&mcp.Implementation{Name: "opsseek-oceanbase-mcp", Title: "OpsSeek OceanBase MCP", Description: "Read-only OceanBase inspection tools.", Version: "dev"}, nil)
 	RegisterTools(s)
 	get := func(*http.Request) *mcp.Server { return s }
 	stream, sse := mcp.NewStreamableHTTPHandler(get, nil), mcp.NewSSEHandler(get, nil)

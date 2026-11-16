@@ -5,7 +5,7 @@
 
 ## 背景
 
-OpsKeeper 同时包含组织、身份、授权、资源、诊断和巡检等业务能力，但当前团队规模和部署需求不需要微服务。后端还需要保持 Go 代码直接、显式，避免按 Java 风格预先建立全局 Controller、Service、Repository 和 Adapter 层级。
+OpsSeek 同时包含组织、身份、授权、资源、诊断和巡检等业务能力，但当前团队规模和部署需求不需要微服务。后端还需要保持 Go 代码直接、显式，避免按 Java 风格预先建立全局 Controller、Service、Repository 和 Adapter 层级。
 
 ## 候选方案
 

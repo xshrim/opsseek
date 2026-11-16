@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	rt "opskeeper/backend/tool/redis"
+	rt "opsseek/backend/tool/redis"
 )
 
 type input struct{ rt.ConnectionInput }

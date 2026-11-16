@@ -61,7 +61,7 @@ func TestOfficialSDKInMemoryDiscoveryAndCall(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer serverSession.Close()
-	client := gomcp.NewClient(&gomcp.Implementation{Name: "opskeeper-test", Version: "1"}, nil)
+	client := gomcp.NewClient(&gomcp.Implementation{Name: "opsseek-test", Version: "1"}, nil)
 	clientSession, err := client.Connect(ctx, clientTransport, nil)
 	if err != nil {
 		t.Fatal(err)

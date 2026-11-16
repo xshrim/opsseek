@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"opskeeper/backend/authorization"
+	"opsseek/backend/authorization"
 )
 
 // AuthorizeResourceUse adapts the existing authorization context to the T02

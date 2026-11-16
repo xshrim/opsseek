@@ -6,7 +6,7 @@ SELECT version.skill_resource_id, 2, version.manifest, version.input_schema,
   JOIN resources AS resource ON resource.id = version.skill_resource_id
  WHERE version.version = 1
    AND resource.kind = 'Skill'
-   AND resource.config->>'owner' = 'OpsKeeper builtin'
+   AND resource.config->>'owner' = 'OpsSeek builtin'
    AND resource.name IN ('Kubernetes 工作负载诊断', 'PostgreSQL 健康诊断', 'Redis 健康诊断', 'Kafka 健康诊断')
 ON CONFLICT (skill_resource_id, version) DO NOTHING;
 
@@ -16,4 +16,4 @@ UPDATE skill_versions AS version
  WHERE version.skill_resource_id = resource.id
    AND version.version = 1
    AND resource.kind = 'Skill'
-   AND resource.config->>'owner' = 'OpsKeeper builtin';
+   AND resource.config->>'owner' = 'OpsSeek builtin';

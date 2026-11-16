@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"opskeeper/backend/application"
-	"opskeeper/backend/engine"
+	"opsseek/backend/application"
+	"opsseek/backend/engine"
 )
 
 type Orchestrator struct {
@@ -287,9 +287,9 @@ func (o *Orchestrator) run(ctx context.Context, sessionID string) {
 		conversation = append(conversation, map[string]string{"role": message.Role, "content": content})
 		engineMessages = append(engineMessages, engine.Message{Role: message.Role, Content: content})
 	}
-	instruction := "你是 OpsKeeper AI 助手。当前没有选择资源，请按用户意图进行自然、直接的普通对话，不要把问候或一般问题强行解释为故障诊断。"
+	instruction := "你是 OpsSeek AI 助手。当前没有选择资源，请按用户意图进行自然、直接的普通对话，不要把问候或一般问题强行解释为故障诊断。"
 	if len(targetIDs) > 0 {
-		instruction = "你是 OpsKeeper AI 助手。用户选择了受控资源；仅在问题需要时调用可用的只读工具，并清楚区分工具事实、推断和待验证内容。"
+		instruction = "你是 OpsSeek AI 助手。用户选择了受控资源；仅在问题需要时调用可用的只读工具，并清楚区分工具事实、推断和待验证内容。"
 	}
 	hasApplicationContext := session.ApplicationID != "" || len(session.ApplicationIDs) > 0 || len(session.ApplicationContext) > 0 && string(session.ApplicationContext) != "{}" && string(session.ApplicationContext) != "null"
 	if hasApplicationContext {

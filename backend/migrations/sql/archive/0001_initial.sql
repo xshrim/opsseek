@@ -1,4 +1,4 @@
--- OpsKeeper fresh database baseline.
+-- OpsSeek fresh database baseline.
 -- Generated from backend/migrations/sql/archive/*.sql in version order.
 
 -- >>> 0001_scope_organization.sql
@@ -167,7 +167,7 @@ BEGIN
         RETURNING id INTO root_scope_id;
 
         INSERT INTO platforms (scope_id, name, code, status)
-        VALUES (root_scope_id, 'OpsKeeper', 'default', 'active');
+        VALUES (root_scope_id, 'OpsSeek', 'default', 'active');
     END IF;
 END;
 $$;
@@ -1313,7 +1313,7 @@ CREATE TABLE diagnosis_reports (
 
 -- >>> 0013_builtin_skills.sql
 INSERT INTO resources (scope_id, kind, schema_version, name, config, status)
-SELECT platform.scope_id, 'Skill', 2, item.name, jsonb_build_object('summary', item.summary, 'owner', 'OpsKeeper builtin'), 'active'
+SELECT platform.scope_id, 'Skill', 2, item.name, jsonb_build_object('summary', item.summary, 'owner', 'OpsSeek builtin'), 'active'
   FROM platforms platform
  CROSS JOIN (VALUES
     ('Kubernetes 工作负载诊断', 'Kubernetes 工作负载、Pod、事件、探针和发布状态的只读诊断。'),
@@ -1337,7 +1337,7 @@ SELECT resource.id, 1,
 	    ('Redis 健康诊断', '只调用 Redis 固定诊断快照；不得请求写命令。输出 JSON，且必须包含 facts、findings、evidence、hypotheses、confidence 和 recommendations。', '["Redis"]', '[{"name":"connector_redis_inspect","description":"读取固定 Redis 健康快照。","input_schema":{"type":"object","required":["target_resource_id"],"properties":{"target_resource_id":{"type":"string"}},"additionalProperties":false}}]'),
 	    ('Kafka 健康诊断', '只调用 Kafka 固定诊断快照；不得请求管理操作。输出 JSON，且必须包含 facts、findings、evidence、hypotheses、confidence 和 recommendations。', '["Kafka"]', '[{"name":"connector_kafka_inspect","description":"读取固定 Kafka 健康快照。","input_schema":{"type":"object","required":["target_resource_id"],"properties":{"target_resource_id":{"type":"string"}},"additionalProperties":false}}]')
   ) AS item(name, instruction, target_kinds, tools) ON item.name = resource.name
- WHERE resource.kind = 'Skill' AND resource.config->>'owner' = 'OpsKeeper builtin'
+ WHERE resource.kind = 'Skill' AND resource.config->>'owner' = 'OpsSeek builtin'
 ON CONFLICT (skill_resource_id, version) DO NOTHING;
 
 -- >>> 0014_builtin_skill_output_contract.sql
@@ -1349,7 +1349,7 @@ SELECT version.skill_resource_id, 2, version.manifest, version.input_schema,
   JOIN resources AS resource ON resource.id = version.skill_resource_id
  WHERE version.version = 1
    AND resource.kind = 'Skill'
-   AND resource.config->>'owner' = 'OpsKeeper builtin'
+   AND resource.config->>'owner' = 'OpsSeek builtin'
    AND resource.name IN ('Kubernetes 工作负载诊断', 'PostgreSQL 健康诊断', 'Redis 健康诊断', 'Kafka 健康诊断')
 ON CONFLICT (skill_resource_id, version) DO NOTHING;
 
@@ -1359,7 +1359,7 @@ UPDATE skill_versions AS version
  WHERE version.skill_resource_id = resource.id
    AND version.version = 1
    AND resource.kind = 'Skill'
-   AND resource.config->>'owner' = 'OpsKeeper builtin';
+   AND resource.config->>'owner' = 'OpsSeek builtin';
 
 -- >>> 0015_inspection_notification.sql
 CREATE TABLE inspection_policies (

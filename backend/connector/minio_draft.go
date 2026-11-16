@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	mt "opskeeper/backend/tool/minio"
+	mt "opsseek/backend/tool/minio"
 )
 
 type MinIODraftInput struct{ mt.ConnectionInput }

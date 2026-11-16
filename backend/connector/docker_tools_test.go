@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	"opskeeper/backend/engine"
-	"opskeeper/backend/resource"
+	"opsseek/backend/engine"
+	"opsseek/backend/resource"
 )
 
 type dockerResourceReader struct {

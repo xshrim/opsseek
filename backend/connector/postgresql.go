@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	pt "opskeeper/backend/tool/postgresql"
+	pt "opsseek/backend/tool/postgresql"
 )
 
 type postgreSQLAdapter struct{ connection pt.ConnectionInput }

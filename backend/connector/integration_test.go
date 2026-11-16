@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"opskeeper/backend/connector"
-	"opskeeper/backend/migrations"
-	"opskeeper/backend/resource"
+	"opsseek/backend/connector"
+	"opsseek/backend/migrations"
+	"opsseek/backend/resource"
 )
 
 func TestConnectionCheckStorePersistsLatestResult(t *testing.T) {

@@ -7,15 +7,15 @@ import (
 	"syscall"
 	"time"
 
-	"opskeeper/backend/config"
-	"opskeeper/backend/database"
-	"opskeeper/backend/inspection"
-	"opskeeper/backend/logging"
-	"opskeeper/backend/observability"
-	"opskeeper/backend/version"
+	"opsseek/backend/config"
+	"opsseek/backend/database"
+	"opsseek/backend/inspection"
+	"opsseek/backend/logging"
+	"opsseek/backend/observability"
+	"opsseek/backend/version"
 )
 
-const serviceName = "opskeeper-scheduler"
+const serviceName = "opsseek-scheduler"
 
 func main() {
 	logger := logging.NewRaw(os.Stdout).With("service", serviceName)

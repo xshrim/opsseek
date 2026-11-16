@@ -5,7 +5,7 @@ describe('request', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     const base = document.createElement('base');
-    base.href = 'http://localhost:5173/opskeeper/';
+    base.href = 'http://localhost:5173/opsseek/';
     document.head.append(base);
   });
 
@@ -29,7 +29,7 @@ describe('request', () => {
       ok: true
     });
     expect(String(fetchMock.mock.calls[1][0])).toBe(
-      'http://localhost:5173/opskeeper/api/v1/auth/refresh'
+      'http://localhost:5173/opsseek/api/v1/auth/refresh'
     );
     expect(fetchMock.mock.calls[1][1]).toEqual(
       expect.objectContaining({ method: 'POST', credentials: 'include' })
@@ -91,7 +91,7 @@ describe('request', () => {
       });
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(String(fetchMock.mock.calls[0][0])).toBe(
-        `http://localhost:5173/opskeeper/api/v1/mock/errors${number === undefined ? '' : '?number=1002'}`
+        `http://localhost:5173/opsseek/api/v1/mock/errors${number === undefined ? '' : '?number=1002'}`
       );
       document.querySelector('base')?.remove();
     }
@@ -108,7 +108,7 @@ describe('request', () => {
       status: 0,
       code: 'E0045',
       message:
-        '无法连接到 OpsKeeper API，请确认后端服务已启动且代理或网络配置正确。'
+        '无法连接到 OpsSeek API，请确认后端服务已启动且代理或网络配置正确。'
     });
     document.querySelector('base')?.remove();
   });
@@ -133,13 +133,13 @@ describe('request', () => {
     await api.latestResourceConnectionCheck('resource-1');
 
     expect(String(fetchMock.mock.calls[0][0])).toBe(
-      'http://localhost:5173/opskeeper/api/v1/resources/resource-1/connection-tests'
+      'http://localhost:5173/opsseek/api/v1/resources/resource-1/connection-tests'
     );
     expect(fetchMock.mock.calls[0][1]).toEqual(
       expect.objectContaining({ method: 'POST' })
     );
     expect(String(fetchMock.mock.calls[1][0])).toBe(
-      'http://localhost:5173/opskeeper/api/v1/resources/resource-1/connection-tests/latest'
+      'http://localhost:5173/opsseek/api/v1/resources/resource-1/connection-tests/latest'
     );
     document.querySelector('base')?.remove();
   });
@@ -153,10 +153,10 @@ describe('request', () => {
 
     await api.diagnosisSessions('scope one');
     expect(String(fetchMock.mock.calls[0][0])).toBe(
-      'http://localhost:5173/opskeeper/api/v1/diagnosis-sessions?scope_id=scope%20one&limit=50'
+      'http://localhost:5173/opsseek/api/v1/diagnosis-sessions?scope_id=scope%20one&limit=50'
     );
     expect(String(api.diagnosisEventsURL('session-1', 42))).toBe(
-      'http://localhost:5173/opskeeper/api/v1/diagnosis-sessions/session-1/events?after=42'
+      'http://localhost:5173/opsseek/api/v1/diagnosis-sessions/session-1/events?after=42'
     );
     document.querySelector('base')?.remove();
   });
@@ -178,16 +178,16 @@ describe('request', () => {
     await api.createApplications('project-1', [{ name: 'API' }]);
 
     expect(String(fetchMock.mock.calls[0][0])).toBe(
-      'http://localhost:5173/opskeeper/api/v1/resources/resource-1/kubernetes/contexts'
+      'http://localhost:5173/opsseek/api/v1/resources/resource-1/kubernetes/contexts'
     );
     expect(String(fetchMock.mock.calls[1][0])).toBe(
-      'http://localhost:5173/opskeeper/api/v1/resources/resource-1/kubernetes/namespaces?context=prod%2Fcontext'
+      'http://localhost:5173/opsseek/api/v1/resources/resource-1/kubernetes/namespaces?context=prod%2Fcontext'
     );
     expect(String(fetchMock.mock.calls[2][0])).toBe(
-      'http://localhost:5173/opskeeper/api/v1/resources/resource-1/kubernetes/workloads?context=prod%2Fcontext&namespace=payments&filters=app%20in%20(api%2Cworker)&limit=100'
+      'http://localhost:5173/opsseek/api/v1/resources/resource-1/kubernetes/workloads?context=prod%2Fcontext&namespace=payments&filters=app%20in%20(api%2Cworker)&limit=100'
     );
     expect(String(fetchMock.mock.calls[3][0])).toBe(
-      'http://localhost:5173/opskeeper/api/v1/projects/project-1/applications/batch'
+      'http://localhost:5173/opsseek/api/v1/projects/project-1/applications/batch'
     );
     expect(fetchMock.mock.calls[3][1]).toEqual(
       expect.objectContaining({ method: 'POST' })
@@ -208,10 +208,10 @@ describe('request', () => {
     });
 
     expect(String(fetchMock.mock.calls[0][0])).toBe(
-      'http://localhost:5173/opskeeper/api/v1/resources/resource-1/kubernetes/namespaces'
+      'http://localhost:5173/opsseek/api/v1/resources/resource-1/kubernetes/namespaces'
     );
     expect(String(fetchMock.mock.calls[1][0])).toBe(
-      'http://localhost:5173/opskeeper/api/v1/resources/resource-1/kubernetes/workloads?namespace=default&filters=&limit=100'
+      'http://localhost:5173/opsseek/api/v1/resources/resource-1/kubernetes/workloads?namespace=default&filters=&limit=100'
     );
     document.querySelector('base')?.remove();
   });

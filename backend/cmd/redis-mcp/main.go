@@ -4,7 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"opskeeper/backend/mcpserver/redis/server"
+	"opsseek/backend/mcpserver/redis/server"
 	"os"
 )
 

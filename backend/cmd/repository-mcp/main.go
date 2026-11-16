@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
-	"opskeeper/backend/mcpserver/repository/server"
+	"opsseek/backend/mcpserver/repository/server"
 )
 
 func main() {

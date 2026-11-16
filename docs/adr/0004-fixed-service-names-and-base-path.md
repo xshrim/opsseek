@@ -5,7 +5,7 @@
 
 ## 背景
 
-OpsKeeper 需要部署在根路径或反向代理的子路径下，但服务名称、日志标识和镜像内二进制名称如果也由通用前缀动态拼接，会增加构建、探针、监控和运维文档的组合复杂度。
+OpsSeek 需要部署在根路径或反向代理的子路径下，但服务名称、日志标识和镜像内二进制名称如果也由通用前缀动态拼接，会增加构建、探针、监控和运维文档的组合复杂度。
 
 ## 候选方案
 
@@ -18,13 +18,13 @@ OpsKeeper 需要部署在根路径或反向代理的子路径下，但服务名�
 采用方案 3。服务名和镜像内二进制固定为：
 
 ```text
-opskeeper-api
-opskeeper-worker
-opskeeper-scheduler
-opskeeper-migrate
+opsseek-api
+opsseek-worker
+opsseek-scheduler
+opsseek-migrate
 ```
 
-`OPSK_BASE_PATH` 只控制 API、健康检查、静态资源和页面的 HTTP 路径前缀，默认 `/opskeeper`，支持 `/` 和多段子路径。构建过程不提供二进制名前缀变量。
+`OPSK_BASE_PATH` 只控制 API、健康检查、静态资源和页面的 HTTP 路径前缀，默认 `/opsseek`，支持 `/` 和多段子路径。构建过程不提供二进制名前缀变量。
 
 ## 影响
 

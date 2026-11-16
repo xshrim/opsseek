@@ -1,7 +1,7 @@
 package builtin
 
 import (
-	"opskeeper/backend/connector"
+	"opsseek/backend/connector"
 	"testing"
 )
 

@@ -17,10 +17,10 @@ func TestHandlerServesIndexAndStaticAssets(t *testing.T) {
 		bodyContains string
 		cacheControl string
 	}{
-		{path: "/opskeeper/", status: http.StatusOK, bodyContains: `href="/opskeeper/"`, cacheControl: "no-cache"},
-		{path: "/opskeeper/teams/example", status: http.StatusOK, bodyContains: `href="/opskeeper/"`, cacheControl: "no-cache"},
-		{path: "/opskeeper/assets/app.js", status: http.StatusOK, bodyContains: "console.log", cacheControl: "public, max-age=31536000, immutable"},
-		{path: "/opskeeper/assets/missing.js", status: http.StatusNotFound},
+		{path: "/opsseek/", status: http.StatusOK, bodyContains: `href="/opsseek/"`, cacheControl: "no-cache"},
+		{path: "/opsseek/teams/example", status: http.StatusOK, bodyContains: `href="/opsseek/"`, cacheControl: "no-cache"},
+		{path: "/opsseek/assets/app.js", status: http.StatusOK, bodyContains: "console.log", cacheControl: "public, max-age=31536000, immutable"},
+		{path: "/opsseek/assets/missing.js", status: http.StatusNotFound},
 	}
 
 	for _, test := range tests {
@@ -44,13 +44,13 @@ func TestHandlerServesIndexAndStaticAssets(t *testing.T) {
 
 func TestHandlerRejectsUnsupportedMethod(t *testing.T) {
 	handler := newTestHandler(t)
-	request := httptest.NewRequest(http.MethodPost, "/opskeeper/", nil)
+	request := httptest.NewRequest(http.MethodPost, "/opsseek/", nil)
 	response := httptest.NewRecorder()
 
 	handler.ServeHTTP(response, request)
 
 	if response.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("POST /opskeeper/ status = %d, want %d", response.Code, http.StatusMethodNotAllowed)
+		t.Fatalf("POST /opsseek/ status = %d, want %d", response.Code, http.StatusMethodNotAllowed)
 	}
 }
 
@@ -78,7 +78,7 @@ func newTestHandler(t *testing.T) http.Handler {
 		"index.html":    {Data: []byte(`<html><head><base href="./" data-opsk-runtime-base /></head></html>`)},
 		"assets/app.js": {Data: []byte(`console.log("ready")`)},
 	}
-	handler, err := newHandler(assets, "/opskeeper")
+	handler, err := newHandler(assets, "/opsseek")
 	if err != nil {
 		t.Fatalf("newHandler() error = %v", err)
 	}

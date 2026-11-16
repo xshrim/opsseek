@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	a "opskeeper/backend/engine"
-	"opskeeper/backend/resource"
-	rt "opskeeper/backend/tool/repository"
+	a "opsseek/backend/engine"
+	"opsseek/backend/resource"
+	rt "opsseek/backend/tool/repository"
 	"path/filepath"
 	"strings"
 )

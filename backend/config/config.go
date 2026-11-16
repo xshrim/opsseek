@@ -15,12 +15,12 @@ import (
 
 const (
 	defaultDBHost     = "localhost:5432"
-	defaultDBName     = "opskeeper"
-	defaultDBUser     = "opskeeper"
-	defaultDBPassword = "opskeeper"
+	defaultDBName     = "opsseek"
+	defaultDBUser     = "opsseek"
+	defaultDBPassword = "opsseek"
 	defaultDBSSLMode  = "disable"
 	defaultRedisURL   = "redis://localhost:6379/0"
-	defaultBasePath   = "/opskeeper"
+	defaultBasePath   = "/opsseek"
 	defaultLogFormat  = "raw"
 	maxBasePathLength = 128
 )
@@ -94,7 +94,7 @@ func Load() (Config, error) {
 		IdleTimeout:          60 * time.Second,
 		OTLPExporterEndpoint: strings.TrimSpace(os.Getenv("OPSK_OTEL_ENDPOINT")),
 		StorageBackend:       envOrDefault("OPSK_STORAGE_BACKEND", "postgres"),
-		RepositoryLocalRoot:  envOrDefault("OPSK_REPOSITORY_LOCAL_ROOT", "/var/lib/opskeeper/repositories"),
+		RepositoryLocalRoot:  envOrDefault("OPSK_REPOSITORY_LOCAL_ROOT", "/var/lib/opsseek/repositories"),
 		StorageS3Endpoint:    strings.TrimSpace(os.Getenv("OPSK_STORAGE_S3_ENDPOINT")),
 		StorageS3Bucket:      strings.TrimSpace(os.Getenv("OPSK_STORAGE_S3_BUCKET")),
 		StorageS3Prefix:      envOrDefault("OPSK_STORAGE_S3_PREFIX", "repositories"),

@@ -10,9 +10,9 @@
 # 运行发布前检查
 make quality
 # 构建 API、Worker、Scheduler、Frontend、App 五个服务镜像
-make image IMAGE_REPOSITORY=registry.example.com/opskeeper IMAGE_TAG=v0.1.0
+make image IMAGE_REPOSITORY=registry.example.com/opsseek IMAGE_TAG=v0.1.0
 # 保留的生产多阶段链路：在容器内完成依赖安装、源码编译和打包
-make image DOCKERFILE=deploy/Dockerfile.prd IMAGE_REPOSITORY=registry.example.com/opskeeper IMAGE_TAG=v0.1.0
+make image DOCKERFILE=deploy/Dockerfile.prd IMAGE_REPOSITORY=registry.example.com/opsseek IMAGE_TAG=v0.1.0
 ```
 
 `*-image` 和 `mcp-image` 均支持上述 `DOCKERFILE` 选择。快速链路自动使用 `GOOS=linux`、`CGO_ENABLED=0`；默认架构为宿主机架构，跨架构时必须让 `GOARCH` 与 Docker 的目标平台一致。直接执行 `docker build -f deploy/Dockerfile` 前，需自行准备对应的 Linux 二进制及 `frontend/dist`。快速链路仅传入制品和 Nginx 配置，生产链路继续使用根目录 `.dockerignore` 排除本地制品。
@@ -20,11 +20,11 @@ make image DOCKERFILE=deploy/Dockerfile.prd IMAGE_REPOSITORY=registry.example.co
 生成五个同版本镜像：
 
 ```text
-opskeeper-api        # 非嵌入前端的 API
-opskeeper-worker     # 巡检任务执行器
-opskeeper-scheduler  # 巡检调度器
-opskeeper-frontend   # Nginx 静态前端
-opskeeper-app        # 嵌入前端的单进程服务
+opsseek-api        # 非嵌入前端的 API
+opsseek-worker     # 巡检任务执行器
+opsseek-scheduler  # 巡检调度器
+opsseek-frontend   # Nginx 静态前端
+opsseek-app        # 嵌入前端的单进程服务
 ```
 
 发布应记录每个镜像 digest，不使用 `latest`。构建阶段不读取运行时 Secret。
@@ -35,12 +35,12 @@ MCP 制品与服务制品分开构建，不会被 `make build` 或 `make image` 
 # 构建 Docker、Host、Kubernetes MCP 二进制
 make mcp-build
 # 只构建一个 MCP 镜像
-make docker-mcp-image IMAGE_REPOSITORY=registry.example.com/opskeeper IMAGE_TAG=v0.1.0
+make docker-mcp-image IMAGE_REPOSITORY=registry.example.com/opsseek IMAGE_TAG=v0.1.0
 # 构建三个 MCP 镜像
-make mcp-image IMAGE_REPOSITORY=registry.example.com/opskeeper IMAGE_TAG=v0.1.0
+make mcp-image IMAGE_REPOSITORY=registry.example.com/opsseek IMAGE_TAG=v0.1.0
 ```
 
-对应镜像为 `opskeeper-docker-mcp`、`opskeeper-host-mcp`、`opskeeper-kubernetes-mcp`。它们默认分别监听 `8811`、`8813`、`8812`，运行时必须单独提供 Bearer Token 和所需访问能力。Docker MCP 需要显式挂载可访问的 Docker socket；Host MCP 在容器中只会观察容器自身，除非按部署边界额外挂载主机资源；Kubernetes MCP 需要提供集群网络和凭据。不要把这些高权限挂载或令牌写入镜像。
+对应镜像为 `opsseek-docker-mcp`、`opsseek-host-mcp`、`opsseek-kubernetes-mcp`。它们默认分别监听 `8811`、`8813`、`8812`，运行时必须单独提供 Bearer Token 和所需访问能力。Docker MCP 需要显式挂载可访问的 Docker socket；Host MCP 在容器中只会观察容器自身，除非按部署边界额外挂载主机资源；Kubernetes MCP 需要提供集群网络和凭据。不要把这些高权限挂载或令牌写入镜像。
 
 ## 2. Compose
 
@@ -79,14 +79,14 @@ make clean      # 删除 Compose 数据卷
 
 ## 3. Helm
 
-生产部署使用 `deploy/helm/opskeeper`。Chart 的 API 工作负载使用嵌入前端的 `opskeeper-app` 镜像，以便 Ingress 直接提供页面；Worker 和 Scheduler 使用独立镜像。
+生产部署使用 `deploy/helm/opsseek`。Chart 的 API 工作负载使用嵌入前端的 `opsseek-app` 镜像，以便 Ingress 直接提供页面；Worker 和 Scheduler 使用独立镜像。
 
 创建运行时 Secret（示例值不要提交）：
 
 ```bash
-kubectl -n opskeeper create secret generic opskeeper-runtime \
+kubectl -n opsseek create secret generic opsseek-runtime \
   --from-literal=OPSK_DB_HOST='<database-host:5432>' \
-  --from-literal=OPSK_DB_NAME='opskeeper' \
+  --from-literal=OPSK_DB_NAME='opsseek' \
   --from-literal=OPSK_DB_USER='<application-user>' \
   --from-literal=OPSK_DB_PASSWORD='<application-password>' \
   --from-literal=OPSK_CREDENTIAL_KEY='<32-byte-or-base64-key>'
@@ -96,29 +96,31 @@ kubectl -n opskeeper create secret generic opskeeper-runtime \
 
 ```yaml
 image:
-  repository: registry.example.com/opskeeper
+  repository: registry.example.com/opsseek
   digest: sha256:<digest>
-basePath: /opskeeper
-existingSecret: opskeeper-runtime
+basePath: /opsseek
+existingSecret: opsseek-runtime
 ingress:
   enabled: true
   host: ops.example.com
-  tlsSecretName: opskeeper-tls
+  tlsSecretName: opsseek-tls
 ```
 
 部署和验证：
 
 ```bash
-helm lint deploy/helm/opskeeper
-helm upgrade --install opskeeper deploy/helm/opskeeper \
-  --namespace opskeeper --create-namespace --atomic --timeout 15m \
+helm lint deploy/helm/opsseek
+helm upgrade --install opsseek deploy/helm/opsseek \
+  --namespace opsseek --create-namespace --atomic --timeout 15m \
   -f production-values.yaml
-kubectl -n opskeeper wait --for=condition=available \
-  deployment/opskeeper-opskeeper-api --timeout=5m
-curl --fail --silent https://ops.example.com/opskeeper/health/ready
+kubectl -n opsseek wait --for=condition=available \
+  deployment/opsseek-opsseek-api --timeout=5m
+curl --fail --silent https://ops.example.com/opsseek/health/ready
 ```
 
 ## 4. 迁移与权限
+
+本次更名不兼容旧部署：数据库和账号默认改为 `opsseek`，访问前缀改为 `/opsseek`，镜像、容器、二进制和 Helm Chart 均使用新名称；环境变量名仍使用 `OPSK_`。请使用新数据库初始化，不要将旧迁移记录直接交给新版本；开发环境默认凭据加密密钥也已更换，旧密文不能直接复用。更名前的数据应单独备份，需要保留的业务配置须重新导入并填写凭据。
 
 API/App 在监听端口前自动迁移，并通过 PostgreSQL advisory lock 防止并发执行。运行账号只需要本平台业务数据库的迁移权限，不需要 PostgreSQL 实例级超级用户权限，也不需要独立 Migration Job。
 

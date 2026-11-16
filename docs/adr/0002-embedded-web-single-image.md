@@ -15,7 +15,7 @@
 
 ## 决定
 
-采用方案 3 的拆分实现。本地开发可以分别运行 Vite 和 Go API，也可以通过 `make app-run` 构建并嵌入前端。生产构建通过 `go:embed` 把 Web 制品编译进 `opskeeper-app`，同时保留非嵌入的 `opskeeper-api` 和独立 `opskeeper-frontend`。
+采用方案 3 的拆分实现。本地开发可以分别运行 Vite 和 Go API，也可以通过 `make app-run` 构建并嵌入前端。生产构建通过 `go:embed` 把 Web 制品编译进 `opsseek-app`，同时保留非嵌入的 `opsseek-api` 和独立 `opsseek-frontend`。
 
 每个镜像只提供一个运行入口；App 镜像与 API、Worker、Scheduler 镜像由同一 Dockerfile 构建并使用同一版本标识。部署编排按工作负载选择独立服务或单进程 App。构建入口只由根 Makefile 暴露，Dockerfile 的 Builder 调用 Make 内部构建目标。
 

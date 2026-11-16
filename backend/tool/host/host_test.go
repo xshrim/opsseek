@@ -33,7 +33,7 @@ func TestResolveInputUsesToolThenEnvironmentThenLocal(t *testing.T) {
 }
 
 func TestFileLogsSupportsTailSinceAndKeyword(t *testing.T) {
-	file, err := os.CreateTemp("", "opskeeper-host-log-")
+	file, err := os.CreateTemp("", "opsseek-host-log-")
 	if err != nil {
 		t.Fatal(err)
 	}

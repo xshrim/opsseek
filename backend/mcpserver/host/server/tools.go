@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	host "opskeeper/backend/tool/host"
+	host "opsseek/backend/tool/host"
 )
 
 type HostInfoInput = host.InfoInput

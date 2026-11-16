@@ -3,7 +3,7 @@ package connector
 import (
 	"context"
 	"fmt"
-	kt "opskeeper/backend/tool/kafka"
+	kt "opsseek/backend/tool/kafka"
 	"time"
 )
 

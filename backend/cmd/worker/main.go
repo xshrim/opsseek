@@ -13,24 +13,24 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"opskeeper/backend/application"
-	"opskeeper/backend/config"
-	"opskeeper/backend/connector"
-	"opskeeper/backend/database"
-	"opskeeper/backend/engine"
-	"opskeeper/backend/inspection"
-	"opskeeper/backend/llm"
-	"opskeeper/backend/logging"
-	"opskeeper/backend/mcp"
-	"opskeeper/backend/observability"
-	"opskeeper/backend/persona"
-	"opskeeper/backend/resource"
-	"opskeeper/backend/secret"
-	"opskeeper/backend/skill"
-	"opskeeper/backend/version"
+	"opsseek/backend/application"
+	"opsseek/backend/config"
+	"opsseek/backend/connector"
+	"opsseek/backend/database"
+	"opsseek/backend/engine"
+	"opsseek/backend/inspection"
+	"opsseek/backend/llm"
+	"opsseek/backend/logging"
+	"opsseek/backend/mcp"
+	"opsseek/backend/observability"
+	"opsseek/backend/persona"
+	"opsseek/backend/resource"
+	"opsseek/backend/secret"
+	"opsseek/backend/skill"
+	"opsseek/backend/version"
 )
 
-const serviceName = "opskeeper-worker"
+const serviceName = "opsseek-worker"
 
 func main() {
 	logger := logging.NewRaw(os.Stdout).With("service", serviceName)
@@ -171,7 +171,7 @@ func listenForNotifications(ctx context.Context, databaseURL string, logger *slo
 				}
 				continue
 			}
-			if _, err := connection.Exec(ctx, `LISTEN opskeeper_notification`); err != nil {
+			if _, err := connection.Exec(ctx, `LISTEN opsseek_notification`); err != nil {
 				_ = connection.Close(context.Background())
 				logger.Warn("listen for notification queue", "kind", "dependency", "error_type", "notification-listener", "error", err)
 				if !waitForRetry(ctx) {
@@ -429,7 +429,7 @@ func inspectionPersona(policy inspection.Policy) *engine.Persona {
 	}
 	return &engine.Persona{
 		PersonaID: "builtin:inspection-persona", ScopeID: policy.ScopeID, Name: "巡检解释专家", Version: 1, Enabled: true,
-		Instruction:  "你是 OpsKeeper 巡检解释专家。仅基于确定性巡检结果和授权只读上下文解释异常，明确区分事实与推断，不执行写操作，不泄露凭据。输出简洁的原因分析与建议。",
+		Instruction:  "你是 OpsSeek 巡检解释专家。仅基于确定性巡检结果和授权只读上下文解释异常，明确区分事实与推断，不执行写操作，不泄露凭据。输出简洁的原因分析与建议。",
 		Capabilities: []string{"text", "tool_calling", "stream"},
 	}
 }

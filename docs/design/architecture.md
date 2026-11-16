@@ -1,4 +1,4 @@
-# OpsKeeper 总体架构设计
+# OpsSeek 总体架构设计
 
 ## 文档状态
 
@@ -10,7 +10,7 @@
 
 ## 1. 建设目标
 
-OpsKeeper 以业务项目为最终运维对象，以团队为基础设施和共享中间件的管理边界，以平台为公共能力和治理边界，为线上服务提供资源管理、智能诊断、自动巡检和运维审计能力。
+OpsSeek 以业务项目为最终运维对象，以团队为基础设施和共享中间件的管理边界，以平台为公共能力和治理边界，为线上服务提供资源管理、智能诊断、自动巡检和运维审计能力。
 
 平台重点管理：
 
@@ -73,7 +73,7 @@ flowchart LR
 | 后端基础 | Go、`chi`、`pgx` | 已实现，T01-T15 | REST API、健康检查、迁移和模块化业务能力 |
 | 查询生成 | `sqlc` | 候选，按真实复杂度引入 | 不作为所有 Store 的强制前置条件 |
 | Kubernetes 客户端 | `client-go` | 已实现，T08 | 集群发现、Project/Application 导入 |
-| Agent 与 Runner | Google ADK Go `v2.2.0` | 已实现，T10-T14 | `llmagent`、Runner 和 Function Tool 为执行内核；外层保留 OpsKeeper 权限、预算、审批和审计 |
+| Agent 与 Runner | Google ADK Go `v2.2.0` | 已实现，T10-T14 | `llmagent`、Runner 和 Function Tool 为执行内核；外层保留 OpsSeek 权限、预算、审批和审计 |
 | OpenAI-compatible | 项目内 Chat Completions Adapter | 已实现，T10 | 实现 ADK `model.LLM`，支持文本、SSE、usage 和 Tool Calling；来源归属见根目录 `THIRD_PARTY_NOTICES.md` |
 | MCP | Model Context Protocol 官方 Go SDK | 已实现，T14 | MCP 连接、能力发现和 Tool 调用，不自行实现协议栈 |
 | 数据库 | PostgreSQL 16 + pgvector | 已实现，T01-T15 | 保存组织、身份、授权、审计、资源、诊断、巡检、审批和任务数据；默认 Compose 镜像包含并启用 `vector` 扩展 |
@@ -138,26 +138,26 @@ flowchart LR
 
 ## 7. 核心 API 边界
 
-所有公开页面、健康检查和业务 API 统一挂载在 `OPSK_BASE_PATH` 下，默认值是 `/opskeeper`，也可以设置为根路径 `/`。以下示例使用默认值：
+所有公开页面、健康检查和业务 API 统一挂载在 `OPSK_BASE_PATH` 下，默认值是 `/opsseek`，也可以设置为根路径 `/`。以下示例使用默认值：
 
 当前已实现健康检查、身份、组织、授权、资源、资源连接密文、关系、拓扑和 Kubernetes 发现 API。后续 API 按任务逐步增加：
 
 | 路径示例 | 状态 |
 |---|---|
-| `/opskeeper/health/live`、`/opskeeper/health/ready` | 已实现，T01 |
-| `/opskeeper/api/v1/teams`、`/opskeeper/api/v1/teams/{teamId}/projects` | 已实现，T02 |
-| `/opskeeper/api/v1/auth/login`、`/opskeeper/api/v1/auth/refresh`、`/opskeeper/api/v1/auth/logout`、`/opskeeper/api/v1/auth/me` | 已实现，T03 |
-| `/opskeeper/api/v1/users`、`/opskeeper/api/v1/groups`、`/opskeeper/api/v1/roles`、`/opskeeper/api/v1/role-bindings`、`/opskeeper/api/v1/audit-logs` | 已实现基础管理能力，T05 |
-| `/opskeeper/api/v1/resources`、`/opskeeper/api/v1/resources/{resourceId}/relations`、`/opskeeper/api/v1/resources/{resourceId}/topology` | 已实现，T06 |
-| `/opskeeper/api/v1/resource-roles`、`/opskeeper/api/v1/resource-role-bindings` | 已实现，T08 |
-| `/opskeeper/api/v1/resources/{id}/connection-tests`、`/opskeeper/api/v1/resources/{id}/connection-tests/latest` | 已实现并验收，T09 |
-| `/opskeeper/api/v1/diagnosis-sessions`、`/opskeeper/api/v1/diagnosis-sessions/{id}/events` | 已实现，T11 |
-| `/opskeeper/api/v1/inspection-policies`、`/opskeeper/api/v1/inspection-runs` | 已实现，T13 |
-| `/opskeeper/api/v1/engines`、`/opskeeper/api/v1/engine-bindings` | 已实现，Engine 独立管理和场景绑定 |
-| `/opskeeper/api/v1/providers`、`/opskeeper/api/v1/providers/{id}/test` | 已实现，Provider 渠道和模型配置、异步连接测试 |
-| `/opskeeper/api/v1/skills/{id}/versions`、`/opskeeper/api/v1/skill-defaults` | 基础接口保留；标准 Skill 执行和智能巡检扩展暂缓 |
-| `/opskeeper/api/v1/personas`、`/opskeeper/api/v1/personas/{id}/versions` | 已实现，Persona 独立管理和版本接口 |
-| `/opskeeper/api/v1/providers/{id}/test` | Provider 与指定模型的连接测试 |
+| `/opsseek/health/live`、`/opsseek/health/ready` | 已实现，T01 |
+| `/opsseek/api/v1/teams`、`/opsseek/api/v1/teams/{teamId}/projects` | 已实现，T02 |
+| `/opsseek/api/v1/auth/login`、`/opsseek/api/v1/auth/refresh`、`/opsseek/api/v1/auth/logout`、`/opsseek/api/v1/auth/me` | 已实现，T03 |
+| `/opsseek/api/v1/users`、`/opsseek/api/v1/groups`、`/opsseek/api/v1/roles`、`/opsseek/api/v1/role-bindings`、`/opsseek/api/v1/audit-logs` | 已实现基础管理能力，T05 |
+| `/opsseek/api/v1/resources`、`/opsseek/api/v1/resources/{resourceId}/relations`、`/opsseek/api/v1/resources/{resourceId}/topology` | 已实现，T06 |
+| `/opsseek/api/v1/resource-roles`、`/opsseek/api/v1/resource-role-bindings` | 已实现，T08 |
+| `/opsseek/api/v1/resources/{id}/connection-tests`、`/opsseek/api/v1/resources/{id}/connection-tests/latest` | 已实现并验收，T09 |
+| `/opsseek/api/v1/diagnosis-sessions`、`/opsseek/api/v1/diagnosis-sessions/{id}/events` | 已实现，T11 |
+| `/opsseek/api/v1/inspection-policies`、`/opsseek/api/v1/inspection-runs` | 已实现，T13 |
+| `/opsseek/api/v1/engines`、`/opsseek/api/v1/engine-bindings` | 已实现，Engine 独立管理和场景绑定 |
+| `/opsseek/api/v1/providers`、`/opsseek/api/v1/providers/{id}/test` | 已实现，Provider 渠道和模型配置、异步连接测试 |
+| `/opsseek/api/v1/skills/{id}/versions`、`/opsseek/api/v1/skill-defaults` | 基础接口保留；标准 Skill 执行和智能巡检扩展暂缓 |
+| `/opsseek/api/v1/personas`、`/opsseek/api/v1/personas/{id}/versions` | 已实现，Persona 独立管理和版本接口 |
+| `/opsseek/api/v1/providers/{id}/test` | Provider 与指定模型的连接测试 |
 
 资源 ID 不代表访问权限。每个读取和写入请求都必须根据资源的实际作用域重新执行授权判断，禁止仅依赖前端或 URL 中的团队、项目参数。
 
@@ -165,9 +165,9 @@ flowchart LR
 
 ### 当前实现
 
-- 前后端源码和依赖保持独立；本地既可使用 Go API 与 Vite 分离热更新，也可通过 `make app-run` 构建并嵌入前端后只运行 App。生产构建同时提供非嵌入的 `opskeeper-api`、独立 `opskeeper-frontend` 静态镜像，以及嵌入前端的 `opskeeper-app` 镜像。
+- 前后端源码和依赖保持独立；本地既可使用 Go API 与 Vite 分离热更新，也可通过 `make app-run` 构建并嵌入前端后只运行 App。生产构建同时提供非嵌入的 `opsseek-api`、独立 `opsseek-frontend` 静态镜像，以及嵌入前端的 `opsseek-app` 镜像。
 - 应用临时运行、二进制构建和最终镜像打包统一由根目录 Makefile 提供入口，不使用独立包装脚本。
-- API、Worker、Scheduler、Frontend 和 App 的镜像名称固定为 `opskeeper-api`、`opskeeper-worker`、`opskeeper-scheduler`、`opskeeper-frontend` 和 `opskeeper-app`；API/App 启动时执行迁移，`OPSK_BASE_PATH` 只控制 API 的 HTTP 路径前缀。
+- API、Worker、Scheduler、Frontend 和 App 的镜像名称固定为 `opsseek-api`、`opsseek-worker`、`opsseek-scheduler`、`opsseek-frontend` 和 `opsseek-app`；API/App 启动时执行迁移，`OPSK_BASE_PATH` 只控制 API 的 HTTP 路径前缀。
 - API、Worker、Scheduler 和 Migration 的日志格式由 `OPSK_LOG_FORMAT` 统一控制，支持 `json`、`text` 和 `raw`，默认使用 `raw`；字段顺序、Trace/Span 和 ReqID 规则遵循[后端日志规范](../standards/backend-logging.md)。
 - API 默认不信任客户端转发头；只有 `OPSK_TRUSTED_PROXIES` 明确列出的直连代理才能提供客户端 IP，解析结果写入请求日志并供后续审计使用。
 - 数据库迁移由 API 启动阶段执行，使用 PostgreSQL advisory lock 防止并发；迁移完成前 API 不监听 HTTP 端口，Schema 演进遵循 Expand/Contract。
@@ -188,7 +188,7 @@ flowchart LR
 
 ### 数据库权限边界
 
-- PostgreSQL Cluster 管理员与 OpsKeeper 业务数据库所有者必须是不同角色。管理员负责实例、角色和数据库生命周期，业务角色只拥有应用数据库，不具备超级用户、创建数据库或创建角色权限。
+- PostgreSQL Cluster 管理员与 OpsSeek 业务数据库所有者必须是不同角色。管理员负责实例、角色和数据库生命周期，业务角色只拥有应用数据库，不具备超级用户、创建数据库或创建角色权限。
 - 容器首次初始化时，`POSTGRES_*` 只定义基础设施管理员和管理连接数据库，`OPSK_DB_*` 由项目初始化脚本用于创建受限的业务角色和业务数据库。
 - API、Worker、Scheduler 和数据库迁移只允许使用业务角色连接，不得注入或回退使用 PostgreSQL 超级用户凭据。
 - 初始化环境变量和 `/docker-entrypoint-initdb.d/` 脚本只对空数据目录生效；已有实例的角色、密码和所有权变更必须通过受控的数据库管理操作完成。

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"github.com/go-chi/chi/v5"
 	"net/http"
-	"opskeeper/backend/application"
-	"opskeeper/backend/authorization"
+	"opsseek/backend/application"
+	"opsseek/backend/authorization"
 )
 
 type applicationService interface {

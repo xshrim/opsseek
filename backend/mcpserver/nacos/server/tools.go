@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	nt "opskeeper/backend/tool/nacos"
+	nt "opsseek/backend/tool/nacos"
 )
 
 type input struct{ nt.ConnectionInput }

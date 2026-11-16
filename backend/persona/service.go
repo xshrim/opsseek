@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"strings"
 
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/engine"
+	"opsseek/backend/authorization"
+	"opsseek/backend/engine"
 )
 
 type PersonaResolver struct {

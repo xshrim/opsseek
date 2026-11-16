@@ -36,7 +36,7 @@ type RenderedTemplate struct {
 var allowedTemplateVariables = map[string]bool{
 	"event_type": true, "severity": true, "rule_name": true, "policy_name": true,
 	"resource_name": true, "scope_name": true, "finding_summary": true,
-	"first_observed_at": true, "last_observed_at": true, "run_url": true, "opskeeper_url": true,
+	"first_observed_at": true, "last_observed_at": true, "run_url": true, "opsseek_url": true,
 }
 
 func ValidateTemplate(draft TemplateDraft) (TemplateDraft, string, error) {

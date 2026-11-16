@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/engine"
+	"opsseek/backend/authorization"
+	"opsseek/backend/engine"
 )
 
 type fakePersonaCatalog struct{ items map[string]Persona }

@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
-	"opskeeper/backend/mcpserver/minio/server"
+	"opsseek/backend/mcpserver/minio/server"
 	"os"
 )
 

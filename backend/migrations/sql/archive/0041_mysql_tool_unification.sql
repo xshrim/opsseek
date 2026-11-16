@@ -4,7 +4,7 @@ SET schema = '{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"
 WHERE kind = 'MySQL';
 
 INSERT INTO resources (scope_id, kind, schema_version, name, config, status)
-SELECT platform.scope_id, 'Skill', 2, 'MySQL 健康诊断', jsonb_build_object('summary', 'MySQL 数据库状态、性能、配置和结构的只读诊断。', 'owner', 'OpsKeeper builtin'), 'active'
+SELECT platform.scope_id, 'Skill', 2, 'MySQL 健康诊断', jsonb_build_object('summary', 'MySQL 数据库状态、性能、配置和结构的只读诊断。', 'owner', 'OpsSeek builtin'), 'active'
   FROM platforms platform
  WHERE platform.code = 'default'
 ON CONFLICT (scope_id, kind, lower(name)) WHERE deleted_at IS NULL DO NOTHING;
@@ -17,5 +17,5 @@ SELECT resource.id, 1,
        '[{"name":"mysql_health","description":"检查 MySQL 健康"},{"name":"mysql_status","description":"读取 MySQL 状态"},{"name":"mysql_performance","description":"读取性能与配置"},{"name":"mysql_tables","description":"读取用户表信息"},{"name":"mysql_table_columns","description":"读取指定表列信息"},{"name":"mysql_table_structure","description":"读取指定表结构和索引"},{"name":"mysql_database_info","description":"读取数据库概要"}]'::jsonb,
        'read_only', 'published', now()
   FROM resources resource
- WHERE resource.kind = 'Skill' AND resource.name = 'MySQL 健康诊断' AND resource.config->>'owner' = 'OpsKeeper builtin'
+ WHERE resource.kind = 'Skill' AND resource.name = 'MySQL 健康诊断' AND resource.config->>'owner' = 'OpsSeek builtin'
 ON CONFLICT (skill_resource_id, version) DO NOTHING;

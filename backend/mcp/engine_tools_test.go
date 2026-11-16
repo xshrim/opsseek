@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"opskeeper/backend/engine"
+	"opsseek/backend/engine"
 )
 
 func TestPostgreSQLAgentArgumentsUseResourceConnection(t *testing.T) {
@@ -43,9 +43,9 @@ func TestAgentToolNamesMatchSupportedResourceToolkits(t *testing.T) {
 
 func TestDatabaseAgentUsesApplicationTargetWithoutChangingLogin(t *testing.T) {
 	p := mcpContextProvider{service: &Service{}}
-	resource := engine.ContextResource{Kind: "PostgreSQL", Subtype: "agent", Config: map[string]any{"database": "postgres", "username": "reader", "password": "secret"}, Binding: map[string]any{"database": "opskeeper", "username": "app"}}
+	resource := engine.ContextResource{Kind: "PostgreSQL", Subtype: "agent", Config: map[string]any{"database": "postgres", "username": "reader", "password": "secret"}, Binding: map[string]any{"database": "opsseek", "username": "app"}}
 	got, err := p.agentArguments(context.Background(), resource, map[string]any{"database": "model-db", "username": "model-user"})
-	if err != nil || got["database"] != "opskeeper" || got["username"] != "reader" || got["password"] != "secret" {
+	if err != nil || got["database"] != "opsseek" || got["username"] != "reader" || got["password"] != "secret" {
 		t.Fatalf("incorrect Agent target or authentication: %v", err)
 	}
 	if resource.Config["database"] != "postgres" {

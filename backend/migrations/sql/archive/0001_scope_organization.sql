@@ -163,7 +163,7 @@ BEGIN
         RETURNING id INTO root_scope_id;
 
         INSERT INTO platforms (scope_id, name, code, status)
-        VALUES (root_scope_id, 'OpsKeeper', 'default', 'active');
+        VALUES (root_scope_id, 'OpsSeek', 'default', 'active');
     END IF;
 END;
 $$;

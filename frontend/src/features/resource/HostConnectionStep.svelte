@@ -160,7 +160,7 @@
         ><TextInput
           bind:value={username}
           on:input={onConfigurationChange}
-          placeholder="例如 opskeeper"
+          placeholder="例如 opsseek"
           autocomplete="username"
           required={sshMode}
           disabled={!sshMode}

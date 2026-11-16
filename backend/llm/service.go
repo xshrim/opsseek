@@ -13,7 +13,7 @@ import (
 	"google.golang.org/adk/v2/model"
 	"google.golang.org/adk/v2/model/openaimodel"
 	"google.golang.org/genai"
-	"opskeeper/backend/authorization"
+	"opsseek/backend/authorization"
 )
 
 type Service struct {

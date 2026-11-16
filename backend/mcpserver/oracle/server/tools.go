@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"opskeeper/backend/tool/oracle"
+	"opsseek/backend/tool/oracle"
 )
 
 type input struct{ oracle.ConnectionInput }

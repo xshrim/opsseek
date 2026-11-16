@@ -1,7 +1,7 @@
 **
 !backend/
 !backend/bin/
-!backend/bin/opskeeper-*
+!backend/bin/opsseek-*
 !frontend/
 !frontend/dist/
 !frontend/dist/**

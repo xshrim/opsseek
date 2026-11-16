@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"opskeeper/backend/engine"
-	kt "opskeeper/backend/tool/kafka"
+	"opsseek/backend/engine"
+	kt "opsseek/backend/tool/kafka"
 )
 
 func (s *Service) resolveKafkaTools(ctx context.Context, item engine.ContextResource, add func(string, string, json.RawMessage, func(context.Context, map[string]any) (engine.ToolResult, error))) error {

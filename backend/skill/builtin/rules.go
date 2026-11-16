@@ -1,6 +1,6 @@
 package builtin
 
-import "opskeeper/backend/connector"
+import "opsseek/backend/connector"
 
 // Evaluate applies deterministic, version-independent thresholds to a bounded
 // Connector snapshot. The result is intentionally separate from model text.

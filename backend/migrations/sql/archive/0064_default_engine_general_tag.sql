@@ -3,5 +3,5 @@
 DELETE FROM engine_scope_bindings binding
 USING engines engine
 WHERE binding.engine_id = engine.id
-  AND engine.name = 'OpsKeeper Engine'
+  AND engine.name = 'OpsSeek Engine'
   AND binding.tag <> 'general';

@@ -1,5 +1,5 @@
 INSERT INTO resources(scope_id,kind,schema_version,name,config,status)
-SELECT p.scope_id,'Skill',2,'MinIO 健康诊断',jsonb_build_object('summary','MinIO 连接、存储桶、对象和桶配置的只读诊断。','owner','OpsKeeper builtin'),'active'
+SELECT p.scope_id,'Skill',2,'MinIO 健康诊断',jsonb_build_object('summary','MinIO 连接、存储桶、对象和桶配置的只读诊断。','owner','OpsSeek builtin'),'active'
 FROM platforms p WHERE p.code='default'
 ON CONFLICT (scope_id,kind,lower(name)) WHERE deleted_at IS NULL DO NOTHING;
 
@@ -9,5 +9,5 @@ jsonb_build_object('name',r.name,'description',r.config->>'summary','instruction
 '{}'::jsonb,'{}'::jsonb,
 '[{"name":"minio_health"},{"name":"minio_buckets"},{"name":"minio_bucket_objects"},{"name":"minio_object_stat"},{"name":"minio_bucket_versioning"},{"name":"minio_bucket_lifecycle"}]'::jsonb,
 'read_only','published',now()
-FROM resources r WHERE r.kind='Skill' AND r.name='MinIO 健康诊断' AND r.config->>'owner'='OpsKeeper builtin'
+FROM resources r WHERE r.kind='Skill' AND r.name='MinIO 健康诊断' AND r.config->>'owner'='OpsSeek builtin'
 ON CONFLICT (skill_resource_id,version) DO NOTHING;

@@ -17,7 +17,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/helingjun/obconnector-go"
 	_ "github.com/sijms/go-ora/v2"
-	"opskeeper/backend/tool/relational"
+	"opsseek/backend/tool/relational"
 )
 
 const (

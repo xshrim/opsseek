@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"opskeeper/backend/health"
-	"opskeeper/backend/identity"
-	"opskeeper/backend/resource"
+	"opsseek/backend/health"
+	"opsseek/backend/identity"
+	"opsseek/backend/resource"
 )
 
 type stubResourceService struct{ deletedIDs []string }

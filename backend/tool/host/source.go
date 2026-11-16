@@ -458,7 +458,7 @@ func knownHostsCallback(raw string) (ssh.HostKeyCallback, func(), error) {
 	path := raw
 	cleanup := func() {}
 	if provided {
-		file, err := os.CreateTemp("", "opskeeper-host-known-hosts-")
+		file, err := os.CreateTemp("", "opsseek-host-known-hosts-")
 		if err != nil {
 			return nil, func() {}, err
 		}

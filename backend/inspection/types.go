@@ -4,7 +4,7 @@ package inspection
 
 import "time"
 
-import "opskeeper/backend/notification"
+import "opsseek/backend/notification"
 
 const (
 	PolicyActive   = "active"

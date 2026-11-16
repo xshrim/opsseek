@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	ot "opskeeper/backend/tool/oracle"
+	ot "opsseek/backend/tool/oracle"
 )
 
 type oracleAdapter struct{ connection ot.ConnectionInput }

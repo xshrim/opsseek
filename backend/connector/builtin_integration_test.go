@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"opskeeper/backend/config"
-	"opskeeper/backend/resource"
+	"opsseek/backend/config"
+	"opsseek/backend/resource"
 )
 
 func TestBuiltinPostgreSQLAndRedisSnapshots(t *testing.T) {

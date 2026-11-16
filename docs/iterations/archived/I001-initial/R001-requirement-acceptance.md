@@ -7,7 +7,7 @@
 
 ## 1. 需求级验收结论
 
-本需求覆盖 OpsKeeper 首个迭代的工程基线、组织模型、身份认证、权限管理、资源目录、管理控制台、Kubernetes 导入、Connector、LLM/Skill、AI 诊断、内置诊断、自动巡检、MCP/操作审批及生产化加固。T01-T15 均已完成验收，用户已确认本需求通过并封板。
+本需求覆盖 OpsSeek 首个迭代的工程基线、组织模型、身份认证、权限管理、资源目录、管理控制台、Kubernetes 导入、Connector、LLM/Skill、AI 诊断、内置诊断、自动巡检、MCP/操作审批及生产化加固。T01-T15 均已完成验收，用户已确认本需求通过并封板。
 
 ## 2. 任务验收汇总
 
@@ -129,7 +129,7 @@ Makefile
 
 - 本地环境定义 PostgreSQL 16 和 Redis 7 服务。
 - 两个服务均配置健康检查。
-- PostgreSQL 管理员与业务用户分离，业务进程通过 `opskeeper` 用户连接 `opskeeper` 数据库。
+- PostgreSQL 管理员与业务用户分离，业务进程通过 `opsseek` 用户连接 `opsseek` 数据库。
 - API 创建 PostgreSQL 连接池和 Redis 客户端，并将实际连通性纳入就绪检查。
 
 本机没有安装 Docker Compose 插件，执行 `make infra-up` 时按预期返回：
@@ -218,8 +218,8 @@ CONTENT_TYPE:text/html
 执行：
 
 ```bash
-env GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+env GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   make quality
 ```
 
@@ -302,10 +302,10 @@ env GOMODCACHE=/tmp/opskeeper-gomodcache \
 | Redis | `redis:7-alpine` |
 | PostgreSQL 验收地址 | `127.0.0.1:55432` |
 | Redis 验收地址 | `127.0.0.1:56379` |
-| 开发运行 API | `127.0.0.1:58080/opskeeper` |
-| 生产二进制 API | `127.0.0.1:58081/opskeeper` |
+| 开发运行 API | `127.0.0.1:58080/opsseek` |
+| 生产二进制 API | `127.0.0.1:58081/opsseek` |
 
-为避免影响默认开发服务和已有数据，本次使用 `opskeeper-t02-postgres`、`opskeeper-t02-redis` 两个无持久化卷的临时容器，并使用隔离端口。Docker Compose v5.4.0 可用，`deploy/compose/docker-compose.yml` 已通过 `docker compose config --quiet` 解析；临时容器使用与 Compose 相同的镜像、环境变量和 PostgreSQL 初始化目录。
+为避免影响默认开发服务和已有数据，本次使用 `opsseek-t02-postgres`、`opsseek-t02-redis` 两个无持久化卷的临时容器，并使用隔离端口。Docker Compose v5.4.0 可用，`deploy/compose/docker-compose.yml` 已通过 `docker compose config --quiet` 解析；临时容器使用与 Compose 相同的镜像、环境变量和 PostgreSQL 初始化目录。
 
 #### 3. 逐项验收结果
 
@@ -336,8 +336,8 @@ git diff -- README.md docs/standards/version-control.md
 ```text
 /var/run/postgresql:5432 - accepting connections
 PONG
-opskeeper-t02-postgres|Up|127.0.0.1:55432->5432/tcp
-opskeeper-t02-redis|Up|127.0.0.1:56379->6379/tcp
+opsseek-t02-postgres|Up|127.0.0.1:55432->5432/tcp
+opsseek-t02-redis|Up|127.0.0.1:56379->6379/tcp
 ```
 
 PostgreSQL 初始化参数为：
@@ -346,9 +346,9 @@ PostgreSQL 初始化参数为：
 POSTGRES_DB=postgres
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
-OPSK_DB_NAME=opskeeper
-OPSK_DB_USER=opskeeper
-OPSK_DB_PASSWORD=opskeeper
+OPSK_DB_NAME=opsseek
+OPSK_DB_USER=opsseek
+OPSK_DB_PASSWORD=opsseek
 ```
 
 结论：**通过**。验收环境与默认开发环境隔离，PostgreSQL 和 Redis 均正常就绪。
@@ -358,23 +358,23 @@ OPSK_DB_PASSWORD=opskeeper
 查询角色属性，字段依次为 `rolsuper`、`rolcreatedb`、`rolcreaterole`、`rolreplication`、`rolbypassrls`：
 
 ```text
-opskeeper|false|false|false|false|false
+opsseek|false|false|false|false|false
 postgres|true|true|true|true|true
 ```
 
 查询数据库所有权：
 
 ```text
-opskeeper|opskeeper
+opsseek|opsseek
 postgres|postgres
 ```
 
-以 `opskeeper` 连接业务数据库，在事务中创建测试表并回滚：
+以 `opsseek` 连接业务数据库，在事务中创建测试表并回滚：
 
 ```text
 BEGIN
 CREATE TABLE
-opskeeper|opskeeper
+opsseek|opsseek
 ROLLBACK
 ```
 
@@ -385,7 +385,7 @@ ERROR: permission denied to create role
 DETAIL: Only roles with the CREATEROLE attribute may create roles.
 ```
 
-结论：**通过**。`postgres` 保持集群超级用户；`opskeeper` 拥有业务数据库并可执行库内 DDL，但不具备集群级管理权限。
+结论：**通过**。`postgres` 保持集群超级用户；`opsseek` 拥有业务数据库并可执行库内 DDL，但不具备集群级管理权限。
 
 ##### 步骤 4：迁移首次执行、幂等和状态模型
 
@@ -393,7 +393,7 @@ DETAIL: Only roles with the CREATEROLE attribute may create roles.
 
 ```bash
 cd backend
-OPSK_DATABASE_URL='postgres://opskeeper:opskeeper@127.0.0.1:55432/opskeeper?sslmode=disable' \
+OPSK_DATABASE_URL='postgres://opsseek:opsseek@127.0.0.1:55432/opsseek?sslmode=disable' \
   go run ./cmd/migrate
 ```
 
@@ -436,7 +436,7 @@ default|active|platform|parent_is_null=true
 
 ```bash
 cd backend
-OPSK_TEST_DATABASE_URL='postgres://opskeeper:opskeeper@127.0.0.1:55432/opskeeper?sslmode=disable' \
+OPSK_TEST_DATABASE_URL='postgres://opsseek:opsseek@127.0.0.1:55432/opsseek?sslmode=disable' \
   go test -count=1 -v -tags=integration ./migrations ./organization
 ```
 
@@ -463,8 +463,8 @@ TestMigrationRollback
 
 ```bash
 OPSK_HTTP_ADDRESS=127.0.0.1:58080 \
-OPSK_BASE_PATH=/opskeeper \
-OPSK_DATABASE_URL='postgres://opskeeper:opskeeper@127.0.0.1:55432/opskeeper?sslmode=disable' \
+OPSK_BASE_PATH=/opsseek \
+OPSK_DATABASE_URL='postgres://opsseek:opsseek@127.0.0.1:55432/opsseek?sslmode=disable' \
 OPSK_REDIS_URL='redis://127.0.0.1:56379/0' \
 OPSK_LOG_FORMAT=json \
 make APP_ENV_FILE=/dev/null run-front-api
@@ -475,7 +475,7 @@ make APP_ENV_FILE=/dev/null run-front-api
 1. Vite 构建成功，共转换 `110 modules`。
 2. `frontend/dist` 被复制到 `backend/webui/dist`。
 3. API 使用 `-tags=embed_webui` 启动。
-4. 日志显示 `service=opskeeper-api`、`address=127.0.0.1:58080`、`base_path=/opskeeper`。
+4. 日志显示 `service=opsseek-api`、`address=127.0.0.1:58080`、`base_path=/opsseek`。
 
 结论：**通过**。`run-front-api` 确实先复制前端制品，再运行包含嵌入资源的 Go API。
 
@@ -483,16 +483,16 @@ make APP_ENV_FILE=/dev/null run-front-api
 
 | 请求 | HTTP 状态 | 关键结果 |
 |---|---:|---|
-| `GET /opskeeper/health/live` | 200 | `status=alive`，包含版本字段 |
-| `GET /opskeeper/health/ready` | 200 | PostgreSQL 与 Redis 均为 `up` |
-| `GET /opskeeper/api/v1/platform` | 200 | `code=default`、Platform Scope 无父节点 |
-| `GET /opskeeper/` | 200 | 返回嵌入的 `index.html` |
-| `GET /opskeeper/assets/index-B0zh8Ocx.js` | 200 | 返回嵌入 JS，长期不可变缓存头正确 |
+| `GET /opsseek/health/live` | 200 | `status=alive`，包含版本字段 |
+| `GET /opsseek/health/ready` | 200 | PostgreSQL 与 Redis 均为 `up` |
+| `GET /opsseek/api/v1/platform` | 200 | `code=default`、Platform Scope 无父节点 |
+| `GET /opsseek/` | 200 | 返回嵌入的 `index.html` |
+| `GET /opsseek/assets/index-B0zh8Ocx.js` | 200 | 返回嵌入 JS，长期不可变缓存头正确 |
 
 页面 HTML 中的运行时基路径为：
 
 ```html
-<base href="/opskeeper/" data-opsk-runtime-base />
+<base href="/opsseek/" data-opsk-runtime-base />
 ```
 
 平台 ID 为 `8172ddf7-720c-4777-a35f-901d6df13992`，平台 Scope ID 为 `fcdade33-c6fb-4ef9-bdf1-bda42be020cc`。
@@ -593,7 +593,7 @@ X-Real-IP: 198.51.100.8
 对应 JSON 请求日志仍记录：
 
 ```text
-path=/opskeeper/health/live client_ip=127.0.0.1 status=200
+path=/opsseek/health/live client_ip=127.0.0.1 status=200
 ```
 
 执行竞态测试：
@@ -611,8 +611,8 @@ go test -race -count=1 ./config ./httpapi
 执行：
 
 ```bash
-GOMODCACHE=/tmp/opskeeper-gomodcache \
-GOCACHE=/tmp/opskeeper-gocache \
+GOMODCACHE=/tmp/opsseek-gomodcache \
+GOCACHE=/tmp/opsseek-gocache \
 make quality \
   VERSION=t02-acceptance \
   COMMIT=3f626ad77d785100a78f7973b7902ae44d848617 \
@@ -629,7 +629,7 @@ make quality \
 - Vitest：`1` 个测试文件、`3` 个测试全部通过。
 - 嵌入前端的 Go 测试通过。
 - Vite 生产构建成功，共转换 `110 modules`。
-- `opskeeper-api`、`opskeeper-worker`、`opskeeper-scheduler`、`opskeeper-migrate` 四个生产二进制构建成功。
+- `opsseek-api`、`opsseek-worker`、`opsseek-scheduler`、`opsseek-migrate` 四个生产二进制构建成功。
 - `go mod tidy -diff` 无输出，依赖文件无需整理。
 - `git diff --check` 无输出，没有空白错误。
 - Docker Compose 配置解析通过。
@@ -651,12 +651,12 @@ make image \
 构建成功，镜像信息：
 
 ```text
-image=opskeeper:t02-acceptance
+image=opsseek:t02-acceptance
 id=sha256:d0f2f4e6acf76053786371461d26507ea93b5e59f8cc4a3d3a473957943a919d
 version=t02-acceptance
 revision=3f626ad77d785100a78f7973b7902ae44d848617
 created=2026-08-15T13:41:00Z
-entrypoint=["/app/opskeeper-api"]
+entrypoint=["/app/opsseek-api"]
 ```
 
 Docker 构建使用：
@@ -667,16 +667,16 @@ ALPINE_MIRROR=https://mirrors.aliyun.com/alpine
 NPM_REGISTRY=https://registry.npmmirror.com
 ```
 
-直接运行 `backend/bin/opskeeper-api` 后，健康响应为 `200`，并返回：
+直接运行 `backend/bin/opsseek-api` 后，健康响应为 `200`，并返回：
 
 ```text
-service=opskeeper-api
+service=opsseek-api
 version=t02-acceptance
 commit=3f626ad77d785100a78f7973b7902ae44d848617
 build_time=2026-08-15T13:41:00Z
 ```
 
-同一生产二进制的 `/opskeeper/` 返回嵌入前端首页 `200`。
+同一生产二进制的 `/opsseek/` 返回嵌入前端首页 `200`。
 
 结论：**通过**。本地二进制和最终镜像使用同一 Makefile 构建逻辑，版本元数据一致，最终制品由单个 Go API 提供前后端服务。
 
@@ -685,8 +685,8 @@ build_time=2026-08-15T13:41:00Z
 验收结束后停止两个 API 进程，并删除本次创建的两个临时容器：
 
 ```text
-opskeeper-t02-postgres
-opskeeper-t02-redis
+opsseek-t02-postgres
+opsseek-t02-redis
 ```
 
 随后使用 `docker ps` 确认不再存在本次验收容器。没有删除默认 Compose 卷、开发数据库、仓库文件或用户已有容器。
@@ -714,7 +714,7 @@ opskeeper-t02-redis
 
 1. 本次运行验收使用无持久化卷的隔离临时容器，而不是启动默认 Compose 项目，目的是不触碰已有开发数据；Compose 文件本身已经由 Docker Compose v5.4.0 实际解析通过。
 2. Docker 当前使用 legacy builder，构建时提示未来将移除。镜像仍构建成功；后续可在开发环境安装 buildx，但这不影响当前 Dockerfile 和制品正确性。
-3. 沙箱默认 Go 缓存目录只读，验收统一使用 `/tmp/opskeeper-gocache` 和 `/tmp/opskeeper-gomodcache`；该环境调整不改变程序行为。
+3. 沙箱默认 Go 缓存目录只读，验收统一使用 `/tmp/opsseek-gocache` 和 `/tmp/opsseek-gomodcache`；该环境调整不改变程序行为。
 4. T02 按任务范围不包含身份认证、三级 RBAC 和组织管理页面，这些能力由后续阶段独立实施和验收。
 
 ---
@@ -746,9 +746,9 @@ T03 不包含角色、Scope 继承、RBAC、用户管理 API、OIDC/LDAP 和完�
 | Redis | `redis:7-alpine` |
 | PostgreSQL 验收地址 | `127.0.0.1:5432` |
 | Redis 验收地址 | `127.0.0.1:6379` |
-| API 验收地址 | `127.0.0.1:58082/opskeeper` |
+| API 验收地址 | `127.0.0.1:58082/opsseek` |
 
-使用 `COMPOSE_PROJECT_NAME=opskeeper-t03 make infra-up` 创建隔离 Compose 项目。验收结束后通过 `make infra-down` 停止并删除容器和网络，并删除本次专用数据卷；未使用默认开发数据。
+使用 `COMPOSE_PROJECT_NAME=opsseek-t03 make infra-up` 创建隔离 Compose 项目。验收结束后通过 `make infra-down` 停止并删除容器和网络，并删除本次专用数据卷；未使用默认开发数据。
 
 #### 3. 验收步骤与结果
 
@@ -779,13 +779,13 @@ fe13836 feat(runtime): finalize stage two delivery model
 执行：
 
 ```bash
-env GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+env GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   make quality
 
 cd backend
-env GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+env GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   go test -race -count=1 ./config ./httpapi ./identity
 ```
 
@@ -801,15 +801,15 @@ env GOMODCACHE=/tmp/opskeeper-gomodcache \
 执行：
 
 ```bash
-COMPOSE_PROJECT_NAME=opskeeper-t03 make infra-up
+COMPOSE_PROJECT_NAME=opsseek-t03 make infra-up
 docker ps --format '{{.Names}}|{{.Ports}}|{{.Status}}'
 ```
 
 结果：
 
 ```text
-opskeeper-t03-postgres-1|127.0.0.1:5432->5432/tcp|Up (healthy)
-opskeeper-t03-redis-1|127.0.0.1:6379->6379/tcp|Up (healthy)
+opsseek-t03-postgres-1|127.0.0.1:5432->5432/tcp|Up (healthy)
+opsseek-t03-redis-1|127.0.0.1:6379->6379/tcp|Up (healthy)
 ```
 
 结论：**通过**。两个依赖均通过健康检查。
@@ -819,9 +819,9 @@ opskeeper-t03-redis-1|127.0.0.1:6379->6379/tcp|Up (healthy)
 执行两次：
 
 ```bash
-env OPSK_DATABASE_URL='postgres://opskeeper:opskeeper@127.0.0.1:5432/opskeeper?sslmode=disable' \
-  GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+env OPSK_DATABASE_URL='postgres://opsseek:opsseek@127.0.0.1:5432/opsseek?sslmode=disable' \
+  GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   make APP_ENV_FILE=/dev/null migrate
 ```
 
@@ -850,18 +850,18 @@ admin@example.com|active|$argon2id$
 执行：
 
 ```bash
-env OPSK_TEST_DATABASE_URL='postgres://opskeeper:opskeeper@127.0.0.1:5432/opskeeper?sslmode=disable' \
-  GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+env OPSK_TEST_DATABASE_URL='postgres://opsseek:opsseek@127.0.0.1:5432/opsseek?sslmode=disable' \
+  GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   make APP_ENV_FILE=/dev/null backend-integration-test
 ```
 
 结果：
 
 ```text
-ok  opskeeper/backend/migrations
-ok  opskeeper/backend/organization
-ok  opskeeper/backend/identity
+ok  opsseek/backend/migrations
+ok  opsseek/backend/organization
+ok  opsseek/backend/identity
 ```
 
 覆盖内容：迁移锁和并发幂等、迁移 checksum、身份迁移回滚、首个管理员并发创建只成功一次、用户名/邮箱/手机号登录、邮箱与手机号唯一绑定、错误密码、密码哈希不落明文、Token 摘要不落明文、访问和刷新过期、刷新轮换、旧 Token 重放、并发刷新单赢家、注销、全部会话失效，以及 disabled/locked 用户会话立即失效。
@@ -873,11 +873,11 @@ ok  opskeeper/backend/identity
 通过临时密码文件执行：
 
 ```bash
-env OPSK_DATABASE_URL='postgres://opskeeper:opskeeper@127.0.0.1:5432/opskeeper?sslmode=disable' \
+env OPSK_DATABASE_URL='postgres://opsseek:opsseek@127.0.0.1:5432/opsseek?sslmode=disable' \
   OPSK_REDIS_URL='redis://127.0.0.1:6379/0' \
   OPSK_BOOTSTRAP_USERNAME=admin \
   OPSK_BOOTSTRAP_EMAIL=admin@example.com \
-  OPSK_BOOTSTRAP_PASSWORD_FILE=/tmp/opskeeper-t03-password \
+  OPSK_BOOTSTRAP_PASSWORD_FILE=/tmp/opsseek-t03-password \
   make APP_ENV_FILE=/dev/null admin-create
 ```
 
@@ -901,8 +901,8 @@ create bootstrap administrator: bootstrap administrator already exists
 
 ```bash
 env OPSK_HTTP_ADDRESS=127.0.0.1:58082 \
-  OPSK_BASE_PATH=/opskeeper \
-  OPSK_DATABASE_URL='postgres://opskeeper:opskeeper@127.0.0.1:5432/opskeeper?sslmode=disable' \
+  OPSK_BASE_PATH=/opsseek \
+  OPSK_DATABASE_URL='postgres://opsseek:opsseek@127.0.0.1:5432/opsseek?sslmode=disable' \
   OPSK_REDIS_URL='redis://127.0.0.1:6379/0' \
   make APP_ENV_FILE=/dev/null run-front-api
 ```
@@ -912,8 +912,8 @@ env OPSK_HTTP_ADDRESS=127.0.0.1:58082 \
 - Vite 成功构建前端，转换 `110 modules`。
 - `frontend/dist` 被复制到 `backend/webui/dist`。
 - API 使用 `-tags=embed_webui` 启动并监听 `127.0.0.1:58082`。
-- `GET /opskeeper/` 返回嵌入的 `index.html`，其中包含 `<base href="/opskeeper/">`。
-- `GET /opskeeper/health/live` 返回 `200` 和 `status=alive`。
+- `GET /opsseek/` 返回嵌入的 `index.html`，其中包含 `<base href="/opsseek/">`。
+- `GET /opsseek/health/live` 返回 `200` 和 `status=alive`。
 
 结论：**通过**。前端制品确实被嵌入 Go API，单进程同时提供页面、静态资源和 API。
 
@@ -925,7 +925,7 @@ env OPSK_HTTP_ADDRESS=127.0.0.1:58082 \
 | `/auth/bootstrap` 公开接口 | `404 not_found` |
 | 未认证访问组织 API | `401 invalid_session` |
 | 正确密码登录 | `200`，JSON 仅返回用户资料 |
-| 登录 Cookie | `HttpOnly`、`SameSite=Lax`、`Path=/opskeeper`、有效过期时间 |
+| 登录 Cookie | `HttpOnly`、`SameSite=Lax`、`Path=/opsseek`、有效过期时间 |
 | Cookie 访问 `/auth/me` | `200` |
 | Bearer Token 访问 `/auth/me` | `200` |
 | Cookie 访问组织平台 API | `200` |
@@ -943,14 +943,14 @@ env OPSK_HTTP_ADDRESS=127.0.0.1:58082 \
 执行：
 
 ```bash
-COMPOSE_PROJECT_NAME=opskeeper-t03 make infra-down
-docker volume rm opskeeper-t03_postgres-data opskeeper-t03_redis-data
+COMPOSE_PROJECT_NAME=opsseek-t03 make infra-down
+docker volume rm opsseek-t03_postgres-data opsseek-t03_redis-data
 ```
 
 结果：
 
-- `opskeeper-t03-postgres-1` 和 `opskeeper-t03-redis-1` 已停止并删除。
-- `opskeeper-t03_default` 网络和两个临时数据卷已删除。
+- `opsseek-t03-postgres-1` 和 `opsseek-t03-redis-1` 已停止并删除。
+- `opsseek-t03_default` 网络和两个临时数据卷已删除。
 - 临时密码文件和 Cookie 文件已删除。
 - 未留下验收专用容器或卷。
 
@@ -994,7 +994,7 @@ T03 已完成本地身份和会话安全基线，但以下内容明确留给后�
 | PostgreSQL 验收地址 | `127.0.0.1:5432` |
 | Redis 验收地址 | `127.0.0.1:6379` |
 
-验收期间使用 `COMPOSE_PROJECT_NAME=opskeeper-t04 make infra-up` 创建隔离的 PostgreSQL、Redis、网络和数据卷。验收结束后已执行 `make infra-down` 并删除两个临时数据卷。
+验收期间使用 `COMPOSE_PROJECT_NAME=opsseek-t04 make infra-up` 创建隔离的 PostgreSQL、Redis、网络和数据卷。验收结束后已执行 `make infra-down` 并删除两个临时数据卷。
 
 #### 3. 验收步骤与结果
 
@@ -1017,8 +1017,8 @@ git diff --stat main...HEAD
 执行：
 
 ```bash
-env GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+env GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   make quality
 ```
 
@@ -1032,8 +1032,8 @@ env GOMODCACHE=/tmp/opskeeper-gomodcache \
 
 ```bash
 cd backend
-env GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+env GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   go test -race -count=1 ./config ./httpapi ./authorization ./identity
 ```
 
@@ -1046,15 +1046,15 @@ env GOMODCACHE=/tmp/opskeeper-gomodcache \
 执行：
 
 ```bash
-COMPOSE_PROJECT_NAME=opskeeper-t04 make infra-up
+COMPOSE_PROJECT_NAME=opsseek-t04 make infra-up
 docker ps --format '{{.Names}}|{{.Ports}}|{{.Status}}'
 ```
 
 结果：
 
 ```text
-opskeeper-t04-postgres-1|127.0.0.1:5432->5432/tcp|Up (healthy)
-opskeeper-t04-redis-1|127.0.0.1:6379->6379/tcp|Up (healthy)
+opsseek-t04-postgres-1|127.0.0.1:5432->5432/tcp|Up (healthy)
+opsseek-t04-redis-1|127.0.0.1:6379->6379/tcp|Up (healthy)
 ```
 
 结论：**通过**。两个依赖均通过健康检查。
@@ -1064,19 +1064,19 @@ opskeeper-t04-redis-1|127.0.0.1:6379->6379/tcp|Up (healthy)
 执行：
 
 ```bash
-env OPSK_TEST_DATABASE_URL='postgres://opskeeper:opskeeper@127.0.0.1:5432/opskeeper?sslmode=disable' \
-  GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+env OPSK_TEST_DATABASE_URL='postgres://opsseek:opsseek@127.0.0.1:5432/opsseek?sslmode=disable' \
+  GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   make APP_ENV_FILE=/dev/null backend-integration-test
 ```
 
 结果：
 
 ```text
-ok  opskeeper/backend/migrations
-ok  opskeeper/backend/organization
-ok  opskeeper/backend/identity
-ok  opskeeper/backend/authorization
+ok  opsseek/backend/migrations
+ok  opsseek/backend/organization
+ok  opsseek/backend/identity
+ok  opsseek/backend/authorization
 ```
 
 覆盖内容：
@@ -1117,8 +1117,8 @@ ok  opskeeper/backend/authorization
 执行：
 
 ```bash
-COMPOSE_PROJECT_NAME=opskeeper-t04 make infra-down
-docker volume rm opskeeper-t04_postgres-data opskeeper-t04_redis-data
+COMPOSE_PROJECT_NAME=opsseek-t04 make infra-down
+docker volume rm opsseek-t04_postgres-data opsseek-t04_redis-data
 ```
 
 结果：验收容器、网络和临时数据卷均已删除，未留下 T04 专用运行资源。
@@ -1155,9 +1155,9 @@ T04 采用 PostgreSQL 作为授权权威来源，暂不使用 Redis 权限缓存
 | Docker Compose | `v5.4.0` |
 | PostgreSQL | `postgres:16-alpine` |
 | Redis | `redis:7-alpine` |
-| API 验收地址 | `127.0.0.1:58085/opskeeper` |
+| API 验收地址 | `127.0.0.1:58085/opsseek` |
 
-验收使用 `COMPOSE_PROJECT_NAME=opskeeper-t05` 创建隔离中间件。结束后已删除容器、网络、数据卷、临时管理员密码文件和 Cookie 文件。
+验收使用 `COMPOSE_PROJECT_NAME=opsseek-t05` 创建隔离中间件。结束后已删除容器、网络、数据卷、临时管理员密码文件和 Cookie 文件。
 
 #### 3. 验收步骤与结果
 
@@ -1179,14 +1179,14 @@ git log --oneline --decorate -6
 执行：
 
 ```bash
-COMPOSE_PROJECT_NAME=opskeeper-t05 make infra-up
-env OPSK_DATABASE_URL='postgres://opskeeper:opskeeper@127.0.0.1:5432/opskeeper?sslmode=disable' \
-  GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+COMPOSE_PROJECT_NAME=opsseek-t05 make infra-up
+env OPSK_DATABASE_URL='postgres://opsseek:opsseek@127.0.0.1:5432/opsseek?sslmode=disable' \
+  GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   make APP_ENV_FILE=/dev/null migrate
-env OPSK_TEST_DATABASE_URL='postgres://opskeeper:opskeeper@127.0.0.1:5432/opskeeper?sslmode=disable' \
-  GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+env OPSK_TEST_DATABASE_URL='postgres://opsseek:opsseek@127.0.0.1:5432/opsseek?sslmode=disable' \
+  GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   make APP_ENV_FILE=/dev/null backend-integration-test
 ```
 
@@ -1214,13 +1214,13 @@ env OPSK_TEST_DATABASE_URL='postgres://opskeeper:opskeeper@127.0.0.1:5432/opskee
 执行：
 
 ```bash
-env GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+env GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   make quality
 
 cd backend
-env GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+env GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   go test -race -count=1 ./config ./httpapi ./authorization ./identity ./audit
 ```
 
@@ -1255,8 +1255,8 @@ env GOMODCACHE=/tmp/opskeeper-gomodcache \
 执行：
 
 ```bash
-COMPOSE_PROJECT_NAME=opskeeper-t05 make infra-down
-docker volume rm opskeeper-t05_postgres-data opskeeper-t05_redis-data
+COMPOSE_PROJECT_NAME=opsseek-t05 make infra-down
+docker volume rm opsseek-t05_postgres-data opsseek-t05_redis-data
 ```
 
 结果：T05 验收容器、网络、数据卷和临时凭据均已清理。
@@ -1298,7 +1298,7 @@ T05 使用 PostgreSQL 作为用户、组、角色绑定和审计权威来源；R
 | Redis | `redis:7-alpine` |
 | 验收 PostgreSQL | `127.0.0.1:55437` |
 | 验收 Redis | `127.0.0.1:56384` |
-| Compose 项目 | `opskeeper-t06-acceptance` |
+| Compose 项目 | `opsseek-t06-acceptance` |
 
 验收使用独立 Compose 项目、端口、网络和数据卷。结束后已删除验收容器、网络和数据卷。
 
@@ -1323,8 +1323,8 @@ git diff --check origin/main...HEAD
 执行：
 
 ```bash
-env GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+env GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   make quality
 ```
 
@@ -1347,8 +1347,8 @@ env GOMODCACHE=/tmp/opskeeper-gomodcache \
 
 ```bash
 cd backend
-env GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+env GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   go test -race -count=1 \
     ./config ./httpapi ./authorization ./identity ./audit ./resource
 ```
@@ -1362,25 +1362,25 @@ env GOMODCACHE=/tmp/opskeeper-gomodcache \
 使用 PostgreSQL `127.0.0.1:55437` 启动隔离数据库后执行：
 
 ```bash
-env OPSK_DATABASE_URL='postgres://opskeeper:opskeeper@127.0.0.1:55437/opskeeper?sslmode=disable' \
-  GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+env OPSK_DATABASE_URL='postgres://opsseek:opsseek@127.0.0.1:55437/opsseek?sslmode=disable' \
+  GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   make APP_ENV_FILE=/dev/null migrate
 
-env OPSK_TEST_DATABASE_URL='postgres://opskeeper:opskeeper@127.0.0.1:55437/opskeeper?sslmode=disable' \
-  GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+env OPSK_TEST_DATABASE_URL='postgres://opsseek:opsseek@127.0.0.1:55437/opsseek?sslmode=disable' \
+  GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   make APP_ENV_FILE=/dev/null backend-integration-test
 ```
 
 结果：
 
 ```text
-ok opskeeper/backend/migrations
-ok opskeeper/backend/organization
-ok opskeeper/backend/identity
-ok opskeeper/backend/authorization
-ok opskeeper/backend/resource
+ok opsseek/backend/migrations
+ok opsseek/backend/organization
+ok opsseek/backend/identity
+ok opsseek/backend/authorization
+ok opsseek/backend/resource
 ```
 
 迁移测试覆盖 `0001` 至 `0006` 前滚、回滚、checksum 和并发迁移；既有组织、身份和授权集成回归均通过。
@@ -1444,7 +1444,7 @@ HTTP 脱敏回归测试位于 `backend/httpapi/resource_test.go`，凭据密文�
 ```bash
 docker compose -f deploy/compose/docker-compose.yml \
   --env-file deploy/compose/.env.example \
-  -p opskeeper-t06-acceptance down -v
+  -p opsseek-t06-acceptance down -v
 ```
 
 结果：验收专用 PostgreSQL、Redis、网络和数据卷均已清理，未修改默认开发环境资源。
@@ -1530,7 +1530,7 @@ npm run build
 
 ##### 3.5 页面验收路径
 
-启动依赖和 API 后，访问 `http://localhost:8080/opskeeper/`，使用 `make admin-create` 创建的管理员登录，依次检查：
+启动依赖和 API 后，访问 `http://localhost:8080/opsseek/`，使用 `make admin-create` 创建的管理员登录，依次检查：
 
 1. 刷新页面后会话保持；退出后回到登录页。
 2. 在作用域选择器中切换平台、团队和项目，组织与资源列表显示对应范围。
@@ -1590,9 +1590,9 @@ npm run test:e2e
 ```bash
 cd backend
 env \
-  OPSK_TEST_DATABASE_URL=postgres://opskeeper:opskeeper@127.0.0.1:5432/opskeeper?sslmode=disable \
-  GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+  OPSK_TEST_DATABASE_URL=postgres://opsseek:opsseek@127.0.0.1:5432/opsseek?sslmode=disable \
+  GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   go test -tags=integration ./discovery
 ```
 
@@ -1603,9 +1603,9 @@ env \
 ```bash
 cd backend
 env \
-  OPSK_TEST_DATABASE_URL=postgres://opskeeper:opskeeper@127.0.0.1:5432/opskeeper?sslmode=disable \
-  GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+  OPSK_TEST_DATABASE_URL=postgres://opsseek:opsseek@127.0.0.1:5432/opsseek?sslmode=disable \
+  GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   go test -tags=integration \
   ./migrations ./organization ./identity ./authorization ./resource ./discovery
 ```
@@ -1625,8 +1625,8 @@ env \
 
 ```bash
 env \
-  GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+  GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   make quality
 ```
 
@@ -1642,13 +1642,13 @@ env \
 
 ##### 3.5 嵌入式页面与响应式检查
 
-验收服务地址：`http://localhost:58080/opskeeper/`。
+验收服务地址：`http://localhost:58080/opsseek/`。
 
 结果：登录页、嵌入式 CSS/JavaScript 和 `/health/ready` 正常返回；桌面视口无内容重叠，390 x 844 移动视口无横向溢出。由于没有可复用的管理员登录会话，登录后的集群导入与具体资源授权页面保留给人工验收。
 
 #### 4. 人工验收步骤
 
-1. 使用管理员账号登录 `http://localhost:58080/opskeeper/`。
+1. 使用管理员账号登录 `http://localhost:58080/opsseek/`。
 2. 在平台、团队或项目 Scope 登记一个 `Kubernetes` 资源，并在资源连接表单中保存 kubeconfig。
 3. 进入“集群导入”，启动发现并确认页面能显示 Namespace、Application 候选、工作负载类型、实例、Service 和 Ingress 摘要。
 4. 将 Namespace 选择为新建 Project、映射已有 Project 或忽略，确认未提交前不会创建 Project 或 Application。
@@ -1695,7 +1695,7 @@ T08 不包含周期调度、主动修改 Kubernetes 对象、日志和事件采�
 
 ```bash
 cd backend
-env GOMODCACHE=/tmp/opskeeper-gomodcache GOCACHE=/tmp/opskeeper-gocache \
+env GOMODCACHE=/tmp/opsseek-gomodcache GOCACHE=/tmp/opsseek-gocache \
   go test ./...
 ```
 
@@ -1706,9 +1706,9 @@ env GOMODCACHE=/tmp/opskeeper-gomodcache GOCACHE=/tmp/opskeeper-gocache \
 ```bash
 cd backend
 env \
-  OPSK_TEST_DATABASE_URL='postgres://opskeeper:opskeeper@127.0.0.1:5432/opskeeper?sslmode=disable' \
-  GOMODCACHE=/tmp/opskeeper-gomodcache \
-  GOCACHE=/tmp/opskeeper-gocache \
+  OPSK_TEST_DATABASE_URL='postgres://opsseek:opsseek@127.0.0.1:5432/opsseek?sslmode=disable' \
+  GOMODCACHE=/tmp/opsseek-gomodcache \
+  GOCACHE=/tmp/opsseek-gocache \
   go test -tags=integration \
   ./migrations ./organization ./identity ./authorization ./resource ./discovery ./connector
 ```
@@ -1739,7 +1739,7 @@ make migrate
 ##### 3.5 项目质量门禁
 
 ```bash
-env GOMODCACHE=/tmp/opskeeper-gomodcache GOCACHE=/tmp/opskeeper-gocache \
+env GOMODCACHE=/tmp/opsseek-gomodcache GOCACHE=/tmp/opsseek-gocache \
   make quality
 ```
 
@@ -1820,7 +1820,7 @@ make llm-provider-test
 
 ```bash
 cd backend
-OPSK_TEST_DATABASE_URL='postgres://opskeeper:opskeeper@127.0.0.1:5432/opskeeper?sslmode=disable' \
+OPSK_TEST_DATABASE_URL='postgres://opsseek:opsseek@127.0.0.1:5432/opsseek?sslmode=disable' \
   go test -tags=integration ./migrations
 ```
 
@@ -1841,7 +1841,7 @@ make quality
 
 ##### 3.5 页面与响应式检查
 
-启动 `make run-front-api` 后，在浏览器访问 `http://localhost:8080/opskeeper/`。
+启动 `make run-front-api` 后，在浏览器访问 `http://localhost:8080/opsseek/`。
 
 结果：通过。嵌入式页面、静态资源、`/health/ready` 均返回成功；桌面 1280px 和移动 390px 宽度下均无横向溢出，控制台无错误或警告。验收浏览器中没有已登录会话，因此 Provider、Skill 草稿、默认绑定和执行记录的登录后路径由 API、Runner 和集成测试覆盖；未猜测或尝试管理员凭据。
 
@@ -1856,7 +1856,7 @@ npm run test:e2e
 
 #### 4. 用户验收步骤
 
-1. 执行 `make run-front-api`，访问 `http://localhost:8080/opskeeper/`，使用已有管理员登录；完成后以 `Ctrl-C` 停止该命令。
+1. 执行 `make run-front-api`，访问 `http://localhost:8080/opsseek/`，使用已有管理员登录；完成后以 `Ctrl-C` 停止该命令。
 2. 在“资源”页创建或编辑 `LLMProvider`：Provider 类型选 `openai_compatible`，填写 Base URL、模型 JSON 数组，并在 `API Token` 敏感字段填写 Token。确认资源详情只显示“已由加密凭据保存”，不显示 Token。
 3. 在“模型与 Skill”页选择 Provider 和模型，点击“测试连接”及“设为当前 Scope 默认”；确认连接成功且模型默认值保存。
 4. 创建 `Skill` 资源后，在“创建 Skill 草稿”选择至少一个 Connector 工具，填写输入/输出 JSON Schema，创建并发布版本；再次发布新版后，确认原已发布版本仍可见且不会被隐式停用。
@@ -1930,7 +1930,7 @@ make backend-embedded-test
 
 ##### 3.4 已登录浏览器验收
 
-使用临时 PlatformAdmin 在浏览器访问 `http://localhost:8080/opskeeper/`。
+使用临时 PlatformAdmin 在浏览器访问 `http://localhost:8080/opsseek/`。
 
 结果：通过。
 
@@ -1972,8 +1972,8 @@ T11 不实现写操作、MCP、自定义 Skill 代码或周期巡检。缺少默
 
 #### 1. 验收环境
 
-- 本地 Compose PostgreSQL、Redis；可选 `integration` profile 启动 Redpanda；业务数据库为 `opskeeper`。
-- 内置前端制品由 Go API 提供，入口为 `http://localhost:8080/opskeeper/`。
+- 本地 Compose PostgreSQL、Redis；可选 `integration` profile 启动 Redpanda；业务数据库为 `opsseek`。
+- 内置前端制品由 Go API 提供，入口为 `http://localhost:8080/opsseek/`。
 - 验收使用本地 `.env` 配置；未在命令输出、文档或验收结果中记录任何密钥。
 
 #### 2. 验收步骤与结果
@@ -1989,7 +1989,7 @@ T11 不实现写操作、MCP、自定义 Skill 代码或周期巡检。缺少默
 | 7 | `docker-compose --profile integration up -d redpanda`，执行 `OPSK_TEST_KAFKA_BROKERS=127.0.0.1:19092 go test -tags=integration ./connector -run TestBuiltinKafkaSnapshot` | 真实 Broker、Topic、分区、ISR 和能力降级可验证 | 通过；Redpanda 真实 Broker 快照测试通过，消费组/积压在 ACL、版本或协议限制时写入 `unavailable`。 |
 | 8 | 运行 ADK Runner Tool 约束测试 | 模型只能调用 Skill 声明且 Tool Catalog 注册的只读工具 | 通过；PostgreSQL、Redis、Kafka 工具的白名单、参数 Schema、资源范围、调用预算与审计均受测试覆盖。 |
 | 9 | 执行 `make quality` | 完整静态检查、单元测试、前端检查/测试、嵌入式前端测试与生产构建通过 | 通过；Go vet、Go 单元测试、Svelte 检查、Vitest、嵌入式前端测试和全部生产二进制构建成功。 |
-| 10 | 执行 `make run-front-api` 并访问控制台入口 | 前端制品嵌入 Go API 且登录页可访问 | 通过；`/opskeeper/` 成功显示 OpsKeeper 登录控制台。 |
+| 10 | 执行 `make run-front-api` 并访问控制台入口 | 前端制品嵌入 Go API 且登录页可访问 | 通过；`/opsseek/` 成功显示 OpsSeek 登录控制台。 |
 | 11 | 清理验收资源 | 验收页和临时 API 服务不应遗留 | 通过；临时浏览器页已关闭，未发现本次验收遗留的 API 进程。 |
 
 #### 3. 已验证的实现边界
@@ -2016,7 +2016,7 @@ T11 不实现写操作、MCP、自定义 Skill 代码或周期巡检。缺少默
 
 #### 1. 验收环境
 
-- 本地 Compose PostgreSQL、Redis；业务数据库为 `opskeeper`。
+- 本地 Compose PostgreSQL、Redis；业务数据库为 `opsseek`。
 - API、Scheduler、Worker 读取相同的根目录 `.env` 配置。
 - 数据库验证使用临时 schema 或测试创建后清理的夹具；不记录凭据内容。
 
@@ -2028,10 +2028,10 @@ T11 不实现写操作、MCP、自定义 Skill 代码或周期巡检。缺少默
 | 2 | 执行 `go test -count=1 -tags=integration ./migrations ./inspection` | 迁移链可应用、回滚和重放；巡检持久化正常 | 通过；迁移测试与巡检测试均成功。 |
 | 3 | 执行 Job 租约、重试和最终失败测试 | 任务具有租约、指数退避和最终失败状态 | 通过；Worker Store 使用 `SKIP LOCKED`、租约、心跳、重试和幂等键；失败状态经 PostgreSQL 验证。 |
 | 4 | 执行 Finding 与健康快照测试 | 评分确定、异常可恢复、空原因保存为 JSON 数组 | 通过；critical/warning 分数为 30，规则消失后 Finding 状态为 `resolved`，空原因写入 `[]`。 |
-| 5 | 运行 Webhook Sender 单元测试 | HTTPS、时间戳和 HMAC 签名受验证 | 通过；Webhook 测试覆盖 HTTPS 限制与 `X-OpsKeeper-Signature`。 |
+| 5 | 运行 Webhook Sender 单元测试 | HTTPS、时间戳和 HMAC 签名受验证 | 通过；Webhook 测试覆盖 HTTPS 限制与 `X-OpsSeek-Signature`。 |
 | 6 | 执行涉及 T13 的 Go 单元检查 | API、配置、巡检、Scheduler、Worker 可编译 | 通过；`./inspection`、`./httpapi`、`./config` 均通过；三个命令包完成编译。 |
 | 7 | 执行 `npm run check` 和 `npm run build` | 巡检页面类型正确，生产前端可构建 | 通过；`svelte-check found 0 errors and 0 warnings`，Vite 生产构建成功。 |
-| 8 | 启动 `make run-front-api`，请求页面、就绪和巡检路由 | 前端制品嵌入 Go API，依赖就绪，巡检路由受认证保护 | 通过；`/opskeeper/` 返回嵌入页面，`/health/ready` 显示 PostgreSQL/Redis `up`，未认证的巡检策略请求返回 `401` 而非 `404`。验收 API 子进程已停止。 |
+| 8 | 启动 `make run-front-api`，请求页面、就绪和巡检路由 | 前端制品嵌入 Go API，依赖就绪，巡检路由受认证保护 | 通过；`/opsseek/` 返回嵌入页面，`/health/ready` 显示 PostgreSQL/Redis `up`，未认证的巡检策略请求返回 `401` 而非 `404`。验收 API 子进程已停止。 |
 | 9 | `go test -count=1 -tags=integration ./inspection` | 标签策略只冻结匹配的 active 目标，Worker 按策略并发限制执行内置诊断 | 通过；PostgreSQL 集成测试排除不匹配和停用资源，Worker 按目标并发执行 PostgreSQL/Redis/Kafka 快照并将 Skill 解释结果写入 run steps。 |
 | 10 | `cd frontend && npm run test:e2e` | 策略和 Webhook 表单可创建，移动布局无横向溢出 | 通过；Playwright 5 个用例全部通过，包含标签策略、Webhook、登录、Scope 和诊断工作台流程。 |
 
@@ -2068,12 +2068,12 @@ T11 不实现写操作、MCP、自定义 Skill 代码或周期巡检。缺少默
 | 4 | `go test -count=1 -tags=integration ./migrations ./operation` | 通过。迁移链包含 0016/0017；隔离 schema 验证迁移应用、重复应用、回滚重放、并发互斥，以及五张 T14 核心表。 |
 | 5 | 检查迁移及资源 Schema | 通过。`MCPServer` v3 强制 `streamable_http`、HTTPS URL、非空精确工具白名单、超时和响应大小；操作请求、审批、执行和快照均有外键、状态约束和索引。 |
 | 6 | `make quality` | 通过。前端格式、`go vet`、Shell 静态检查、全部 Go 单元测试、前端测试、前端构建、嵌入式 WebUI 测试和五个 Go 制品构建均成功。 |
-| 7 | `make run-front-api` 后请求 `/opskeeper/health/live` | 通过。返回 `200` 和 `status=alive`；页面从嵌入式制品提供。 |
-| 8 | 请求未认证的 `/opskeeper/api/v1/operation-requests` | 通过。返回 `401`，没有绕过身份认证进入操作服务。 |
-| 9 | 浏览器打开 `/opskeeper/` 并检查可访问 DOM | 通过。页面标题为 `OpsKeeper`，登录表单、控制台说明和邮箱/密码控件正常渲染，浏览器控制台无错误。 |
+| 7 | `make run-front-api` 后请求 `/opsseek/health/live` | 通过。返回 `200` 和 `status=alive`；页面从嵌入式制品提供。 |
+| 8 | 请求未认证的 `/opsseek/api/v1/operation-requests` | 通过。返回 `401`，没有绕过身份认证进入操作服务。 |
+| 9 | 浏览器打开 `/opsseek/` 并检查可访问 DOM | 通过。页面标题为 `OpsSeek`，登录表单、控制台说明和邮箱/密码控件正常渲染，浏览器控制台无错误。 |
 | 10 | 停止验收服务并再次请求健康端点 | 通过。临时服务进程已停止，健康端点连接失败，确认没有遗留验收 API。 |
 | 11 | `go test -count=1 ./operation ./sandbox ./cmd/operation-runner` | 批处理 Job 实际生成固定 runner 参数，runner 可执行受控 restart/scale，Job 状态可回写执行记录 | 通过；fake Kubernetes client 验证 Job 创建、独立 ServiceAccount、固定参数、Deployment 重启注解和 reconciler 成功状态回写。 |
-| 12 | `helm template opskeeper deploy/helm/opskeeper --set operation.enabled=true` | 启用操作执行时 API/Worker 获得 Job 最小权限，runner 获得工作负载最小权限 | 通过；条件化 ServiceAccount、Role、RoleBinding、环境变量和六个二进制镜像制品均成功渲染。 |
+| 12 | `helm template opsseek deploy/helm/opsseek --set operation.enabled=true` | 启用操作执行时 API/Worker 获得 Job 最小权限，runner 获得工作负载最小权限 | 通过；条件化 ServiceAccount、Role、RoleBinding、环境变量和六个二进制镜像制品均成功渲染。 |
 
 #### 3. 已验证安全边界
 

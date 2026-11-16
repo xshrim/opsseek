@@ -10,7 +10,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	mt "opskeeper/backend/tool/mysql"
+	mt "opsseek/backend/tool/mysql"
 )
 
 const StreamableHTTPPath = "/mcp"
@@ -35,7 +35,7 @@ func New(cfg Config) (http.Handler, error) {
 	if strings.TrimSpace(cfg.Address) == "" {
 		return nil, errors.New("MySQL MCP HTTP address must not be empty")
 	}
-	s := mcp.NewServer(&mcp.Implementation{Name: "opskeeper-mysql-mcp", Title: "OpsKeeper MySQL MCP", Description: "Read-only MySQL inspection tools.", Version: "dev"}, nil)
+	s := mcp.NewServer(&mcp.Implementation{Name: "opsseek-mysql-mcp", Title: "OpsSeek MySQL MCP", Description: "Read-only MySQL inspection tools.", Version: "dev"}, nil)
 	RegisterTools(s)
 	get := func(*http.Request) *mcp.Server { return s }
 	stream, sse := mcp.NewStreamableHTTPHandler(get, nil), mcp.NewSSEHandler(get, nil)

@@ -397,7 +397,7 @@ func TestConfiguredBundleStorageUsesProcessEnvironment(t *testing.T) {
 	t.Setenv("OPSK_STORAGE_BACKEND", "local")
 	t.Setenv("OPSK_REPOSITORY_LOCAL_ROOT", t.TempDir())
 	t.Setenv("OPSK_STORAGE_S3_ENDPOINT", "https://storage.example.com")
-	t.Setenv("OPSK_STORAGE_S3_BUCKET", "opskeeper")
+	t.Setenv("OPSK_STORAGE_S3_BUCKET", "opsseek")
 	t.Setenv("OPSK_STORAGE_S3_PREFIX", "bundles")
 
 	bundle := configuredBundleStorage(ConnectionInput{
@@ -414,7 +414,7 @@ func TestConfiguredBundleStorageUsesProcessEnvironment(t *testing.T) {
 	if bundle.Path == "/resource-selected-path" {
 		t.Fatal("bundle path still came from resource configuration")
 	}
-	if bundle.S3Endpoint != "https://storage.example.com" || bundle.S3Bucket != "opskeeper" || bundle.S3Prefix != "bundles" {
+	if bundle.S3Endpoint != "https://storage.example.com" || bundle.S3Bucket != "opsseek" || bundle.S3Prefix != "bundles" {
 		t.Fatalf("bundle S3 configuration = %#v, want process configuration", bundle)
 	}
 

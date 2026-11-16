@@ -1,4 +1,4 @@
-module opskeeper/backend
+module opsseek/backend
 
 go 1.26.5
 

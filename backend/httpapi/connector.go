@@ -8,11 +8,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"opskeeper/backend/audit"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/connector"
-	kclient "opskeeper/backend/mcpserver/kubernetes/client"
-	"opskeeper/backend/resource"
+	"opsseek/backend/audit"
+	"opsseek/backend/authorization"
+	"opsseek/backend/connector"
+	kclient "opsseek/backend/mcpserver/kubernetes/client"
+	"opsseek/backend/resource"
 )
 
 type connectorService interface {

@@ -57,7 +57,7 @@
   } from './features/access/accessUtils';
   import { formatDate } from './lib/format';
   import MessageBanner from './components/MessageBanner.svelte';
-  import OpsKeeperLogo from './components/OpsKeeperLogo.svelte';
+  import OpsSeekLogo from './components/OpsSeekLogo.svelte';
   import TooltipPortal from './components/TooltipPortal.svelte';
   import DiagnosisPage from './features/diagnosis/DiagnosisPage.svelte';
   import LLMPage from './features/llm/LLMPage.svelte';
@@ -819,7 +819,7 @@
 </script>
 
 <svelte:head>
-  <meta name="description" content="OpsKeeper platform control plane" />
+  <meta name="description" content="OpsSeek platform control plane" />
 </svelte:head>
 
 <svelte:window on:keydown={handleGlobalKeydown} />
@@ -842,8 +842,8 @@
       on:mouseleave={() => (sidebarHovered = false)}
     >
       <div class="brand">
-        <OpsKeeperLogo size={30} /><span class="brand-copy"
-          >OpsKeeper<small>智能值守平台</small></span
+        <OpsSeekLogo size={30} /><span class="brand-copy"
+          >OpsSeek<small>智能值守平台</small></span
         >
       </div>
       <button

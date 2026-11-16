@@ -3,8 +3,8 @@
 # Other application settings use their program defaults unless added here.
 services:
   api:
-    image: ${IMAGE_REPOSITORY:-opskeeper}-api:${IMAGE_TAG:-local}
-    container_name: opskeeper-api
+    image: ${IMAGE_REPOSITORY:-opsseek}-api:${IMAGE_TAG:-local}
+    container_name: opsseek-api
     profiles: ["svc"]
     group_add:
       - "${DOCKER_SOCKET_GID:-0}"
@@ -17,9 +17,9 @@ services:
     environment:
       OPSK_LISTEN_PORT: ${OPSK_LISTEN_PORT:-8080}
       OPSK_DB_HOST: postgres:5432
-      OPSK_DB_NAME: ${OPSK_DB_NAME:-opskeeper}
-      OPSK_DB_USER: ${OPSK_DB_USER:-opskeeper}
-      OPSK_DB_PASSWORD: ${OPSK_DB_PASSWORD:-opskeeper}
+      OPSK_DB_NAME: ${OPSK_DB_NAME:-opsseek}
+      OPSK_DB_USER: ${OPSK_DB_USER:-opsseek}
+      OPSK_DB_PASSWORD: ${OPSK_DB_PASSWORD:-opsseek}
       # Containers must use Compose DNS; 127.0.0.1 in the root .env is for host-run binaries.
       OPSK_OTEL_ENDPOINT: http://otel-collector:4318
     ports:
@@ -29,44 +29,44 @@ services:
     restart: unless-stopped
 
   worker:
-    image: ${IMAGE_REPOSITORY:-opskeeper}-worker:${IMAGE_TAG:-local}
-    container_name: opskeeper-worker
+    image: ${IMAGE_REPOSITORY:-opsseek}-worker:${IMAGE_TAG:-local}
+    container_name: opsseek-worker
     profiles: ["svc"]
     environment:
       OPSK_DB_HOST: postgres:5432
-      OPSK_DB_NAME: ${OPSK_DB_NAME:-opskeeper}
-      OPSK_DB_USER: ${OPSK_DB_USER:-opskeeper}
-      OPSK_DB_PASSWORD: ${OPSK_DB_PASSWORD:-opskeeper}
+      OPSK_DB_NAME: ${OPSK_DB_NAME:-opsseek}
+      OPSK_DB_USER: ${OPSK_DB_USER:-opsseek}
+      OPSK_DB_PASSWORD: ${OPSK_DB_PASSWORD:-opsseek}
       OPSK_OTEL_ENDPOINT: http://otel-collector:4318
     depends_on:
       - postgres
     restart: unless-stopped
 
   scheduler:
-    image: ${IMAGE_REPOSITORY:-opskeeper}-scheduler:${IMAGE_TAG:-local}
-    container_name: opskeeper-scheduler
+    image: ${IMAGE_REPOSITORY:-opsseek}-scheduler:${IMAGE_TAG:-local}
+    container_name: opsseek-scheduler
     profiles: ["svc"]
     environment:
       OPSK_DB_HOST: postgres:5432
-      OPSK_DB_NAME: ${OPSK_DB_NAME:-opskeeper}
-      OPSK_DB_USER: ${OPSK_DB_USER:-opskeeper}
-      OPSK_DB_PASSWORD: ${OPSK_DB_PASSWORD:-opskeeper}
+      OPSK_DB_NAME: ${OPSK_DB_NAME:-opsseek}
+      OPSK_DB_USER: ${OPSK_DB_USER:-opsseek}
+      OPSK_DB_PASSWORD: ${OPSK_DB_PASSWORD:-opsseek}
       OPSK_OTEL_ENDPOINT: http://otel-collector:4318
     depends_on:
       - postgres
     restart: unless-stopped
 
   frontend:
-    image: ${IMAGE_REPOSITORY:-opskeeper}-frontend:${IMAGE_TAG:-local}
-    container_name: opskeeper-frontend
+    image: ${IMAGE_REPOSITORY:-opsseek}-frontend:${IMAGE_TAG:-local}
+    container_name: opsseek-frontend
     profiles: ["svc"]
     ports:
       - "5173:80"
     restart: unless-stopped
 
   app:
-    image: ${IMAGE_REPOSITORY:-opskeeper}-app:${IMAGE_TAG:-local}
-    container_name: opskeeper-app
+    image: ${IMAGE_REPOSITORY:-opsseek}-app:${IMAGE_TAG:-local}
+    container_name: opsseek-app
     group_add:
       - "${DOCKER_SOCKET_GID:-0}"
     volumes:
@@ -78,9 +78,9 @@ services:
     environment:
       OPSK_LISTEN_PORT: ${OPSK_LISTEN_PORT:-8080}
       OPSK_DB_HOST: postgres:5432
-      OPSK_DB_NAME: ${OPSK_DB_NAME:-opskeeper}
-      OPSK_DB_USER: ${OPSK_DB_USER:-opskeeper}
-      OPSK_DB_PASSWORD: ${OPSK_DB_PASSWORD:-opskeeper}
+      OPSK_DB_NAME: ${OPSK_DB_NAME:-opsseek}
+      OPSK_DB_USER: ${OPSK_DB_USER:-opsseek}
+      OPSK_DB_PASSWORD: ${OPSK_DB_PASSWORD:-opsseek}
       OPSK_OTEL_ENDPOINT: http://otel-collector:4318
     ports:
       - "${OPSK_LISTEN_PORT:-8080}:${OPSK_LISTEN_PORT:-8080}"
@@ -90,22 +90,22 @@ services:
 
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: opskeeper-postgres
+    container_name: opsseek-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      OPSK_DB_NAME: ${OPSK_DB_NAME:-opskeeper}
-      OPSK_DB_USER: ${OPSK_DB_USER:-opskeeper}
-      OPSK_DB_PASSWORD: ${OPSK_DB_PASSWORD:-opskeeper}
+      OPSK_DB_NAME: ${OPSK_DB_NAME:-opsseek}
+      OPSK_DB_USER: ${OPSK_DB_USER:-opsseek}
+      OPSK_DB_PASSWORD: ${OPSK_DB_PASSWORD:-opsseek}
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
-      - ./postgres/check-ready.sh:/usr/local/bin/opskeeper-postgres-ready:ro
+      - ./postgres/check-ready.sh:/usr/local/bin/opsseek-postgres-ready:ro
     healthcheck:
-      test: ["CMD", "/usr/local/bin/opskeeper-postgres-ready"]
+      test: ["CMD", "/usr/local/bin/opsseek-postgres-ready"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -113,7 +113,7 @@ services:
 
   jaeger:
     image: jaegertracing/all-in-one:1.67.0
-    container_name: opskeeper-jaeger
+    container_name: opsseek-jaeger
     profiles: ["obs"]
     command: ["--collector.otlp.enabled=true"]
     ports:
@@ -122,7 +122,7 @@ services:
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.121.0
-    container_name: opskeeper-otel-collector
+    container_name: opsseek-otel-collector
     profiles: ["obs"]
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     volumes:
@@ -138,7 +138,7 @@ services:
 
   prometheus:
     image: prom/prometheus:v3.2.1
-    container_name: opskeeper-prometheus
+    container_name: opsseek-prometheus
     profiles: ["obs"]
     command:
       - --config.file=/etc/prometheus/prometheus.yml
@@ -153,7 +153,7 @@ services:
 
   loki:
     image: grafana/loki:3.4.2
-    container_name: opskeeper-loki
+    container_name: opsseek-loki
     profiles: ["obs"]
     command: ["-config.file=/etc/loki/config.yaml"]
     volumes:
@@ -165,7 +165,7 @@ services:
 
   grafana:
     image: grafana/grafana:11.5.2
-    container_name: opskeeper-grafana
+    container_name: opsseek-grafana
     profiles: ["obs"]
     volumes:
       - grafana-data:/var/lib/grafana

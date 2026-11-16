@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/identity"
-	"opskeeper/backend/migrations"
-	"opskeeper/backend/organization"
+	"opsseek/backend/authorization"
+	"opsseek/backend/identity"
+	"opsseek/backend/migrations"
+	"opsseek/backend/organization"
 )
 
 func TestRoleInheritanceAndOrganizationFiltering(t *testing.T) {

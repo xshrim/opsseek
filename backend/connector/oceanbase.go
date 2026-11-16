@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	ot "opskeeper/backend/tool/oceanbase"
+	ot "opsseek/backend/tool/oceanbase"
 )
 
 type oceanBaseAdapter struct{ connection ot.ConnectionInput }

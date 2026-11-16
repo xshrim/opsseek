@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"opskeeper/backend/audit"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/health"
-	"opskeeper/backend/identity"
+	"opsseek/backend/audit"
+	"opsseek/backend/authorization"
+	"opsseek/backend/health"
+	"opsseek/backend/identity"
 )
 
 type stubAuthorizationService struct {

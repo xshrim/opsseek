@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"opskeeper/backend/engine"
-	kclient "opskeeper/backend/mcpserver/kubernetes/client"
-	kserver "opskeeper/backend/mcpserver/kubernetes/server"
+	"opsseek/backend/engine"
+	kclient "opsseek/backend/mcpserver/kubernetes/client"
+	kserver "opsseek/backend/mcpserver/kubernetes/server"
 )
 
 func TestKubernetesDirectToolsMatchMCPToolCatalog(t *testing.T) {

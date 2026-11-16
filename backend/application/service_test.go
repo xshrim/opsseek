@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"opskeeper/backend/authorization"
+	"opsseek/backend/authorization"
 )
 
 type testStore struct {

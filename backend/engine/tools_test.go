@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"opskeeper/backend/authorization"
+	"opsseek/backend/authorization"
 )
 
 func TestPolicyGatewayEnforcesAuthorizationAndEmitsToolEvents(t *testing.T) {

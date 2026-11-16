@@ -62,7 +62,7 @@ func (e *httpExecutor) get(ctx context.Context, operation, path string, values u
 		return nil, connectorError(CategoryConfiguration, operation, false, err)
 	}
 	request.Header.Set("Accept", "application/json")
-	request.Header.Set("User-Agent", "opskeeper-connector/1")
+	request.Header.Set("User-Agent", "opsseek-connector/1")
 	e.authorize(request)
 	response, err := e.client.Do(request)
 	if err != nil {

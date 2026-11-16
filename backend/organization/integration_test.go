@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"opskeeper/backend/migrations"
-	"opskeeper/backend/organization"
+	"opsseek/backend/migrations"
+	"opsseek/backend/organization"
 )
 
 func TestOrganizationLifecycle(t *testing.T) {
@@ -123,7 +123,7 @@ func integrationPool(t *testing.T) *pgxpool.Pool {
 	if err != nil {
 		t.Fatalf("connect integration database: %v", err)
 	}
-	schema := fmt.Sprintf("opskeeper_test_%d", time.Now().UnixNano())
+	schema := fmt.Sprintf("opsseek_test_%d", time.Now().UnixNano())
 	if _, err := adminPool.Exec(ctx, "CREATE SCHEMA "+schema); err != nil {
 		adminPool.Close()
 		t.Fatalf("create integration schema: %v", err)

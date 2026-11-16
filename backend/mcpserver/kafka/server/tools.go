@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	kt "opskeeper/backend/tool/kafka"
+	kt "opsseek/backend/tool/kafka"
 )
 
 type input struct{ kt.ConnectionInput }

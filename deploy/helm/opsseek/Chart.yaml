@@ -1,0 +1,6 @@
+apiVersion: v2
+name: opsseek
+description: OpsSeek API, worker, and scheduler release
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

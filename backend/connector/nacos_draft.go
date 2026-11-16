@@ -3,7 +3,7 @@ package connector
 import (
 	"context"
 	"fmt"
-	nt "opskeeper/backend/tool/nacos"
+	nt "opsseek/backend/tool/nacos"
 	"time"
 )
 

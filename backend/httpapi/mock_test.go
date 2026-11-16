@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"opskeeper/backend/health"
-	"opskeeper/backend/identity"
+	"opsseek/backend/health"
+	"opsseek/backend/identity"
 )
 
 func TestMockErrorsReturnSpecifiedFaultAndCorrelatedLogs(t *testing.T) {

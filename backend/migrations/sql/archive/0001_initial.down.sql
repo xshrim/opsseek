@@ -1,4 +1,4 @@
--- OpsKeeper rollback for the fresh database baseline.
+-- OpsSeek rollback for the fresh database baseline.
 -- Generated from backend/migrations/sql/archive/*.down.sql in reverse order.
 
 -- <<< 0019_usernames.down.sql
@@ -48,7 +48,7 @@ DELETE FROM skill_versions AS version
  WHERE version.skill_resource_id = resource.id
    AND version.version = 2
    AND resource.kind = 'Skill'
-   AND resource.config->>'owner' = 'OpsKeeper builtin';
+   AND resource.config->>'owner' = 'OpsSeek builtin';
 
 UPDATE skill_versions AS version
    SET status = 'published', published_at = COALESCE(version.published_at, now())
@@ -56,18 +56,18 @@ UPDATE skill_versions AS version
  WHERE version.skill_resource_id = resource.id
    AND version.version = 1
    AND resource.kind = 'Skill'
-   AND resource.config->>'owner' = 'OpsKeeper builtin';
+   AND resource.config->>'owner' = 'OpsSeek builtin';
 
 -- <<< 0013_builtin_skills.down.sql
 DELETE FROM skill_versions AS version
  USING resources AS resource
  WHERE version.skill_resource_id = resource.id
    AND resource.kind = 'Skill'
-   AND resource.config->>'owner' = 'OpsKeeper builtin';
+   AND resource.config->>'owner' = 'OpsSeek builtin';
 
 DELETE FROM resources
  WHERE kind = 'Skill'
-   AND config->>'owner' = 'OpsKeeper builtin'
+   AND config->>'owner' = 'OpsSeek builtin'
    AND name IN ('Kubernetes 工作负载诊断', 'PostgreSQL 健康诊断', 'Redis 健康诊断', 'Kafka 健康诊断');
 
 -- <<< 0012_diagnosis_workbench.down.sql

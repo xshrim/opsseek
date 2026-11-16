@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	pt "opskeeper/backend/tool/postgresql"
+	pt "opsseek/backend/tool/postgresql"
 )
 
 type input struct{ pt.ConnectionInput }

@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"opskeeper/backend/mcpserver/host/server"
+	"opsseek/backend/mcpserver/host/server"
 )
 
 func main() {

@@ -25,7 +25,7 @@ make deps                        # 本机开发时下载 Go 和前端依赖；�
 
 ```bash
 make run                         # 同步环境、启动 PostgreSQL、准备前端资源，并从源码运行 App
-# 默认访问 http://localhost:8080/opskeeper/；Ctrl+C 停止 App
+# 默认访问 http://localhost:8080/opsseek/；Ctrl+C 停止 App
 make db-down                     # 停止数据库，保留数据卷
 ```
 
@@ -34,7 +34,7 @@ make db-down                     # 停止数据库，保留数据卷
 ```bash
 make db-up                       # 先启动 PostgreSQL
 make api-run                     # 终端 1：运行 API 源码
-make frontend-run                # 终端 2：启动 Vite，默认访问 http://localhost:5173/opskeeper/
+make frontend-run                # 终端 2：启动 Vite，默认访问 http://localhost:5173/opsseek/
 make worker-run                  # 另开终端：需要巡检执行时运行 Worker
 make scheduler-run               # 另开终端：需要巡检调度时运行 Scheduler
 
@@ -48,7 +48,7 @@ make app-run                     # 准备前端资源并运行 App，不启动�
 
 ```bash
 make up                          # 同步环境、构建 App 镜像，再启动 PostgreSQL + App
-# 默认访问 http://localhost:8080/opskeeper/
+# 默认访问 http://localhost:8080/opsseek/
 make down                        # 停止 PostgreSQL 和 App，保留数据卷
 ```
 
@@ -57,7 +57,7 @@ make down                        # 停止 PostgreSQL 和 App，保留数据卷
 ```bash
 make db-up                       # 启动 PostgreSQL
 make api-up                      # 构建 API 镜像并启动容器
-make frontend-up                 # 构建独立前端镜像并启动容器，默认访问 http://localhost:5173/opskeeper/
+make frontend-up                 # 构建独立前端镜像并启动容器，默认访问 http://localhost:5173/opsseek/
 make worker-up                   # 需要巡检执行时，构建并启动 Worker 容器
 make scheduler-up                # 需要巡检调度时，构建并启动 Scheduler 容器
 
@@ -125,16 +125,16 @@ Go 二进制位于 `backend/bin/`；嵌入前端的 App 和不含前端的 API �
 **单独构建**
 
 ```bash
-make api-image                   # 构建 opskeeper-api:local，不含前端
-make worker-image                # 构建 opskeeper-worker:local
-make scheduler-image             # 构建 opskeeper-scheduler:local
-make frontend-image              # 构建 opskeeper-frontend:local，Nginx 静态前端
-make app-image                   # 构建 opskeeper-app:local，嵌入前端
+make api-image                   # 构建 opsseek-api:local，不含前端
+make worker-image                # 构建 opsseek-worker:local
+make scheduler-image             # 构建 opsseek-scheduler:local
+make frontend-image              # 构建 opsseek-frontend:local，Nginx 静态前端
+make app-image                   # 构建 opsseek-app:local，嵌入前端
 
 # 只构建一个 MCP 镜像
-make docker-mcp-image             # 构建 opskeeper-docker-mcp:local
-make host-mcp-image               # 构建 opskeeper-host-mcp:local
-make kubernetes-mcp-image         # 构建 opskeeper-kubernetes-mcp:local
+make docker-mcp-image             # 构建 opsseek-docker-mcp:local
+make host-mcp-image               # 构建 opsseek-host-mcp:local
+make kubernetes-mcp-image         # 构建 opsseek-kubernetes-mcp:local
 ```
 
 **集中构建**
@@ -144,10 +144,10 @@ make image                       # 集中构建以上五个服务镜像，不启
 make mcp-image                   # 集中构建三个 MCP 镜像，不启动容器
 
 # 覆盖仓库前缀和标签；单项 *-image 目标同样支持这些参数，不自动推送镜像
-make image IMAGE_REPOSITORY=registry.example.com/opskeeper IMAGE_TAG=v0.1.0
+make image IMAGE_REPOSITORY=registry.example.com/opsseek IMAGE_TAG=v0.1.0
 ```
 
-镜像名称为 `<IMAGE_REPOSITORY>-<服务>:<IMAGE_TAG>`，默认前缀 `opskeeper`、标签 `local`。默认使用 `deploy/Dockerfile`：`*-image` 先在本机构建对应制品，再复制打包；后端自动编译为静态 Linux 二进制，本地需安装 Go、Node 及前端依赖。原容器内源码编译链路保留在 `deploy/Dockerfile.prd`，可用 `make image DOCKERFILE=deploy/Dockerfile.prd`。跨架构时需让 `GOARCH` 与 Docker 目标平台一致。Makefile 不自动读取 `.env` 中的镜像变量，使用非默认值时须通过命令参数或导出的环境变量传入，并与 Compose 配置保持一致。
+镜像名称为 `<IMAGE_REPOSITORY>-<服务>:<IMAGE_TAG>`，默认前缀 `opsseek`、标签 `local`。默认使用 `deploy/Dockerfile`：`*-image` 先在本机构建对应制品，再复制打包；后端自动编译为静态 Linux 二进制，本地需安装 Go、Node 及前端依赖。原容器内源码编译链路保留在 `deploy/Dockerfile.prd`，可用 `make image DOCKERFILE=deploy/Dockerfile.prd`。跨架构时需让 `GOARCH` 与 Docker 目标平台一致。Makefile 不自动读取 `.env` 中的镜像变量，使用非默认值时须通过命令参数或导出的环境变量传入，并与 Compose 配置保持一致。
 
 ## 3. 配置与日常操作
 

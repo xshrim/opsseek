@@ -10,7 +10,7 @@ import (
 	"time"
 
 	driver "github.com/go-sql-driver/mysql"
-	"opskeeper/backend/tool/relational"
+	"opsseek/backend/tool/relational"
 )
 
 type ConnectionInput struct {

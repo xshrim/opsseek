@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"testing"
 
-	"opskeeper/backend/config"
+	"opsseek/backend/config"
 )
 
 func TestRealPostgreSQLFixedToolCatalog(t *testing.T) {

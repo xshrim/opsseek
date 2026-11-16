@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"opskeeper/backend/authorization"
-	"opskeeper/backend/llm"
+	"opsseek/backend/authorization"
+	"opsseek/backend/llm"
 )
 
 type providerBindingService interface {

@@ -15,21 +15,21 @@ LABEL org.opencontainers.image.version=${VERSION} \
 
 FROM runtime-base AS api
 EXPOSE 8080
-COPY backend/bin/opskeeper-api /app/opskeeper-api
-ENTRYPOINT ["/app/opskeeper-api"]
+COPY backend/bin/opsseek-api /app/opsseek-api
+ENTRYPOINT ["/app/opsseek-api"]
 
 FROM runtime-base AS app
 EXPOSE 8080
-COPY backend/bin/opskeeper-app /app/opskeeper-app
-ENTRYPOINT ["/app/opskeeper-app"]
+COPY backend/bin/opsseek-app /app/opsseek-app
+ENTRYPOINT ["/app/opsseek-app"]
 
 FROM runtime-base AS worker
-COPY backend/bin/opskeeper-worker /app/opskeeper-worker
-ENTRYPOINT ["/app/opskeeper-worker"]
+COPY backend/bin/opsseek-worker /app/opsseek-worker
+ENTRYPOINT ["/app/opsseek-worker"]
 
 FROM runtime-base AS scheduler
-COPY backend/bin/opskeeper-scheduler /app/opskeeper-scheduler
-ENTRYPOINT ["/app/opskeeper-scheduler"]
+COPY backend/bin/opsseek-scheduler /app/opsseek-scheduler
+ENTRYPOINT ["/app/opsseek-scheduler"]
 
 FROM nginx:stable-alpine-slim AS frontend
 COPY frontend/dist/ /usr/share/nginx/html/
@@ -39,15 +39,15 @@ CMD ["nginx", "-g", "daemon off;"]
 
 FROM runtime-base AS docker-mcp
 EXPOSE 8811
-COPY backend/bin/opskeeper-docker-mcp /app/opskeeper-docker-mcp
-ENTRYPOINT ["/app/opskeeper-docker-mcp"]
+COPY backend/bin/opsseek-docker-mcp /app/opsseek-docker-mcp
+ENTRYPOINT ["/app/opsseek-docker-mcp"]
 
 FROM runtime-base AS host-mcp
 EXPOSE 8813
-COPY backend/bin/opskeeper-host-mcp-agent /app/opskeeper-host-mcp-agent
-ENTRYPOINT ["/app/opskeeper-host-mcp-agent"]
+COPY backend/bin/opsseek-host-mcp-agent /app/opsseek-host-mcp-agent
+ENTRYPOINT ["/app/opsseek-host-mcp-agent"]
 
 FROM runtime-base AS kubernetes-mcp
 EXPOSE 8812
-COPY backend/bin/opskeeper-kubernetes-mcp /app/opskeeper-kubernetes-mcp
-ENTRYPOINT ["/app/opskeeper-kubernetes-mcp"]
+COPY backend/bin/opsseek-kubernetes-mcp /app/opsseek-kubernetes-mcp
+ENTRYPOINT ["/app/opsseek-kubernetes-mcp"]

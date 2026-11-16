@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"opskeeper/backend/engine"
-	"opskeeper/backend/mcpserver/docker/client"
-	dockertool "opskeeper/backend/tool/docker"
+	"opsseek/backend/engine"
+	"opsseek/backend/mcpserver/docker/client"
+	dockertool "opsseek/backend/tool/docker"
 )
 
 // resolveDockerTools binds the protocol-neutral Docker implementation to one
@@ -56,7 +56,7 @@ func (s *Service) resolveDockerTools(ctx context.Context, item engine.ContextRes
 	})
 	add("docker_container_logs", "Read bounded, non-following logs from a Docker container.", directDockerSchema(map[string]any{
 		"container_id":   map[string]any{"type": "string", "description": "Docker container ID only (12 or 64 hexadecimal characters); never use a container name here."},
-		"container_name": map[string]any{"type": "string", "description": "Docker container name; use this field for names such as /opskeeper-postgres."},
+		"container_name": map[string]any{"type": "string", "description": "Docker container name; use this field for names such as /opsseek-postgres."},
 		"tail":           map[string]any{"type": "string", "description": "Number of lines requested from the end; defaults to 1000. Keyword filtering is applied first, then output is limited to the most recent 200 lines."},
 		"since":          map[string]any{"type": "string", "description": "Only show logs since this timestamp or duration."},
 		"until":          map[string]any{"type": "string", "description": "Only show logs until this timestamp."},
@@ -73,7 +73,7 @@ func (s *Service) resolveDockerTools(ctx context.Context, item engine.ContextRes
 	})
 	add("docker_container_file", "Read a bounded regular file from a Docker container.", directDockerSchema(map[string]any{
 		"container_id":   map[string]any{"type": "string", "description": "Docker container ID only (12 or 64 hexadecimal characters); never use a container name here."},
-		"container_name": map[string]any{"type": "string", "description": "Docker container name; use this field for names such as /opskeeper-postgres."},
+		"container_name": map[string]any{"type": "string", "description": "Docker container name; use this field for names such as /opsseek-postgres."},
 		"path":           map[string]any{"type": "string", "description": "Absolute path of a regular file inside the container."},
 	}), func(runCtx context.Context, args map[string]any) (engine.ToolResult, error) {
 		input, err := decodeDockerInput[dockertool.ContainerFileInput](args)
@@ -85,7 +85,7 @@ func (s *Service) resolveDockerTools(ctx context.Context, item engine.ContextRes
 	})
 	add("docker_container_inspect", "Inspect one concrete Docker container instance, including its state and configuration. Use container_name for a human-readable name.", directDockerSchema(map[string]any{
 		"container_id":   map[string]any{"type": "string", "description": "Docker container ID only (12 or 64 hexadecimal characters); never use a container name here."},
-		"container_name": map[string]any{"type": "string", "description": "Docker container name; use this field for names such as /opskeeper-postgres."},
+		"container_name": map[string]any{"type": "string", "description": "Docker container name; use this field for names such as /opsseek-postgres."},
 	}), func(runCtx context.Context, args map[string]any) (engine.ToolResult, error) {
 		input, err := decodeDockerInput[dockertool.ContainerInspectInput](args)
 		if err != nil {
@@ -96,7 +96,7 @@ func (s *Service) resolveDockerTools(ctx context.Context, item engine.ContextRes
 	})
 	add("docker_container_stats", "Read one snapshot of CPU and memory statistics for one concrete Docker container instance. Use container_name for a human-readable name.", directDockerSchema(map[string]any{
 		"container_id":   map[string]any{"type": "string", "description": "Docker container ID only (12 or 64 hexadecimal characters); never use a container name here."},
-		"container_name": map[string]any{"type": "string", "description": "Docker container name; use this field for names such as /opskeeper-postgres."},
+		"container_name": map[string]any{"type": "string", "description": "Docker container name; use this field for names such as /opsseek-postgres."},
 	}), func(runCtx context.Context, args map[string]any) (engine.ToolResult, error) {
 		input, err := decodeDockerInput[dockertool.ContainerStatsInput](args)
 		if err != nil {

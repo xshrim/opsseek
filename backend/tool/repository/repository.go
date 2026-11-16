@@ -22,7 +22,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
-	"opskeeper/backend/config"
+	"opsseek/backend/config"
 )
 
 type ConnectionInput struct {
@@ -186,7 +186,7 @@ func Prepare(ctx context.Context, in ConnectionInput) (ConnectionInput, func() e
 		return ConnectionInput{}, func() error { return nil }, err
 	}
 	if strings.EqualFold(strings.TrimSpace(sourceInput.StorageBackend), "local") && strings.TrimSpace(sourceInput.StorageKey) != "" {
-		dir, cloneErr := os.MkdirTemp("", "opskeeper-repository-snapshot-")
+		dir, cloneErr := os.MkdirTemp("", "opsseek-repository-snapshot-")
 		if cloneErr != nil {
 			cleanup()
 			return ConnectionInput{}, func() error { return nil }, cloneErr
@@ -289,7 +289,7 @@ func openRepository(ctx context.Context, in ConnectionInput, revision string) (s
 		if err != nil || ((parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.User != nil) {
 			return "", func() {}, "", errors.New("repository URL must not contain embedded credentials")
 		}
-		d, err := os.MkdirTemp("", "opskeeper-repository-")
+		d, err := os.MkdirTemp("", "opsseek-repository-")
 		if err != nil {
 			return "", func() {}, "", err
 		}
@@ -417,7 +417,7 @@ func materializePostgres(ctx context.Context, in ConnectionInput) (string, func(
 		closePool()
 		return "", func() {}, err
 	}
-	dir, err := os.MkdirTemp("", "opskeeper-repository-postgres-")
+	dir, err := os.MkdirTemp("", "opsseek-repository-postgres-")
 	if err != nil {
 		closePool()
 		return "", func() {}, err
@@ -466,7 +466,7 @@ func materializeS3(ctx context.Context, in ConnectionInput) (string, func(), err
 	if err != nil {
 		return "", func() {}, err
 	}
-	dir, err := os.MkdirTemp("", "opskeeper-repository-s3-")
+	dir, err := os.MkdirTemp("", "opsseek-repository-s3-")
 	if err != nil {
 		return "", func() {}, err
 	}

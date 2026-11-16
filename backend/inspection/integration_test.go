@@ -19,9 +19,9 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"opskeeper/backend/migrations"
-	"opskeeper/backend/notification"
-	"opskeeper/backend/secret"
+	"opsseek/backend/migrations"
+	"opsseek/backend/notification"
+	"opsseek/backend/secret"
 )
 
 // TestInspectionTablesExist verifies the deployed T13 schema directly. The
@@ -198,7 +198,7 @@ func TestFindingNotificationEventsAreTransactional(t *testing.T) {
 	}
 	requests := make(chan []byte, 2)
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("X-OpsKeeper-Signature") == "" {
+		if r.Header.Get("X-OpsSeek-Signature") == "" {
 			t.Error("signed webhook request has no signature")
 		}
 		payload, _ := io.ReadAll(r.Body)

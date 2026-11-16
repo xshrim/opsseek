@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"opskeeper/backend/resource"
-	repositorytool "opskeeper/backend/tool/repository"
+	"opsseek/backend/resource"
+	repositorytool "opsseek/backend/tool/repository"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -162,7 +162,7 @@ func NewService(root string, maxBytes int64, resources interface {
 	Get(context.Context, string) (resource.Resource, error)
 }) *Service {
 	if strings.TrimSpace(root) == "" {
-		root = "/var/lib/opskeeper/repositories"
+		root = "/var/lib/opsseek/repositories"
 	}
 	if maxBytes <= 0 {
 		maxBytes = 512 << 20
@@ -173,7 +173,7 @@ func NewServiceWithStorage(cfg StorageConfig, maxBytes int64, resources interfac
 	Get(context.Context, string) (resource.Resource, error)
 }) *Service {
 	if cfg.Root == "" {
-		cfg.Root = "/var/lib/opskeeper/repositories"
+		cfg.Root = "/var/lib/opsseek/repositories"
 	}
 	if cfg.Prefix == "" {
 		cfg.Prefix = "repositories"
@@ -345,7 +345,7 @@ func (s *Service) uploadPostgres(ctx context.Context, id string, r io.Reader, si
 	if s.storage.Postgres == nil {
 		return UploadResult{}, errors.New("PostgreSQL repository storage is not configured")
 	}
-	dir, err := os.MkdirTemp("", "opskeeper-postgres-repo-")
+	dir, err := os.MkdirTemp("", "opsseek-postgres-repo-")
 	if err != nil {
 		return UploadResult{}, err
 	}
@@ -462,7 +462,7 @@ func (s *Service) uploadS3(ctx context.Context, id string, r io.Reader, size int
 			return UploadResult{}, fmt.Errorf("create repository bucket: %w", err)
 		}
 	}
-	dir, err := os.MkdirTemp("", "opskeeper-s3-repo-")
+	dir, err := os.MkdirTemp("", "opsseek-s3-repo-")
 	if err != nil {
 		return UploadResult{}, err
 	}
@@ -643,7 +643,7 @@ func archiveHeads(ctx context.Context, dir string) ([]string, error) {
 		if len(fields) != 2 {
 			continue
 		}
-		ref := "refs/opskeeper/archive/" + stamp + "/" + fields[0]
+		ref := "refs/opsseek/archive/" + stamp + "/" + fields[0]
 		if err := run(ctx, "--git-dir", dir, "update-ref", ref, fields[1]); err != nil {
 			return nil, err
 		}

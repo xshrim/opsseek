@@ -3,7 +3,7 @@ DELETE FROM skill_versions AS version
  WHERE version.skill_resource_id = resource.id
    AND version.version = 2
    AND resource.kind = 'Skill'
-   AND resource.config->>'owner' = 'OpsKeeper builtin';
+   AND resource.config->>'owner' = 'OpsSeek builtin';
 
 UPDATE skill_versions AS version
    SET status = 'published', published_at = COALESCE(version.published_at, now())
@@ -11,4 +11,4 @@ UPDATE skill_versions AS version
  WHERE version.skill_resource_id = resource.id
    AND version.version = 1
    AND resource.kind = 'Skill'
-   AND resource.config->>'owner' = 'OpsKeeper builtin';
+   AND resource.config->>'owner' = 'OpsSeek builtin';

@@ -2,7 +2,7 @@
 
 ## 1. 文档目的
 
-本文定义 OpsKeeper 对基础设施、数据库、中间件和可观测资源的统一接入方式。目标是让同一套资源工具既可以作为本项目提供的 MCP Server 工具，也可以作为 Engine 的 Direct 内置工具使用。
+本文定义 OpsSeek 对基础设施、数据库、中间件和可观测资源的统一接入方式。目标是让同一套资源工具既可以作为本项目提供的 MCP Server 工具，也可以作为 Engine 的 Direct 内置工具使用。
 
 本文描述长期设计原则和运行时边界；具体实施顺序、任务状态和验收证据以 [I004 统一资源接入迭代](../iterations/I004-unified-resource-access/iteration.md) 及其需求文档为准。
 
@@ -27,7 +27,7 @@ Agent
 - 工具名称、业务入参、业务出参和错误语义保持一致；
 - Direct 和 MCP 不维护两套资源业务实现；
 - Engine 不读取或向模型暴露资源连接凭据；
-- MCP Server 是否由 OpsKeeper 提供，不改变 Engine 的调用协议；
+- MCP Server 是否由 OpsSeek 提供，不改变 Engine 的调用协议；
 - 权限、资源状态、超时、响应大小、审计和取消由外层运行时统一治理。
 
 ## 3. 术语与边界
@@ -182,7 +182,7 @@ Engine Context Resolver
 
 ### 6.3 项目提供的 MCP Server
 
-OpsKeeper 提供的 Docker、Kubernetes 等 MCP Server 仍是普通 MCP Server。其 Server 层只负责：
+OpsSeek 提供的 Docker、Kubernetes 等 MCP Server 仍是普通 MCP Server。其 Server 层只负责：
 
 - 注册 MCP Tool；
 - 解码 MCP 输入；

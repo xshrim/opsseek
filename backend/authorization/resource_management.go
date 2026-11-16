@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"opskeeper/backend/audit"
+	"opsseek/backend/audit"
 )
 
 func (s *ManagementService) ListResourceRoles(ctx context.Context, actorID string) ([]ResourceRoleDefinition, error) {

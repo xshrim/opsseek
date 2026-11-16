@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"opskeeper/backend/engine"
-	rmq "opskeeper/backend/tool/rabbitmq"
+	"opsseek/backend/engine"
+	rmq "opsseek/backend/tool/rabbitmq"
 	"strings"
 )
 

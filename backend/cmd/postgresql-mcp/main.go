@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"opskeeper/backend/mcpserver/postgresql/server"
+	"opsseek/backend/mcpserver/postgresql/server"
 )
 
 func main() {

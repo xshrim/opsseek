@@ -6,7 +6,7 @@
 
 ## 1. 文档目的
 
-本文定义 OpsKeeper 首个迭代的完整交付需求，并将需求拆分为 15 个可独立实施和验收的任务。任务按依赖关系顺序执行，后续任务默认依赖所有前置任务已经验收通过。身份、授权、管理与审计分别安排在 T03、T04、T05，避免将安全关键能力集中在一次实施和验收中。
+本文定义 OpsSeek 首个迭代的完整交付需求，并将需求拆分为 15 个可独立实施和验收的任务。任务按依赖关系顺序执行，后续任务默认依赖所有前置任务已经验收通过。身份、授权、管理与审计分别安排在 T03、T04、T05，避免将安全关键能力集中在一次实施和验收中。
 
 本需求已经完成实施和验收；本文作为 I001 封板后的不可变需求记录保存。后续迭代不得直接修改本文件，新增范围应建立新的需求文档。
 
@@ -27,7 +27,7 @@
 工程初始化后预计采用以下目录结构，实际创建须在任务 1 获批后进行：
 
 ```text
-opskeeper/
+opsseek/
 ├── backend/
 │   ├── cmd/api/
 │   ├── cmd/migrate/
@@ -456,8 +456,8 @@ Tempo/Jaeger/Elastic 实现、AI 诊断编排和自动巡检。
 4. 实现模型能力、上下文窗口、Token 价格、超时和 Scope 默认模型配置。
 5. 创建 Skill 和 SkillVersion 表，保存 Manifest、输入/输出 Schema、工具、风险等级和状态。
 6. 实现 Skill 发布、停用、版本固定、适用资源检查和配置校验。
-7. 在 ADK Runner 外实现 OpsKeeper Policy Enforcement：参数校验、目标授权、工具白名单、超时、取消、调用与 Token 预算、输出限制和执行记录。
-8. LLM 不能直接访问 Connector，所有外部访问必须通过 ADK Tool 和 OpsKeeper Policy Enforcement。
+7. 在 ADK Runner 外实现 OpsSeek Policy Enforcement：参数校验、目标授权、工具白名单、超时、取消、调用与 Token 预算、输出限制和执行记录。
+8. LLM 不能直接访问 Connector，所有外部访问必须通过 ADK Tool 和 OpsSeek Policy Enforcement。
 9. 增加模型连接测试、Token 用量统计和输入输出脱敏。
 10. 使用模拟 OpenAI-compatible LLM 和 Connector 验证多轮 Tool Calling、错误恢复、预算限制和越权阻断。
 

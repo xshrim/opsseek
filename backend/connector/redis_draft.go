@@ -3,7 +3,7 @@ package connector
 import (
 	"context"
 	"fmt"
-	rt "opskeeper/backend/tool/redis"
+	rt "opsseek/backend/tool/redis"
 	"time"
 )
 

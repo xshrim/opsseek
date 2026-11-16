@@ -265,8 +265,8 @@ func source(pc uintptr) (string, string) {
 	}
 	frame, _ := runtime.CallersFrames([]uintptr{pc}).Next()
 	name := frame.Function
-	if marker := strings.Index(name, "opskeeper/backend/"); marker >= 0 {
-		name = name[marker+len("opskeeper/backend/"):]
+	if marker := strings.Index(name, "opsseek/backend/"); marker >= 0 {
+		name = name[marker+len("opsseek/backend/"):]
 	}
 	name = strings.ReplaceAll(name, "/", ".")
 	if name == "" {

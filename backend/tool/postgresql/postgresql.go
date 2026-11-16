@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"opskeeper/backend/tool/relational"
+	"opsseek/backend/tool/relational"
 )
 
 // ConnectionInput is transport-neutral. Direct resources fill it from their
@@ -231,7 +231,7 @@ func open(ctx context.Context, input ConnectionInput) (*pgx.Conn, error) {
 		return nil, fmt.Errorf("parse PostgreSQL connection: %w", err)
 	}
 	config.RuntimeParams["default_transaction_read_only"] = "on"
-	config.RuntimeParams["application_name"] = "opskeeper-diagnostic"
+	config.RuntimeParams["application_name"] = "opsseek-diagnostic"
 	seconds := input.TimeoutSeconds
 	if seconds <= 0 {
 		seconds = 10

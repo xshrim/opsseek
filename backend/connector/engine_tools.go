@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"opskeeper/backend/engine"
+	"opsseek/backend/engine"
 )
 
 // EngineProvider exposes existing connector capabilities through the

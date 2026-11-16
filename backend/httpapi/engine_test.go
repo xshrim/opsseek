@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	enginepkg "opskeeper/backend/engine"
-	"opskeeper/backend/identity"
+	enginepkg "opsseek/backend/engine"
+	"opsseek/backend/identity"
 )
 
 type fakeEngine struct{ request enginepkg.Request }

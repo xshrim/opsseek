@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"opskeeper/backend/authorization"
+	"opsseek/backend/authorization"
 )
 
 func TestApplicationUpdateQueryFiltersBeforeReturning(t *testing.T) {

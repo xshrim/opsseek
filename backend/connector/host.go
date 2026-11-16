@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	host "opskeeper/backend/tool/host"
+	host "opsseek/backend/tool/host"
 )
 
 type hostAdapter struct{ input host.ConnectionInput }
