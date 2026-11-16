@@ -1,9 +1,11 @@
 <script lang="ts">
+  import { afterUpdate, onDestroy } from 'svelte';
   import {
     Bot,
     Check,
     Copy,
     Pencil,
+    SearchCheck,
     Stethoscope,
     Wrench,
     X
@@ -19,10 +21,11 @@
 
   type DiagnosisLiveTimelineItem = {
     id: number;
-    kind: 'analysis' | 'action';
+    kind: 'analysis' | 'action' | 'investigation';
     text?: string;
     tool?: string;
     label?: string;
+    detail?: string;
     status?: string;
     duration?: string;
     elapsed?: string;
@@ -48,7 +51,10 @@
   export let diagnosisLiveProcessExpanded = false;
   export let diagnosisStreamingStartedAt = 0;
   export let formatDate: (value: string) => string;
-  export let renderMarkdown: (text: string) => string;
+  export let renderMarkdown: (
+    text: string,
+    options?: { renderMermaid?: boolean }
+  ) => string;
   export let diagnosisLiveTimeline: (
     snapshot: DiagnosisSnapshot | null
   ) => DiagnosisLiveTimelineItem[];
@@ -71,9 +77,10 @@
   export let saveDiagnosisEdit: () => void | Promise<void>;
   export let copyDiagnosisMessage: (
     message: DiagnosisMessage,
-    processExpanded: boolean
+    processExpanded: boolean,
+    onCopied: () => void
   ) => void;
-  export let copyStreamingAnswer: () => void;
+  export let copyStreamingAnswer: (onCopied: () => void) => void;
   export let copyDiagnosisAction: (content: string) => void;
 
   let liveTimeline: DiagnosisLiveTimelineItem[] = [];
@@ -87,6 +94,11 @@
   let interruptionReason = '';
   let collapsedDays: Record<string, boolean> = {};
   let collapsedSessionID = '';
+  let copiedMessageKey = '';
+  let copiedMessageTimer: ReturnType<typeof setTimeout> | undefined;
+  let mermaidLoader: Promise<(typeof import('mermaid'))['default']> | null =
+    null;
+  let mermaidSequence = 0;
   // Keep the derived event view stable within one render pass. The reducer is
   // pure, but rebuilding the same timeline in every branch made streaming
   // updates needlessly expensive and obscured which view was being rendered.
@@ -174,7 +186,9 @@
   const processActionCount = (timeline: DiagnosisLiveTimelineItem[]) =>
     timeline.reduce(
       (count, item) =>
-        count + (item.kind === 'action' ? (item.actions?.length ?? 1) : 0),
+        count +
+        (item.kind === 'action' ? (item.actions?.length ?? 1) : 0) +
+        (item.kind === 'investigation' ? 1 : 0),
       0
     );
 
@@ -201,6 +215,66 @@
   function toggleDay(dayKey: string) {
     collapsedDays = { ...collapsedDays, [dayKey]: !collapsedDays[dayKey] };
   }
+
+  function markMessageCopied(key: string) {
+    copiedMessageKey = key;
+    if (copiedMessageTimer) clearTimeout(copiedMessageTimer);
+    copiedMessageTimer = setTimeout(() => {
+      if (copiedMessageKey === key) copiedMessageKey = '';
+    }, 1500);
+  }
+
+  function loadMermaid() {
+    mermaidLoader ??= import('mermaid').then(({ default: mermaid }) => {
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: 'strict',
+        theme: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'default',
+        flowchart: { htmlLabels: false }
+      });
+      return mermaid;
+    });
+    return mermaidLoader;
+  }
+
+  async function renderMermaidDiagrams() {
+    const root = diagnosisMessageListElement;
+    if (!root) return;
+    const holders = [...root.querySelectorAll<HTMLElement>('[data-mermaid-source]')].filter(
+      (holder) => !holder.dataset.mermaidRendered
+    );
+    if (!holders.length) return;
+    for (const holder of holders) holder.dataset.mermaidRendered = 'pending';
+    let mermaid: (typeof import('mermaid'))['default'];
+    try {
+      mermaid = await loadMermaid();
+    } catch {
+      return;
+    }
+    for (const holder of holders) {
+      try {
+        const source = decodeURIComponent(holder.dataset.mermaidSource ?? '');
+        const { svg } = await mermaid.render(
+          `diagnosis-mermaid-${++mermaidSequence}`,
+          source
+        );
+        if (!holder.isConnected) continue;
+        holder.innerHTML = svg;
+        holder.dataset.mermaidRendered = 'true';
+      } catch {
+        // Keep the escaped source-code fallback already in the holder.
+        holder.dataset.mermaidRendered = 'failed';
+      }
+    }
+  }
+
+  afterUpdate(() => {
+    void renderMermaidDiagrams();
+  });
+
+  onDestroy(() => {
+    if (copiedMessageTimer) clearTimeout(copiedMessageTimer);
+  });
 </script>
 
 <div class="diagnosis-message-list-f" bind:this={diagnosisMessageListElement}>
@@ -345,6 +419,144 @@
                             >
                               {@html renderMarkdown(analysisText)}
                             </div>{/key}
+                        {:else if item.kind === 'investigation'}
+                          {@const investigationKey = `process-investigation-${item.id}`}
+                          <div class="diagnosis-investigation-wrap">
+                            <button
+                              class="diagnosis-live-action diagnosis-investigation"
+                              aria-expanded={Boolean(
+                                diagnosisActionExpanded[investigationKey]
+                              )}
+                              on:click={() => toggleExpanded(investigationKey)}
+                            >
+                              <span
+                                class="diagnosis-live-action-chevron"
+                                aria-hidden="true"
+                                >{diagnosisActionExpanded[investigationKey]
+                                  ? '⌄'
+                                  : '›'}</span
+                              ><span
+                                class="diagnosis-live-action-icon"
+                                aria-hidden="true"><SearchCheck size={13} /></span
+                              ><span class="diagnosis-investigation-kind"
+                                >子智能体</span
+                              ><span class="diagnosis-live-action-label"
+                                >{(item.label ?? '子智能体').replace(
+                                  /^子智能体\s*·\s*/,
+                                  ''
+                                )}</span
+                              ><span
+                                class="diagnosis-live-action-status"
+                                class:error={item.status === '失败'}
+                                >{item.status}</span
+                              >
+                            </button>
+                            {#if item.detail}
+                              <p class="diagnosis-investigation-detail error">
+                                {item.detail}
+                              </p>
+                            {/if}
+                            {#if diagnosisActionExpanded[investigationKey]}
+                              <div class="diagnosis-live-action-detail investigation-detail">
+                                <div>
+                                  <small>任务范围</small>
+                                  <div class="diagnosis-live-action-value">
+                                    <button
+                                      class="diagnosis-live-action-copy"
+                                      type="button"
+                                      aria-label="复制任务范围"
+                                      data-tooltip="复制任务范围"
+                                      on:click|stopPropagation={() => copyDiagnosisAction(item.input ?? '暂无任务范围')}
+                                      ><Copy size={13} /></button
+                                    ><pre>{item.input ?? '暂无任务范围'}</pre>
+                                  </div>
+                                </div>
+                                <div>
+                                  <small>调查结果</small>
+                                  <div class="diagnosis-live-action-value">
+                                    <button
+                                      class="diagnosis-live-action-copy"
+                                      type="button"
+                                      aria-label="复制调查结果"
+                                      data-tooltip="复制调查结果"
+                                      on:click|stopPropagation={() => copyDiagnosisAction(item.output ?? '暂无调查结果')}
+                                      ><Copy size={13} /></button
+                                    ><pre>{item.output ?? '暂无调查结果'}</pre>
+                                  </div>
+                                </div>
+                              </div>
+                              {#if item.actions?.length}
+                                <div class="diagnosis-investigation-progress">
+                                  <small>内部执行</small>
+                                  {#each item.actions as progress (progress.id)}
+                                    {#if progress.kind === 'analysis'}
+                                      <div class="diagnosis-investigation-progress-note">
+                                        {progress.text}
+                                      </div>
+                                    {:else}
+                                      {@const progressKey = `process-investigation-action-${item.id}-${progress.id}`}
+                                      <div class="diagnosis-live-action-wrap">
+                                        <button
+                                          class="diagnosis-live-action child"
+                                          aria-expanded={Boolean(
+                                            diagnosisActionExpanded[progressKey]
+                                          )}
+                                          on:click={() => toggleExpanded(progressKey)}
+                                        >
+                                          <span
+                                            class="diagnosis-live-action-chevron"
+                                            aria-hidden="true"
+                                            >{diagnosisActionExpanded[progressKey]
+                                              ? '⌄'
+                                              : '›'}</span
+                                          ><span
+                                            class="diagnosis-live-action-icon"
+                                            aria-hidden="true"><Wrench size={12} /></span
+                                          ><span class="diagnosis-live-action-label"
+                                            >{diagnosisActionLabel(progress)}</span
+                                          ><span
+                                            class="diagnosis-live-action-status"
+                                            class:error={progress.status !==
+                                              '已完成'}>{progress.status}</span
+                                          ><small>{progress.duration}</small>
+                                        </button>
+                                        {#if diagnosisActionExpanded[progressKey]}
+                                          <div class="diagnosis-live-action-detail child-detail">
+                                            <div>
+                                              <small>入参</small>
+                                              <div class="diagnosis-live-action-value">
+                                                <button
+                                                  class="diagnosis-live-action-copy"
+                                                  type="button"
+                                                  aria-label="复制入参"
+                                                  data-tooltip="复制入参"
+                                                  on:click|stopPropagation={() => copyDiagnosisAction(progress.input ?? '暂无入参')}
+                                                  ><Copy size={13} /></button
+                                                ><pre>{progress.input ?? '暂无入参'}</pre>
+                                              </div>
+                                            </div>
+                                            <div>
+                                              <small>出参</small>
+                                              <div class="diagnosis-live-action-value">
+                                                <button
+                                                  class="diagnosis-live-action-copy"
+                                                  type="button"
+                                                  aria-label="复制出参"
+                                                  data-tooltip="复制出参"
+                                                  on:click|stopPropagation={() => copyDiagnosisAction(progress.output ?? '暂无出参')}
+                                                  ><Copy size={13} /></button
+                                                ><pre>{progress.output ?? '暂无出参'}</pre>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        {/if}
+                                      </div>
+                                    {/if}
+                                  {/each}
+                                </div>
+                              {/if}
+                            {/if}
+                          </div>
                         {:else}
                           {@const actions = item.actions ?? [item]}
                           {#if actions.length > 1}
@@ -520,7 +732,9 @@
               {/if}
               <div class="diagnosis-bubble-f">
                 {#if message.content}<div class="diagnosis-markdown">
-                    {@html renderMarkdown(message.content)}
+                    {@html renderMarkdown(message.content, {
+                      renderMermaid: !isStreaming || diagnosisAnswerCompleted
+                    })}
                   </div>{/if}
                 {#if message.role === 'user' && ((message.attachments?.length ?? 0) || (message.links?.length ?? 0))}
                   <div class="diagnosis-message-attachments">
@@ -548,8 +762,13 @@
                     class="diagnosis-user-action"
                     aria-label="复制问题"
                     data-tooltip="复制问题"
-                    on:click={() => copyDiagnosisMessage(message, false)}
-                    ><Copy size={13} /></button
+                    on:click={() =>
+                      copyDiagnosisMessage(message, false, () =>
+                        markMessageCopied(`question-${message.id}`)
+                      )}
+                    >{#if copiedMessageKey === `question-${message.id}`}<Check
+                        size={13}
+                      />{:else}<Copy size={13} />{/if}</button
                   >
                 </div>
               {/if}
@@ -561,11 +780,17 @@
                     data-tooltip="复制回答"
                     on:click={() =>
                       isStreaming
-                        ? copyStreamingAnswer()
+                        ? copyStreamingAnswer(() =>
+                            markMessageCopied('streaming-answer')
+                          )
                         : copyDiagnosisMessage(
                             message,
-                            diagnosisProcessExpanded[message.id] ?? false
-                          )}><Copy size={14} />复制回答</button
+                            diagnosisProcessExpanded[message.id] ?? false,
+                            () => markMessageCopied(`answer-${message.id}`)
+                          )}>{#if copiedMessageKey ===
+                      (isStreaming ? 'streaming-answer' : `answer-${message.id}`)}<Check
+                        size={14}
+                      />{:else}<Copy size={14} />{/if}</button
                   >
                 </div>
               {/if}

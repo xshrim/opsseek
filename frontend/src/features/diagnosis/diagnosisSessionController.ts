@@ -37,6 +37,10 @@ type DiagnosisSessionAPI = {
     id: string,
     collaboration: number
   ) => Promise<DiagnosisSession>;
+  setDiagnosisSharing: (
+    id: string,
+    scopeShared: boolean
+  ) => Promise<DiagnosisSession>;
   askDiagnosis: (
     id: string,
     body: {
@@ -445,6 +449,7 @@ export function createDiagnosisSessionController(
     options.setStreamState(interruptedState);
     try {
       await options.api.cancelDiagnosis(sessionID);
+      if (sessionID === options.getSelectedDiagnosisId()) open(sessionID);
     } catch (error) {
       options.setStreamState({
         ...options.getStreamState(),
@@ -504,6 +509,10 @@ export function createDiagnosisSessionController(
     return options.api.setDiagnosisCollaboration(sessionID, collaboration);
   }
 
+  function setDiagnosisSharing(sessionID: string, scopeShared: boolean) {
+    return options.api.setDiagnosisSharing(sessionID, scopeShared);
+  }
+
   function loadSessions(scopeID: string) {
     return options.api.diagnosisSessions(scopeID);
   }
@@ -556,6 +565,7 @@ export function createDiagnosisSessionController(
     submit,
     startDiagnosis,
     setDiagnosisCollaboration,
+    setDiagnosisSharing,
     syncCursor,
     syncCursorToLatestQuestion
   };

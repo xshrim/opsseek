@@ -230,7 +230,7 @@ func run(logger *slog.Logger, cfg config.Config) error {
 		WithPersonaResolver(personaResolver).
 		WithPlanResolver(skillService)
 	engineCatalog := engine.NewCatalogService(engine.NewCatalogStore(pool))
-	diagnosisService := diagnosis.NewOrchestrator(diagnosis.NewService(diagnosis.NewStore(pool), resourceService, applicationService).WithDefaultCollaboration(cfg.DiagnosisCollaboration), engineRuntime, 30*time.Minute).
+	diagnosisService := diagnosis.NewOrchestrator(diagnosis.NewService(diagnosis.NewStore(pool), resourceService, applicationService).WithDefaultCollaboration(cfg.DiagnosisCollaboration), engineRuntime, 0).
 		WithSubagentLimits(cfg.DiagnosisMaxSubagents, cfg.DiagnosisSubagentConcurrency)
 	diagnosisService.StartRecoveryWorker(ctx)
 	workflowService := engine.NewWorkflowService(workflowRunStore, engineRuntime, contextTooling.Gateway, workflowRetriever, aiStore)

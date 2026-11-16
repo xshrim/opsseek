@@ -25,6 +25,9 @@ type Orchestrator struct {
 	subagentConcurrency int
 }
 
+// This is shared by the main agent and every child agent in one diagnosis run.
+const diagnosisMaxToolCalls = 256
+
 type diagnosticScopeContextReader interface {
 	DiagnosticScopeContext(context.Context, string) (application.DiagnosticScopeContext, error)
 }
@@ -40,9 +43,6 @@ func (o *Orchestrator) WithSubagentLimits(maxTasks, concurrency int) *Orchestrat
 }
 
 func NewOrchestrator(service *Service, engine engine.Engine, timeout time.Duration) *Orchestrator {
-	if timeout <= 0 {
-		timeout = 30 * time.Minute
-	}
 	return &Orchestrator{Service: service, engine: engine, timeout: timeout, leaseOwner: fmt.Sprintf("api-%d", time.Now().UnixNano())}
 }
 
@@ -138,10 +138,17 @@ func (o *Orchestrator) launch(parent context.Context, sessionID string) {
 		parent = o.workerCtx
 	}
 	go func() {
-		ctx, cancel := context.WithTimeout(parent, o.timeout)
+		ctx, cancel := diagnosisRunContext(parent, o.timeout)
 		defer cancel()
 		o.run(ctx, sessionID)
 	}()
+}
+
+func diagnosisRunContext(parent context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	if timeout <= 0 {
+		return context.WithCancel(parent)
+	}
+	return context.WithTimeout(parent, timeout)
 }
 
 // launchPending resumes a follow-up that was appended while the previous run
@@ -325,24 +332,33 @@ func (o *Orchestrator) run(ctx context.Context, sessionID string) {
 		}
 		return text.String()
 	}
-	persistPartialAssistant := func() {
+	persistPartialAssistant := func(fallback string) string {
 		assistantMu.Lock()
 		defer assistantMu.Unlock()
 		if assistantPersisted || assistantPersistErr != nil {
-			return
+			return ""
 		}
 		text := strings.TrimSpace(partialAnswerText())
 		if text == "" {
-			return
+			text = strings.TrimSpace(fallback)
+		}
+		if text == "" {
+			return ""
 		}
 		_, persistErr := o.store.AppendMessage(context.Background(), session.ID, AppendMessageInput{Role: "assistant", Content: safeText(text, 8000)})
 		if persistErr != nil {
 			assistantPersistErr = persistErr
-			return
+			return ""
 		}
 		assistantPersisted = true
 		assistantText = safeText(text, 8000)
 		pendingAssistantCompleted = nil
+		return assistantText
+	}
+	emitPartialAssistant := func(fallback string) {
+		if text := persistPartialAssistant(fallback); text != "" {
+			_ = o.appendEvent(context.Background(), session.ID, CreateEventInput{Type: "assistant.partial", Payload: map[string]any{"text": text}})
+		}
 	}
 	flushPendingTerminalEvents := func() {
 		assistantMu.Lock()
@@ -398,7 +414,7 @@ func (o *Orchestrator) run(ctx context.Context, sessionID string) {
 			}
 		}
 	}
-	result, err := o.engine.Execute(ctx, engine.Request{ExecutionID: diagnosisExecutionID(session.ID), ActorID: dereference(session.ActorUserID), ScopeID: session.ScopeID, ProviderID: session.ProviderID, ModelName: session.ModelName, Purpose: engine.PurposeDiagnosis, Profile: engine.ProfileInteractive, Instruction: instruction, Messages: engineMessages, Context: engine.ContextRequest{ResourceIDs: targetIDs, ResourceBindings: buildApplicationResourceBindings(session.ApplicationContext)}, LocatorHints: buildApplicationLocatorHints(session.ApplicationContext), SkillID: latestMessage.SkillID, PersonaID: latestMessage.PersonaID, Input: input, InternalTools: scopeTools, Budget: engine.Budget{MaxIterations: 100, MaxToolCalls: 100, MaxTokens: 1000000, MaxOutputBytes: 64 << 10, Timeout: o.timeout}, Stream: true, EventSink: func(event engine.Event) error {
+	result, err := o.engine.Execute(ctx, engine.Request{ExecutionID: diagnosisExecutionID(session.ID), ActorID: dereference(session.ActorUserID), ScopeID: session.ScopeID, ProviderID: session.ProviderID, ModelName: session.ModelName, Purpose: engine.PurposeDiagnosis, Profile: engine.ProfileInteractive, Instruction: instruction, Messages: engineMessages, Context: engine.ContextRequest{ResourceIDs: targetIDs, ResourceBindings: buildApplicationResourceBindings(session.ApplicationContext)}, LocatorHints: buildApplicationLocatorHints(session.ApplicationContext), SkillID: latestMessage.SkillID, PersonaID: latestMessage.PersonaID, Input: input, InternalTools: scopeTools, Budget: engine.Budget{MaxIterations: 100, MaxToolCalls: diagnosisMaxToolCalls, MaxTokens: 1000000, MaxOutputBytes: 64 << 10, Timeout: o.timeout, NoExecutionTimeout: o.timeout <= 0}, Stream: true, EventSink: func(event engine.Event) error {
 		if event.Type == "assistant.delta" {
 			if text, ok := event.Payload["text"].(string); ok && text != "" {
 				assistantMu.Lock()
@@ -501,7 +517,7 @@ func (o *Orchestrator) run(ctx context.Context, sessionID string) {
 		// Preserve a useful partial answer before writing the terminal event. A
 		// timeout can interrupt the model between streamed deltas and its final
 		// completion marker.
-		persistPartialAssistant()
+		emitPartialAssistant(result.Output)
 		// A terminal Engine event can arrive before Execute returns. Flush it
 		// before closing the diagnosis session so cancellation and failure are
 		// visible to reconnecting clients even when no assistant answer exists.
@@ -525,7 +541,7 @@ func (o *Orchestrator) run(ctx context.Context, sessionID string) {
 		return
 	}
 	if result.Status == engine.StatusFailed || result.Status == engine.StatusCancelled {
-		persistPartialAssistant()
+		emitPartialAssistant(result.Output)
 		flushPendingTerminalEvents()
 		code := strings.TrimSpace(result.ErrorCode)
 		message := strings.TrimSpace(result.ErrorMessage)

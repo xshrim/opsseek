@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"opsseek/backend/gitrepo"
 	"opsseek/backend/resource"
 )
 
@@ -117,6 +118,16 @@ func TestUploadBundleRecordsLatestCommitInEndpoint(t *testing.T) {
 	}
 	if current := string(runGitTest(t, filepath.Join(root, "storage", resources.item.ID), "rev-parse", "main")); current != nextCommit {
 		t.Fatalf("failed upload changed current commit: %s", current)
+	}
+	exported := filepath.Join(root, "exported.bundle")
+	if err := gitrepo.ExportBundle(ctx, filepath.Join(root, "storage", resources.item.ID), exported); err != nil {
+		t.Fatal(err)
+	}
+	runGitTest(t, repoDir, "bundle", "verify", exported)
+	cloned := filepath.Join(root, "exported-clone")
+	runGitTest(t, repoDir, "clone", "--bare", exported, cloned)
+	if got := string(runGitTest(t, cloned, "rev-parse", "release")); got != releaseCommit {
+		t.Fatalf("export lost release: %s", got)
 	}
 }
 

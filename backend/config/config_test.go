@@ -55,7 +55,7 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.ConnectorTimeout != 10*time.Second || cfg.ConnectorMaxConcurrency != 8 || cfg.ConnectorMaxResponseBytes != 4<<20 {
 		t.Fatalf("Load() returned unexpected connector config: %#v", cfg)
 	}
-	if cfg.DiagnosisCollaboration != 2 || cfg.DiagnosisMaxSubagents != 24 || cfg.DiagnosisSubagentConcurrency != 4 {
+	if cfg.DiagnosisCollaboration != 2 || cfg.DiagnosisMaxSubagents != 8 || cfg.DiagnosisSubagentConcurrency != 4 {
 		t.Fatalf("Load() diagnosis collaboration defaults = %d/%d/%d", cfg.DiagnosisCollaboration, cfg.DiagnosisMaxSubagents, cfg.DiagnosisSubagentConcurrency)
 	}
 	if cfg.HTTPMaxBodyBytes != 5<<20 || cfg.HTTPRateLimitPerMinute != 600 || len(cfg.AllowedOrigins) != 0 {
@@ -75,7 +75,7 @@ func TestLoadUsesSafeDiagnosisCollaborationLimits(t *testing.T) {
 		t.Setenv(key, "999")
 	}
 	cfg, err = Load()
-	if err != nil || cfg.DiagnosisCollaboration != 2 || cfg.DiagnosisMaxSubagents != 24 || cfg.DiagnosisSubagentConcurrency != 4 {
+	if err != nil || cfg.DiagnosisCollaboration != 2 || cfg.DiagnosisMaxSubagents != 8 || cfg.DiagnosisSubagentConcurrency != 4 {
 		t.Fatalf("invalid diagnosis limits did not use safe defaults: %d/%d/%d err=%v", cfg.DiagnosisCollaboration, cfg.DiagnosisMaxSubagents, cfg.DiagnosisSubagentConcurrency, err)
 	}
 }

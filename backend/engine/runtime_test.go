@@ -12,6 +12,20 @@ type fakeRunner struct {
 	run func(context.Context, Request) (Result, error)
 }
 
+func TestRuntimeAllowsExplicitlyUnboundedExecution(t *testing.T) {
+	runtime := New(fakeRunner{run: func(ctx context.Context, _ Request) (Result, error) {
+		if _, hasDeadline := ctx.Deadline(); hasDeadline {
+			t.Fatal("unbounded execution context unexpectedly has a deadline")
+		}
+		return Result{Status: StatusSucceeded}, nil
+	}})
+	if _, err := runtime.Execute(context.Background(), Request{
+		ScopeID: "scope-1", Task: "retry provider", Budget: Budget{NoExecutionTimeout: true},
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRuntimeSharesExecutionBudgetsWithNestedRuns(t *testing.T) {
 	var runtime *Runtime
 	var rootBudget *executionBudget

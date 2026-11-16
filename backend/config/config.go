@@ -77,7 +77,7 @@ type Config struct {
 func Load() (Config, error) {
 	cfg := Config{
 		DiagnosisCollaboration:       safeIntFromEnv("OPSK_DIAGNOSIS_COLLABORATION", 2, 1, 5),
-		DiagnosisMaxSubagents:        safeIntFromEnv("OPSK_DIAGNOSIS_MAX_SUBAGENTS", 24, 1, 128),
+		DiagnosisMaxSubagents:        safeIntFromEnv("OPSK_DIAGNOSIS_MAX_SUBAGENTS", 8, 1, 128),
 		DiagnosisSubagentConcurrency: safeIntFromEnv("OPSK_DIAGNOSIS_SUBAGENT_CONCURRENCY", 4, 1, 16),
 		BasePath:                     envOrDefault("OPSK_BASE_PATH", defaultBasePath),
 		Environment:                  envOrDefault("OPSK_ENVIRONMENT", "development"),

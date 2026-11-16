@@ -3,6 +3,8 @@ import { defineConfig } from 'vite';
 
 const basePathPattern =
   /^\/(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)(?:\/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/;
+const mermaidPackagePattern =
+  /\/node_modules\/(?:mermaid|@mermaid-js|@braintree|@upsetjs|chevrotain|cytoscape(?:-[^/]+)?|d3(?:-[^/]+)?|dagre-d3-es|dayjs|dompurify|elkjs|es-toolkit|katex|khroma|roughjs|stylis|ts-dedent)\//;
 
 export default defineConfig(({ command, mode }) => {
   const basePath = process.env.OPSK_BASE_PATH ?? '/opsseek';
@@ -53,7 +55,10 @@ export default defineConfig(({ command, mode }) => {
       }
     },
     build: {
-      chunkSizeWarningLimit: 800,
+      // Mermaid's optional ELK layout engine is lazy-loaded only for the
+      // diagram types that need it; all initial application chunks stay below
+      // 800 kB after the explicit vendor split below.
+      chunkSizeWarningLimit: 1600,
       rollupOptions: {
         input: ['index.html', 'topology-style-options.html'],
         output: {
@@ -69,6 +74,13 @@ export default defineConfig(({ command, mode }) => {
             }
             if (feature) return `feature-${feature}`;
             if (!id.includes('/node_modules/')) return undefined;
+            // Mermaid already exposes diagram renderers through dynamic
+            // imports. Leave its graph to Rollup so a flowchart does not pull
+            // every optional diagram type into one browser chunk.
+            if (mermaidPackagePattern.test(id)) return undefined;
+            if (id.includes('/node_modules/highlight.js/'))
+              return 'vendor-highlight';
+            if (id.includes('/node_modules/marked/')) return 'vendor-markdown';
             if (id.includes('/node_modules/lucide-svelte/'))
               return 'vendor-icons';
             if (id.includes('/node_modules/simple-icons/'))

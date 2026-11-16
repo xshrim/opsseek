@@ -2879,7 +2879,12 @@
   gap: 12px;
   font-size: 12px;
 }
-.repository-upload-section header span {
+.repository-upload-section header strong {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.repository-upload-section header > span {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2887,6 +2892,5 @@
   font-size: 11px;
 }
 .repository-upload-section header .required-mark {
-  color: var(--theme-danger);
-  font-weight: 700;
+  color: var(--theme-required);
 }

@@ -13,6 +13,7 @@
     FilePenLine,
     Plus,
     Send,
+    Share2,
     GitBranch,
     Network,
     Sparkles,
@@ -82,10 +83,11 @@
 
   type LiveTimelineItem = {
     id: number;
-    kind: 'analysis' | 'action';
+    kind: 'analysis' | 'action' | 'investigation';
     text?: string;
     tool?: string;
     label?: string;
+    detail?: string;
     status?: string;
     duration?: string;
     elapsed?: string;
@@ -123,7 +125,6 @@
   let diagnosisApplications: Application[] = [];
   let diagnosisApplicationCandidates: Application[] = [];
   let selectedApplicationResourceIDs = new Set<string>();
-  let diagnosisScopeShared = false;
   let diagnosisCollaboration = 2;
   let diagnosisCollaborationExplicit = false;
   let diagnosisGenerating = false;
@@ -162,6 +163,7 @@
   export let onNotice: (message: string) => void;
   export let skills: SkillCatalogItem[] = [];
   export let personas: PersonaCatalogItem[] = [];
+  export let currentUserId = '';
 
   const diagnosisCollaborationOptions = [
     { value: 1, label: '严格串行', icon: UserRound },
@@ -344,7 +346,6 @@
       targetIDs: diagnosisTargetIds,
       providerID: selectedProviderId,
       modelName: llmModelName,
-      scopeShared: diagnosisScopeShared,
       collaboration: diagnosisCollaboration,
       collaborationExplicit: diagnosisCollaborationExplicit,
       generating: diagnosisGenerating,
@@ -373,8 +374,6 @@
     if (patch.targetIDs !== undefined) diagnosisTargetIds = patch.targetIDs;
     if (patch.providerID !== undefined) selectedProviderId = patch.providerID;
     if (patch.modelName !== undefined) llmModelName = patch.modelName;
-    if (patch.scopeShared !== undefined)
-      diagnosisScopeShared = patch.scopeShared;
     if (patch.collaboration !== undefined)
       diagnosisCollaboration = patch.collaboration;
     if (patch.collaborationExplicit !== undefined)
@@ -851,7 +850,6 @@
     diagnosisCommands.newDiagnosisSession();
     diagnosisApplicationIds = [];
     applicationId = '';
-    diagnosisScopeShared = false;
   }
 
   function renameDiagnosisSession(session: DiagnosisSession) {
@@ -860,6 +858,23 @@
 
   function deleteDiagnosisSession(session: DiagnosisSession) {
     return diagnosisCommands.deleteDiagnosisSession(session);
+  }
+
+  async function toggleDiagnosisSharing(session: DiagnosisSession) {
+    try {
+      const updated = await diagnosisSessionController.setDiagnosisSharing(
+        session.id,
+        !session.scope_shared
+      );
+      diagnosisSessions = diagnosisSessions.map((item) =>
+        item.id === updated.id ? updated : item
+      );
+      if (diagnosisSnapshot?.session.id === updated.id)
+        diagnosisSnapshot = { ...diagnosisSnapshot, session: updated };
+      onNotice(updated.scope_shared ? '会话已按当前范围共享。' : '会话已设为仅自己可见。');
+    } catch (error) {
+      onError(describeError(error, '会话共享设置失败'));
+    }
   }
 
   $: if (
@@ -1108,7 +1123,8 @@
 
   function copyDiagnosisMessage(
     message: DiagnosisMessage,
-    processExpanded: boolean
+    processExpanded: boolean,
+    onCopied: () => void
   ) {
     copyDiagnosisText(
       diagnosisMessageClipboardText(
@@ -1116,24 +1132,28 @@
         processExpanded,
         diagnosisSnapshot
       ),
-      message.role === 'user' ? '问题已复制。' : '回答已复制。',
+      onCopied,
       onNotice
     );
   }
 
-  function copyStreamingAnswer() {
+  function copyStreamingAnswer(onCopied: () => void) {
     copyDiagnosisText(
       diagnosisStreamingClipboardText(
         diagnosisStreamingText,
         diagnosisSnapshot
       ),
-      '回答已复制。',
+      onCopied,
       onNotice
     );
   }
 
   function copyDiagnosisCode(encoded: string) {
-    copyDiagnosisText(decodeDiagnosisCode(encoded), '代码已复制。', onNotice);
+    copyDiagnosisText(
+      decodeDiagnosisCode(encoded),
+      () => onNotice('代码已复制。'),
+      onNotice
+    );
   }
 
   const diagnosisActiveCausalChain = activeDiagnosisCausalChain;
@@ -1230,8 +1250,23 @@
                 ></span
               ></button
             >
+            {#if session.scope_shared}<span
+                class="diagnosis-session-shared-corner"
+                aria-label="已按当前范围共享"
+                ><Share2 size={10} /></span
+              >{/if}
             <div class="diagnosis-session-actions">
-              <button
+              {#if currentUserId && session.actor_user_id === currentUserId}<button
+                class="share-action"
+                aria-label={session.scope_shared
+                  ? '取消按当前范围共享'
+                  : '按当前范围共享'}
+                data-tooltip={session.scope_shared
+                  ? '取消按当前范围共享'
+                  : '按当前范围共享'}
+                on:click|stopPropagation={() =>
+                  void toggleDiagnosisSharing(session)}><Share2 size={13} /></button
+              >{/if}<button
                 class="edit-action"
                 aria-label="重命名会话"
                 data-tooltip="重命名会话"
@@ -1332,7 +1367,7 @@
       {copyDiagnosisMessage}
       {copyStreamingAnswer}
       copyDiagnosisAction={(content) =>
-        copyDiagnosisText(content, '工具内容已复制。', onNotice)}
+        copyDiagnosisText(content, () => onNotice('工具内容已复制。'), onNotice)}
     />
     <form
       class="diagnosis-composer-f"
@@ -1487,12 +1522,6 @@
                   {/each}
                 </div>{/if}
             </div>
-            {#if !selectedDiagnosisId}<label class="diagnosis-share-toggle"
-                ><input
-                  type="checkbox"
-                  bind:checked={diagnosisScopeShared}
-                />按当前范围共享</label
-              >{/if}
           </div>
           {#if diagnosisComposerAttachments.length || diagnosisComposerLinks.length}<div
               class="diagnosis-composer-attached-items"

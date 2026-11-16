@@ -11,6 +11,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -94,21 +95,41 @@ func (m *ChatCompletionsModel) GenerateContent(ctx context.Context, request *mod
 			yield(nil, fmt.Errorf("encode Chat Completions request: %w", err))
 			return
 		}
-		httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, m.endpoint, bytes.NewReader(encoded))
+		newRequest := func() (*http.Request, error) {
+			httpRequest, requestErr := http.NewRequestWithContext(ctx, http.MethodPost, m.endpoint, bytes.NewReader(encoded))
+			if requestErr != nil {
+				return nil, requestErr
+			}
+			httpRequest.Header.Set("Content-Type", "application/json")
+			if stream {
+				httpRequest.Header.Set("Accept", "text/event-stream")
+			} else {
+				httpRequest.Header.Set("Accept", "application/json")
+			}
+			if m.apiKey != "" {
+				httpRequest.Header.Set("Authorization", "Bearer "+m.apiKey)
+			}
+			return httpRequest, nil
+		}
+		httpRequest, err := newRequest()
 		if err != nil {
 			yield(nil, fmt.Errorf("create Chat Completions request: %w", err))
 			return
 		}
-		httpRequest.Header.Set("Content-Type", "application/json")
-		if stream {
-			httpRequest.Header.Set("Accept", "text/event-stream")
-		} else {
-			httpRequest.Header.Set("Accept", "application/json")
-		}
-		if m.apiKey != "" {
-			httpRequest.Header.Set("Authorization", "Bearer "+m.apiKey)
-		}
 		response, err := m.client.Do(httpRequest)
+		if err != nil && isHTTP2ProtocolError(err) {
+			if fallback := http1FallbackClient(m.client); fallback != nil {
+				if response != nil && response.Body != nil {
+					response.Body.Close()
+				}
+				httpRequest, requestErr := newRequest()
+				if requestErr != nil {
+					yield(nil, fmt.Errorf("create Chat Completions fallback request: %w", requestErr))
+					return
+				}
+				response, err = fallback.Do(httpRequest)
+			}
+		}
 		if err != nil {
 			yield(nil, fmt.Errorf("call Chat Completions: %w", err))
 			return
@@ -136,6 +157,30 @@ func (m *ChatCompletionsModel) GenerateContent(ctx context.Context, request *mod
 		result, err := convertChatResponse(wire)
 		yield(result, err)
 	}
+}
+
+func isHTTP2ProtocolError(err error) bool {
+	if err == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "protocol_error") && strings.Contains(message, "stream")
+}
+
+func http1FallbackClient(client *http.Client) *http.Client {
+	if client == nil {
+		return nil
+	}
+	transport, ok := client.Transport.(*http.Transport)
+	if !ok || transport == nil {
+		return nil
+	}
+	copy := *client
+	fallback := transport.Clone()
+	fallback.ForceAttemptHTTP2 = false
+	fallback.TLSNextProto = map[string]func(string, *tls.Conn) http.RoundTripper{}
+	copy.Transport = fallback
+	return &copy
 }
 
 // upstreamErrorMessage extracts only conventional human-readable fields.

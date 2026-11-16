@@ -94,6 +94,7 @@ function createHarness(remote: DiagnosisSnapshot) {
     cancelDiagnosis: vi.fn(async () => {}),
     startDiagnosis: vi.fn(),
     setDiagnosisCollaboration: vi.fn(),
+    setDiagnosisSharing: vi.fn(),
     askDiagnosis: vi.fn(),
     addDiagnosisTarget: vi.fn(),
     deleteDiagnosis: vi.fn()
@@ -202,6 +203,21 @@ describe('diagnosis session controller lifecycle', () => {
     );
     await vi.waitFor(() =>
       expect(ControllerEventSource.current).not.toBe(first)
+    );
+  });
+
+  it('reopens after a manual stop to receive the retained partial answer', async () => {
+    vi.stubGlobal('EventSource', ControllerEventSource);
+    const harness = createHarness(snapshot());
+    harness.controller.open('session-1');
+    const firstStream = ControllerEventSource.current;
+
+    await harness.controller.stop();
+
+    expect(harness.api.cancelDiagnosis).toHaveBeenCalledWith('session-1');
+    expect(ControllerEventSource.current).not.toBe(firstStream);
+    expect(harness.getStreamState().interruptedReason).toBe(
+      '用户手动停止了当前回答。'
     );
   });
 

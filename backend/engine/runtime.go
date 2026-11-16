@@ -80,7 +80,7 @@ func (r *Runtime) Execute(parent context.Context, request Request) (Result, erro
 		budget = newExecutionBudget(request.Budget)
 	}
 	parent = context.WithValue(parent, executionBudgetContextKey{}, budget)
-	ctx, cancel := context.WithTimeout(parent, request.Budget.Timeout)
+	ctx, cancel := executionContext(parent, request.Budget)
 	if !nestedExecution {
 		r.executionSlotsOnce.Do(func() { r.executionSlots = make(chan struct{}, maxConcurrentExecutions) })
 		select {
@@ -343,6 +343,13 @@ func (r *Runtime) Execute(parent context.Context, request Request) (Result, erro
 		_ = sink(Event{Type: "execution.completed", Status: result.Status, Payload: map[string]any{"tool_call_count": result.ToolCallCount, "total_tokens": result.TotalTokens}})
 	}
 	return result, nil
+}
+
+func executionContext(parent context.Context, budget Budget) (context.Context, context.CancelFunc) {
+	if budget.NoExecutionTimeout {
+		return context.WithCancel(parent)
+	}
+	return context.WithTimeout(parent, budget.Timeout)
 }
 
 func filterPersonaDomain(resolved ResolvedContext, domain string) *ResolvedContext {

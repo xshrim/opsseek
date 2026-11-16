@@ -16,17 +16,17 @@ export function installDiagnosisDocumentListeners(options: {
 
 export function copyDiagnosisText(
   content: string,
-  successMessage: string,
-  onNotice: (message: string) => void
+  onCopied: () => void,
+  onError: (message: string) => void
 ) {
   const clipboard = navigator.clipboard;
   if (!clipboard?.writeText) {
-    onNotice('当前浏览器不允许直接复制，请手动选择文本。');
+    onError('当前浏览器不允许直接复制，请手动选择文本。');
     return;
   }
   void clipboard.writeText(content).then(
-    () => onNotice(successMessage),
-    () => onNotice('当前浏览器不允许直接复制，请手动选择文本。')
+    onCopied,
+    () => onError('当前浏览器不允许直接复制，请手动选择文本。')
   );
 }
 

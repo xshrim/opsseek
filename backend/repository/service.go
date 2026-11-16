@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"io"
 	"net/url"
+	"opsseek/backend/gitrepo"
 	"opsseek/backend/resource"
 	repositorytool "opsseek/backend/tool/repository"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -64,24 +66,11 @@ func (s *Service) PreviewDraft(ctx context.Context, subtype, rawURL, branch, com
 		return PreviewResult{}, errors.New("draft preview only supports Git Repository")
 	}
 	in := repositorytool.ConnectionInput{URL: strings.TrimSpace(rawURL), Branch: strings.TrimSpace(branch), Username: strings.TrimSpace(username), Password: password, TimeoutSeconds: 30}
-	revisions, err := repositorytool.RepositoryRevisions(ctx, in, 20)
+	preview, err := repositorytool.PreviewRepository(ctx, in, branch, commitID)
 	if err != nil {
 		return PreviewResult{}, err
 	}
-	branch, commitID = chooseRevision(revisions, branch, commitID)
-	if branch == "" || commitID == "" {
-		return PreviewResult{}, errors.New("repository has no selectable branch commit")
-	}
-	commitID, err = repositorytool.ResolveBranchCommit(ctx, in, branch, commitID)
-	if err != nil {
-		return PreviewResult{}, err
-	}
-	in.Branch, in.PinnedRevision = branch, commitID
-	entries, err := repositorytool.TreeAll(ctx, in, "")
-	if err != nil {
-		return PreviewResult{}, err
-	}
-	return PreviewResult{DefaultBranch: branch, Branches: revisions, CommitID: commitID, Entries: entries}, nil
+	return PreviewResult{DefaultBranch: preview.Branch, Branches: preview.Branches, CommitID: preview.CommitID, Entries: preview.Entries}, nil
 }
 
 func (s *Service) RevisionsDraft(ctx context.Context, subtype, rawURL, username, password string) ([]repositorytool.BranchRevisions, error) {
@@ -105,32 +94,6 @@ func (s *Service) Revisions(ctx context.Context, id string) ([]repositorytool.Br
 		return nil, err
 	}
 	return repositorytool.RepositoryRevisions(ctx, in, 20)
-}
-
-func chooseRevision(revisions []repositorytool.BranchRevisions, branch, commitID string) (string, string) {
-	if commitID != "" && branch == "" {
-		return "", ""
-	}
-	for _, option := range revisions {
-		if option.Branch != branch {
-			continue
-		}
-		if commitID != "" {
-			return branch, commitID
-		}
-		for _, available := range option.Commits {
-			return branch, available
-		}
-	}
-	for _, option := range revisions {
-		if option.IsDefault && len(option.Commits) > 0 {
-			return option.Branch, option.Commits[0]
-		}
-	}
-	if len(revisions) > 0 && len(revisions[0].Commits) > 0 {
-		return revisions[0].Branch, revisions[0].Commits[0]
-	}
-	return "", ""
 }
 
 func repositoryEndpoint(item resource.Resource, branch, commitID string) string {
@@ -228,18 +191,18 @@ func (s *Service) UploadBundle(ctx context.Context, id string, r io.Reader, size
 		return UploadResult{}, e
 	}
 	if _, e = os.Stat(filepath.Join(repoDir, "HEAD")); os.IsNotExist(e) {
-		if e = run(ctx, "init", "--bare", repoDir); e != nil {
+		if e = gitrepo.Init(repoDir); e != nil {
 			return UploadResult{}, e
 		}
 	}
-	if e = run(ctx, "--git-dir", repoDir, "bundle", "verify", tmpName); e != nil {
+	if e = gitrepo.ImportBundle(ctx, repoDir, tmpName, false); e != nil {
 		return UploadResult{}, e
 	}
 	archived, e := archiveHeads(ctx, repoDir)
 	if e != nil {
 		return UploadResult{}, e
 	}
-	if e = run(ctx, "--git-dir", repoDir, "fetch", tmpName, "+refs/heads/*:refs/heads/*"); e != nil {
+	if e = gitrepo.ImportBundle(ctx, repoDir, tmpName, true); e != nil {
 		return UploadResult{}, e
 	}
 	branches, e := repoBranches(ctx, repoDir)
@@ -291,36 +254,11 @@ func (s *Service) PreviewRevision(ctx context.Context, id, selectedBranch, selec
 			selectedBranch = stringConfig(item.Config, "default_branch")
 		}
 	}
-	revisions, err := repositorytool.RepositoryRevisions(ctx, in, 20)
+	preview, err := repositorytool.PreviewRepository(ctx, in, selectedBranch, selectedCommit)
 	if err != nil {
 		return PreviewResult{}, err
 	}
-	if selectedBranch != "" {
-		found := false
-		for _, revision := range revisions {
-			if revision.Branch == selectedBranch {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return PreviewResult{}, errors.New("repository branch not found")
-		}
-	}
-	selectedBranch, selectedCommit = chooseRevision(revisions, selectedBranch, selectedCommit)
-	if selectedBranch == "" || selectedCommit == "" {
-		return PreviewResult{}, errors.New("repository has no selectable branch commit")
-	}
-	selectedCommit, err = repositorytool.ResolveBranchCommit(ctx, in, selectedBranch, selectedCommit)
-	if err != nil {
-		return PreviewResult{}, err
-	}
-	in.Branch, in.PinnedRevision = selectedBranch, selectedCommit
-	entries, err := repositorytool.TreeAll(ctx, in, "")
-	if err != nil {
-		return PreviewResult{}, err
-	}
-	return PreviewResult{ResourceID: item.ID, DefaultBranch: selectedBranch, Branches: revisions, CommitID: selectedCommit, Entries: entries}, nil
+	return PreviewResult{ResourceID: item.ID, DefaultBranch: preview.Branch, Branches: preview.Branches, CommitID: preview.CommitID, Entries: preview.Entries}, nil
 }
 
 func (s *Service) bundleInput(item resource.Resource) repositorytool.ConnectionInput {
@@ -375,26 +313,26 @@ func (s *Service) uploadPostgres(ctx context.Context, id string, r io.Reader, si
 		if err := os.WriteFile(old, existing, 0600); err != nil {
 			return UploadResult{}, err
 		}
-		if err := run(ctx, "init", "--bare", repoDir); err != nil {
+		if err := gitrepo.Init(repoDir); err != nil {
 			return UploadResult{}, err
 		}
-		if err := run(ctx, "--git-dir", repoDir, "fetch", old, "+refs/heads/*:refs/heads/*"); err != nil {
+		if err := gitrepo.ImportBundle(ctx, repoDir, old, true); err != nil {
 			return UploadResult{}, err
 		}
 	}
 	if _, err := os.Stat(filepath.Join(repoDir, "HEAD")); os.IsNotExist(err) {
-		if err := run(ctx, "init", "--bare", repoDir); err != nil {
+		if err := gitrepo.Init(repoDir); err != nil {
 			return UploadResult{}, err
 		}
 	}
-	if err := run(ctx, "--git-dir", repoDir, "bundle", "verify", upload); err != nil {
+	if err := gitrepo.ImportBundle(ctx, repoDir, upload, false); err != nil {
 		return UploadResult{}, err
 	}
 	archived, err := archiveHeads(ctx, repoDir)
 	if err != nil {
 		return UploadResult{}, err
 	}
-	if err := run(ctx, "--git-dir", repoDir, "fetch", upload, "+refs/heads/*:refs/heads/*"); err != nil {
+	if err := gitrepo.ImportBundle(ctx, repoDir, upload, true); err != nil {
 		return UploadResult{}, err
 	}
 	branches, err := repoBranches(ctx, repoDir)
@@ -406,7 +344,7 @@ func (s *Service) uploadPostgres(ctx context.Context, id string, r io.Reader, si
 		return UploadResult{}, err
 	}
 	full := filepath.Join(dir, "full.bundle")
-	if err := run(ctx, "--git-dir", repoDir, "bundle", "create", full, "--all"); err != nil {
+	if err := gitrepo.ExportBundle(ctx, repoDir, full); err != nil {
 		return UploadResult{}, err
 	}
 	bundle, err := os.ReadFile(full)
@@ -495,10 +433,10 @@ func (s *Service) uploadS3(ctx context.Context, id string, r io.Reader, size int
 		if closeObjectErr != nil {
 			return UploadResult{}, closeObjectErr
 		}
-		if err := run(ctx, "init", "--bare", repoDir); err != nil {
+		if err := gitrepo.Init(repoDir); err != nil {
 			return UploadResult{}, err
 		}
-		if err := run(ctx, "--git-dir", repoDir, "fetch", existing, "+refs/heads/*:refs/heads/*"); err != nil {
+		if err := gitrepo.ImportBundle(ctx, repoDir, existing, true); err != nil {
 			return UploadResult{}, err
 		}
 	} else {
@@ -520,18 +458,18 @@ func (s *Service) uploadS3(ctx context.Context, id string, r io.Reader, size int
 		return UploadResult{}, e
 	}
 	if _, e = os.Stat(filepath.Join(repoDir, "HEAD")); os.IsNotExist(e) {
-		if e = run(ctx, "init", "--bare", repoDir); e != nil {
+		if e = gitrepo.Init(repoDir); e != nil {
 			return UploadResult{}, e
 		}
 	}
-	if e = run(ctx, "--git-dir", repoDir, "bundle", "verify", upload); e != nil {
+	if e = gitrepo.ImportBundle(ctx, repoDir, upload, false); e != nil {
 		return UploadResult{}, e
 	}
 	archived, e := archiveHeads(ctx, repoDir)
 	if e != nil {
 		return UploadResult{}, e
 	}
-	if e = run(ctx, "--git-dir", repoDir, "fetch", upload, "+refs/heads/*:refs/heads/*"); e != nil {
+	if e = gitrepo.ImportBundle(ctx, repoDir, upload, true); e != nil {
 		return UploadResult{}, e
 	}
 	branches, e := repoBranches(ctx, repoDir)
@@ -543,7 +481,7 @@ func (s *Service) uploadS3(ctx context.Context, id string, r io.Reader, size int
 		return UploadResult{}, e
 	}
 	full := filepath.Join(dir, "full.bundle")
-	if e = run(ctx, "--git-dir", repoDir, "bundle", "create", full, "--all"); e != nil {
+	if e = gitrepo.ExportBundle(ctx, repoDir, full); e != nil {
 		return UploadResult{}, e
 	}
 	stat, e := os.Stat(full)
@@ -566,42 +504,47 @@ func (s *Service) uploadS3(ctx context.Context, id string, r io.Reader, size int
 }
 
 func latestCommitID(ctx context.Context, dir, bundle string, item resource.Resource) (string, string, error) {
-	out, err := exec.CommandContext(ctx, "git", "bundle", "list-heads", bundle).Output()
+	header, err := gitrepo.BundleHeader(bundle)
 	if err != nil {
 		return "", "", err
 	}
 	var branches []string
-	for _, line := range strings.Split(string(out), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) == 2 && strings.HasPrefix(fields[1], "refs/heads/") {
-			branches = append(branches, strings.TrimPrefix(fields[1], "refs/heads/"))
+	for _, ref := range header.Refs {
+		if ref.Name().IsBranch() {
+			branches = append(branches, ref.Name().Short())
 		}
 	}
 	if len(branches) == 0 {
 		return "", "", errors.New("bundle contains no branches")
 	}
+	revisions, err := repositorytool.RepositoryRevisions(ctx, repositorytool.ConnectionInput{Path: dir}, 1)
+	if err != nil {
+		return "", "", err
+	}
 	branch := stringConfig(item.Config, "default_branch")
 	if !containsBranch(branches, branch) {
-		out, err := exec.CommandContext(ctx, "git", "--git-dir", dir, "for-each-ref", "--sort=-committerdate", "--format=%(refname:short)", "refs/heads").Output()
-		if err != nil {
-			return "", "", err
-		}
 		branch = ""
-		for _, candidate := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-			if containsBranch(branches, candidate) {
-				branch = candidate
+		for _, r := range revisions {
+			if containsBranch(branches, r.Branch) {
+				branch = r.Branch
 				break
 			}
 		}
 	}
-	if branch == "" {
-		return "", "", errors.New("bundle contains no branch commit")
+	for _, r := range revisions {
+		if r.Branch == branch && len(r.Commits) > 0 {
+			repository, err := git.PlainOpen(dir)
+			if err != nil {
+				return "", "", err
+			}
+			ref, err := repository.Reference(plumbing.NewBranchReferenceName(branch), true)
+			if err != nil {
+				return "", "", err
+			}
+			return branch, ref.Hash().String(), nil
+		}
 	}
-	out, err = exec.CommandContext(ctx, "git", "--git-dir", dir, "rev-parse", "--verify", "--end-of-options", "refs/heads/"+branch+"^{commit}").Output()
-	if err != nil {
-		return "", "", err
-	}
-	return branch, strings.TrimSpace(string(out)), nil
+	return "", "", errors.New("bundle contains no branch commit")
 }
 
 func containsBranch(branches []string, candidate string) bool {
@@ -632,42 +575,30 @@ func s3Client(cfg StorageConfig) (*minio.Client, error) {
 }
 
 func archiveHeads(ctx context.Context, dir string) ([]string, error) {
-	out, err := exec.CommandContext(ctx, "git", "--git-dir", dir, "for-each-ref", "--format=%(refname:strip=2) %(objectname)", "refs/heads").Output()
+	r, err := git.PlainOpen(dir)
+	if err != nil {
+		return nil, err
+	}
+	refs, err := r.Branches()
 	if err != nil {
 		return nil, err
 	}
 	stamp := time.Now().UTC().Format("20060102T150405.000000000Z")
 	archived := []string{}
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) != 2 {
-			continue
+	err = refs.ForEach(func(ref *plumbing.Reference) error {
+		if err := ctx.Err(); err != nil {
+			return err
 		}
-		ref := "refs/opsseek/archive/" + stamp + "/" + fields[0]
-		if err := run(ctx, "--git-dir", dir, "update-ref", ref, fields[1]); err != nil {
-			return nil, err
+		name := "refs/opsseek/archive/" + stamp + "/" + ref.Name().Short()
+		if err := r.Storer.SetReference(plumbing.NewHashReference(plumbing.ReferenceName(name), ref.Hash())); err != nil {
+			return err
 		}
-		archived = append(archived, ref)
-	}
-	return archived, nil
+		archived = append(archived, name)
+		return nil
+	})
+	return archived, err
 }
-func run(ctx context.Context, args ...string) error {
-	out, e := exec.CommandContext(ctx, "git", args...).CombinedOutput()
-	if e != nil {
-		return fmt.Errorf("git %v: %w: %s", args, e, strings.TrimSpace(string(out)))
-	}
-	return nil
-}
+
 func repoBranches(ctx context.Context, dir string) ([]string, error) {
-	out, e := exec.CommandContext(ctx, "git", "--git-dir", dir, "for-each-ref", "--format=%(refname:short)", "refs/heads").Output()
-	if e != nil {
-		return nil, e
-	}
-	var b []string
-	for _, x := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		if strings.TrimSpace(x) != "" {
-			b = append(b, strings.TrimSpace(x))
-		}
-	}
-	return b, nil
+	return repositorytool.Branches(ctx, repositorytool.ConnectionInput{Path: dir})
 }

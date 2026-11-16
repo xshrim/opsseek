@@ -1,11 +1,10 @@
 # Package artifacts built on the host; no source compilation in this file.
 FROM alpine:3.22 AS runtime-base
-RUN apk add --no-cache ca-certificates git openssh-client \
+RUN apk add --no-cache ca-certificates \
     && addgroup -g 65532 nonroot \
-    && adduser -D -u 65532 -G nonroot nonroot \
-    && git --version
+    && adduser -D -u 65532 -G nonroot nonroot
 USER 65532:65532
-ENV HOME=/home/nonroot GIT_TERMINAL_PROMPT=0
+ENV HOME=/home/nonroot
 ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_TIME=unknown

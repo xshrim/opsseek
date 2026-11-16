@@ -137,6 +137,9 @@ type Budget struct {
 	MaxTokens      int64         `json:"max_tokens,omitempty"`
 	MaxOutputBytes int           `json:"max_output_bytes,omitempty"`
 	Timeout        time.Duration `json:"timeout,omitempty"`
+	// NoExecutionTimeout keeps an interactive execution alive until it reaches
+	// another budget boundary or is explicitly cancelled.
+	NoExecutionTimeout bool `json:"-"`
 	// MaxOutputTokens caps one provider response independently from the
 	// cumulative execution token budget. Zero lets the selected model decide.
 	MaxOutputTokens int `json:"max_output_tokens,omitempty"`

@@ -35,13 +35,12 @@ RUN make -o webui-assets backend-build VERSION="${VERSION}" COMMIT="${COMMIT}" B
 
 FROM alpine:3.22 AS runtime-base
 
-# Repository previews and diagnostics use Git CLI for remote and Bundle reads.
-RUN apk add --no-cache ca-certificates git openssh-client \
+# Repository and SSH operations run in-process in Go.
+RUN apk add --no-cache ca-certificates \
     && addgroup -g 65532 nonroot \
-    && adduser -D -u 65532 -G nonroot nonroot \
-    && git --version
+    && adduser -D -u 65532 -G nonroot nonroot
 USER 65532:65532
-ENV HOME=/home/nonroot GIT_TERMINAL_PROMPT=0
+ENV HOME=/home/nonroot
 
 ARG VERSION=dev
 ARG COMMIT=unknown

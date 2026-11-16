@@ -41,7 +41,7 @@
           : ''}</small
       >
     {:else}<small
-        >{defaultBranch || '未选择分支'}{commitID ? `:${commitID}` : ''} · 由平台启动配置指定存储后端</small
+        >{defaultBranch || '未选择分支'}{commitID ? `:${commitID}` : ''}</small
       >{/if}
   </div>
   {#if subtype === 'Git'}

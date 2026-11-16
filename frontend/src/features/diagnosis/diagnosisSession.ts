@@ -24,6 +24,7 @@ export const diagnosisEventTypes = [
   'model.resumed',
   'assistant.progress',
   'assistant.delta',
+  'assistant.partial',
   'assistant.completed',
   'context.compacted',
   'tool.requested',
@@ -228,6 +229,15 @@ export function reduceDiagnosisStreamEvent(
     // causal-chain compilation may continue, but that is not answer generation
     // and must not leave the composer showing "正在思考".
     state.generating = false;
+    refresh = true;
+  } else if (eventType === 'assistant.partial') {
+    const partialText = String(payload.text ?? '');
+    if (partialText) {
+      state.text = partialText;
+      ensureStarted();
+    }
+    state.generating = false;
+    state.answerCompleted = false;
     refresh = true;
   } else if (eventType === 'context.compacted') {
     state.generating = true;

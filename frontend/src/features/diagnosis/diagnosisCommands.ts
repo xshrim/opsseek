@@ -70,7 +70,6 @@ export type DiagnosisCommandState = {
   targetIDs: string[];
   providerID: string;
   modelName: string;
-  scopeShared: boolean;
   collaboration: number;
   collaborationExplicit: boolean;
   generating: boolean;
@@ -135,7 +134,6 @@ export function createDiagnosisCommands(options: DiagnosisCommandOptions) {
             persona_id: state.personaID || undefined,
             links: state.links,
             attachments: state.attachments,
-            scope_shared: state.scopeShared,
             collaboration: state.collaborationExplicit
               ? state.collaboration
               : undefined

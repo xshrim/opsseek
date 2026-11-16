@@ -4596,8 +4596,11 @@
     editingNacosResourceId = '';
     resourceAddStep = 1;
   }
-  async function persistRepositoryWorkflow(saveSelection = false) {
-    repositoryConfigurationAttempted = true;
+  async function persistRepositoryWorkflow(
+    saveSelection = false,
+    showValidation = true
+  ) {
+    if (showValidation) repositoryConfigurationAttempted = true;
     if (saveSelection && !repositoryConfigurationComplete())
       throw new Error('请先完成仓库预览。');
     if (resourceAddSubtype === 'Git' && !repositoryConfigurationComplete())
@@ -4778,9 +4781,10 @@
   async function uploadRepositoryFromWorkflow() {
     if (!repositoryBundleFile || repositoryBundleUploading) return;
     repositoryBundleUploading = true;
+    repositoryConfigurationAttempted = false;
     repositoryWorkflowError = '';
     try {
-      const saved = await persistRepositoryWorkflow();
+      const saved = await persistRepositoryWorkflow(false, false);
       const uploaded = await uploadRepositoryBundle(saved.id);
       repositoryBundleUploadedResourceId = saved.id;
       await previewRepository(saved.id, uploaded.branch, uploaded.commitID);
@@ -6035,7 +6039,8 @@
               <section class="repository-upload-section">
                 <header>
                   <strong
-                    >上传 Bundle <span class="required-mark">*</span></strong
+                    >上传 Bundle<i class="required-mark" aria-hidden="true">*</i
+                    ></strong
                   >
                   <span class="repository-upload-note"
                     >{repositoryBundleConfigured && !repositoryBundleFile

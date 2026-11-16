@@ -360,6 +360,10 @@ func TestRepositoryRevisionsMarksDefaultAndResolvesCommitOnBranch(t *testing.T) 
 	if err != nil || resolved != first {
 		t.Fatalf("ResolveBranchCommit() = %q, %v; want %q", resolved, err, first)
 	}
+	preview, err := PreviewRepository(context.Background(), ConnectionInput{Path: d}, "main", first)
+	if err != nil || preview.Branch != "main" || preview.CommitID != first || len(preview.Branches) != 1 || len(preview.Entries) != 1 {
+		t.Fatalf("PreviewRepository() = %+v, %v", preview, err)
+	}
 	if _, err := ResolveBranchCommit(context.Background(), ConnectionInput{Path: d}, "main", "not-a-commit"); err == nil {
 		t.Fatal("ResolveBranchCommit accepted invalid commit id")
 	}

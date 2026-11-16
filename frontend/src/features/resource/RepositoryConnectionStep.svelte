@@ -59,30 +59,28 @@
         on:input={() => dispatch('input')}
       />
     </FormField>
-    <div class="git-credential-fields">
-      <FormField label="HTTPS 用户名">
-        <TextInput
-          bind:value={username}
-          autocomplete="username"
-          placeholder={editing && credentialConfigured
-            ? '留空以保留现有凭据'
-            : ''}
-          on:input={() => dispatch('input')}
-        />
-      </FormField>
-      <FormField label="HTTPS 访问令牌">
-        <PasswordInput
-          bind:value={password}
-          autocomplete="new-password"
-          placeholder={editing && credentialConfigured
-            ? '留空以保留现有凭据'
-            : ''}
-          ariaLabel="HTTPS 访问令牌"
-          secretLabel="访问令牌"
-          on:input={() => dispatch('input')}
-        />
-      </FormField>
-    </div>
+    <FormField label="HTTPS 用户名">
+      <TextInput
+        bind:value={username}
+        autocomplete="username"
+        placeholder={editing && credentialConfigured
+          ? '留空以保留现有凭据'
+          : ''}
+        on:input={() => dispatch('input')}
+      />
+    </FormField>
+    <FormField label="HTTPS 访问令牌">
+      <PasswordInput
+        bind:value={password}
+        autocomplete="new-password"
+        placeholder={editing && credentialConfigured
+          ? '留空以保留现有凭据'
+          : ''}
+        ariaLabel="HTTPS 访问令牌"
+        secretLabel="访问令牌"
+        on:input={() => dispatch('input')}
+      />
+    </FormField>
     <div class="git-revision-controls">
       <FormField label="默认分支" required>
         <GroupedSelect
@@ -129,14 +127,9 @@
 <style>
   .git-config-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     align-items: end;
     gap: 12px;
-    min-width: 0;
-  }
-  .git-credential-fields {
-    display: grid;
-    gap: 7px;
     min-width: 0;
   }
   .git-revision-controls {
@@ -151,7 +144,7 @@
     align-items: center;
     justify-content: center;
     gap: 5px;
-    min-height: 36px;
+    flex: 0 0 auto;
     white-space: nowrap;
   }
   .git-config-error {

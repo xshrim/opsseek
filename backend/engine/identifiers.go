@@ -13,11 +13,11 @@ var locatorArgumentFields = map[string]struct{}{
 func isPlaceholderLocator(field, value string) bool {
 	field = strings.ToLower(strings.TrimSpace(field))
 	value = strings.TrimSpace(value)
-	if value == "" {
-		return true
-	}
 	if _, ok := locatorArgumentFields[field]; !ok {
 		return false
+	}
+	if value == "" {
+		return true
 	}
 	normalized := strings.Trim(strings.ToLower(value), "{}[]<>`\"'")
 	return normalized == field || normalized == strings.TrimSuffix(field, "_id") || strings.HasPrefix(normalized, "your_") || strings.HasPrefix(normalized, "the_")

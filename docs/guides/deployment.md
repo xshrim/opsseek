@@ -4,7 +4,9 @@
 
 使用根目录 Makefile 构建，Compose 不负责 build：
 
-默认使用 `deploy/Dockerfile`：先在本地构建制品，再复制到精简运行镜像；Docker 内不安装源码依赖、不执行编译，也不携带 Go/Node 工具链。后端使用 Alpine，保留 Git CLI、CA 证书和 SSH 客户端，以非 root 用户运行；前端使用 Nginx Alpine Slim，提供静态文件和 API 代理。本地需准备 Go、Node 和前端依赖（首次执行 `make deps`）。
+默认使用 `deploy/Dockerfile`：先在本地构建制品，再复制到精简运行镜像；Docker 内不安装源码依赖、不执行编译，也不携带 Go/Node 工具链。后端使用 Alpine，仅安装 CA 证书，以非 root 用户运行；Git 仓库、Bundle 与 SSH 均由 Go 库处理，运行镜像不包含 Git 或 OpenSSH。前端使用 Nginx Alpine Slim，提供静态文件和 API 代理。本地需准备 Go、Node 和前端依赖（首次执行 `make deps`）。
+
+代码仓库支持 HTTPS 用户名/访问令牌，以及 SSH 密码、默认私钥或 SSH Agent；SSH 连接必须提供可信 `known_hosts`。容器使用 SSH 仓库时，须只读挂载对应凭据至 `/home/nonroot/.ssh`，或显式挂载 Agent socket。不会执行 `GIT_SSH_COMMAND`、Git hooks、外部凭据助手或 SSH `ProxyCommand`；需要这些外部程序的部署应改用可直连地址。Bundle 支持 SHA-1 格式的 v2/v3 全量与增量上传；SHA-256 或不支持的 Bundle capability 会明确报错。诊断正则检索使用 Go 正则语法，不支持反向引用和环视。
 
 ```bash
 # 运行发布前检查

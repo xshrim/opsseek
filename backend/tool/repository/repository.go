@@ -1,28 +1,28 @@
 package repository
 
 import (
-	"bufio"
 	"bytes"
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
 
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"opsseek/backend/config"
+	"opsseek/backend/gitrepo"
 )
 
 type ConnectionInput struct {
@@ -54,6 +54,14 @@ type BranchRevisions struct {
 	Commits     []string         `json:"commits"`
 	CommitTimes map[string]int64 `json:"commit_times"`
 	IsDefault   bool             `json:"is_default"`
+}
+
+// Preview is the repository state needed by the repository resource UI.
+type Preview struct {
+	Branch   string
+	CommitID string
+	Branches []BranchRevisions
+	Entries  []TreeEntry
 }
 type ToolInfo struct{ Name, Description string }
 
@@ -180,6 +188,8 @@ func ListTools() []ToolInfo { return append([]ToolInfo(nil), tools...) }
 // returned input points at the materialized local repository, so every tool in
 // the execution reads the same files even when the remote repository changes.
 func Prepare(ctx context.Context, in ConnectionInput) (ConnectionInput, func() error, error) {
+	ctx, cancel := repositoryContext(ctx, in)
+	defer cancel()
 	sourceInput := configuredBundleStorage(in)
 	root, cleanup, selectedRevision, err := openRepository(ctx, sourceInput, strings.TrimSpace(in.PinnedRevision))
 	if err != nil {
@@ -192,12 +202,10 @@ func Prepare(ctx context.Context, in ConnectionInput) (ConnectionInput, func() e
 			return ConnectionInput{}, func() error { return nil }, cloneErr
 		}
 		snapshotRoot := filepath.Join(dir, "repo.git")
-		cmd := exec.CommandContext(ctx, "git", "clone", "--bare", root, snapshotRoot)
-		cmd.Env = append(os.Environ(), gitCredentialEnvironment(sourceInput)...)
-		if output, cloneErr := cmd.CombinedOutput(); cloneErr != nil {
+		if cloneErr := cloneRepository(ctx, ConnectionInput{}, root, snapshotRoot, true); cloneErr != nil {
 			cleanup()
 			_ = os.RemoveAll(dir)
-			return ConnectionInput{}, func() error { return nil }, fmt.Errorf("git snapshot: %w: %s", cloneErr, strings.TrimSpace(string(output)))
+			return ConnectionInput{}, func() error { return nil }, fmt.Errorf("repository snapshot: %w", cloneErr)
 		}
 		previousCleanup := cleanup
 		root = snapshotRoot
@@ -229,19 +237,7 @@ func Prepare(ctx context.Context, in ConnectionInput) (ConnectionInput, func() e
 }
 
 func snapshotRevision(ctx context.Context, in ConnectionInput, root string) string {
-	if head, err := runGit(ctx, in, root, "rev-parse", "--verify", "HEAD"); err == nil {
-		return strings.TrimSpace(string(head))
-	}
-	refs, err := runGit(ctx, in, root, "for-each-ref", "--sort=-committerdate", "--format=%(refname)", "refs/heads")
-	if err != nil {
-		return ""
-	}
-	for _, ref := range strings.Fields(string(refs)) {
-		if head, err := runGit(ctx, in, root, "rev-parse", "--verify", ref); err == nil {
-			return strings.TrimSpace(string(head))
-		}
-	}
-	return ""
+	return nativeSnapshotRevision(root)
 }
 
 func InputSchema(extra map[string]any) map[string]any {
@@ -251,17 +247,6 @@ func InputSchema(extra map[string]any) map[string]any {
 	}
 	return map[string]any{"type": "object", "properties": p, "additionalProperties": false}
 }
-func command(ctx context.Context, in ConnectionInput, args ...string) ([]byte, error) {
-	ctx, cancel := repositoryContext(ctx, in)
-	defer cancel()
-	root, cleanup, _, err := openRepository(ctx, in, "")
-	if err != nil {
-		return nil, err
-	}
-	defer cleanup()
-	return runGit(ctx, in, root, args...)
-}
-
 func openRepository(ctx context.Context, in ConnectionInput, revision string) (string, func(), string, error) {
 	in = configuredBundleStorage(in)
 	if len(revision) > 256 || strings.HasPrefix(revision, "-") || strings.ContainsAny(revision, "\x00\r\n:") || strings.Contains(revision, "..") || strings.Contains(revision, "@{") {
@@ -285,8 +270,11 @@ func openRepository(ctx context.Context, in ConnectionInput, revision string) (s
 		}
 	}
 	if root == "" && strings.TrimSpace(in.URL) != "" {
-		parsed, err := url.Parse(strings.TrimSpace(in.URL))
-		if err != nil || ((parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.User != nil) {
+		parsed, err := transport.NewEndpoint(strings.TrimSpace(in.URL))
+		if err != nil {
+			return "", func() {}, "", errors.New("invalid repository URL")
+		}
+		if (parsed.Protocol == "http" || parsed.Protocol == "https") && (parsed.User != "" || parsed.Password != "") {
 			return "", func() {}, "", errors.New("repository URL must not contain embedded credentials")
 		}
 		d, err := os.MkdirTemp("", "opsseek-repository-")
@@ -294,24 +282,11 @@ func openRepository(ctx context.Context, in ConnectionInput, revision string) (s
 			return "", func() {}, "", err
 		}
 		cleanup = func() { _ = os.RemoveAll(d) }
-		branch := strings.TrimSpace(in.Branch)
-		clone := []string{"clone", "--no-tags", "--no-single-branch"}
-		if branch != "" {
-			clone = append(clone, "--branch", branch)
-		}
-		clone = append(clone, in.URL, d)
-		if _, err := runGit(ctx, in, d, clone...); err != nil {
+		if err := cloneRepository(ctx, in, in.URL, d, false); err != nil {
 			cleanup()
-			return "", func() {}, "", fmt.Errorf("git clone: %w", err)
+			return "", func() {}, "", fmt.Errorf("clone repository: %w", err)
 		}
 		root = d
-		if revision != "" && revision != branch {
-			if _, err := runGit(ctx, in, root, "fetch", "--no-tags", "--depth=1", "origin", revision); err != nil {
-				cleanup()
-				return "", func() {}, "", fmt.Errorf("fetch repository revision: %w", err)
-			}
-			revision = "FETCH_HEAD"
-		}
 	}
 	if root == "" {
 		return "", func() {}, "", errors.New("repository path or url is required")
@@ -370,28 +345,6 @@ func repositoryContext(ctx context.Context, in ConnectionInput) (context.Context
 	return context.WithTimeout(ctx, timeout)
 }
 
-func runGit(ctx context.Context, in ConnectionInput, root string, args ...string) ([]byte, error) {
-	if len(args) == 0 {
-		return nil, errors.New("git command is required")
-	}
-	commandArgs := append([]string{"-C", root}, args...)
-	cmd := exec.CommandContext(ctx, "git", commandArgs...)
-	cmd.Env = append(os.Environ(), gitCredentialEnvironment(in)...)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("git %s: %w: %s", args[0], err, strings.TrimSpace(string(out)))
-	}
-	return out, nil
-}
-
-func gitCredentialEnvironment(in ConnectionInput) []string {
-	if in.Username == "" && in.Password == "" {
-		return nil
-	}
-	token := base64.StdEncoding.EncodeToString([]byte(in.Username + ":" + in.Password))
-	return []string{"GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=http.extraHeader", "GIT_CONFIG_VALUE_0=Authorization: Basic " + token}
-}
-
 func materializePostgres(ctx context.Context, in ConnectionInput) (string, func(), error) {
 	pool := in.Postgres
 	closePool := func() {}
@@ -429,11 +382,11 @@ func materializePostgres(ctx context.Context, in ConnectionInput) (string, func(
 		return "", func() {}, err
 	}
 	repo := filepath.Join(dir, "repo.git")
-	if err := exec.CommandContext(ctx, "git", "init", "--bare", repo).Run(); err != nil {
+	if err := gitrepo.Init(repo); err != nil {
 		cleanup()
 		return "", func() {}, err
 	}
-	if err := exec.CommandContext(ctx, "git", "--git-dir", repo, "fetch", bundlePath, "+refs/heads/*:refs/heads/*").Run(); err != nil {
+	if err := gitrepo.ImportBundle(ctx, repo, bundlePath, true); err != nil {
 		cleanup()
 		return "", func() {}, err
 	}
@@ -488,40 +441,33 @@ func materializeS3(ctx context.Context, in ConnectionInput) (string, func(), err
 		return "", func() {}, err
 	}
 	repo := filepath.Join(dir, "repo.git")
-	if err = exec.CommandContext(ctx, "git", "init", "--bare", repo).Run(); err != nil {
+	if err = gitrepo.Init(repo); err != nil {
 		cleanup()
 		return "", func() {}, err
 	}
-	if err = exec.CommandContext(ctx, "git", "--git-dir", repo, "fetch", bundle, "+refs/heads/*:refs/heads/*").Run(); err != nil {
+	if err = gitrepo.ImportBundle(ctx, repo, bundle, true); err != nil {
 		cleanup()
 		return "", func() {}, err
 	}
 	return repo, cleanup, nil
 }
 func Branches(ctx context.Context, in ConnectionInput) ([]string, error) {
-	out, e := command(ctx, in, "for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes")
-	if e != nil {
-		return nil, e
+	revisions, err := RepositoryRevisions(ctx, in, 1)
+	if err != nil {
+		return nil, err
 	}
-	seen := map[string]bool{}
-	var r []string
-	for _, x := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		x = strings.TrimSpace(x)
-		x = strings.TrimPrefix(x, "origin/")
-		if x != "" && !seen[x] {
-			seen[x] = true
-			r = append(r, x)
-		}
+	result := []string{}
+	for _, r := range revisions {
+		result = append(result, r.Branch)
 	}
-	sort.Strings(r)
-	return r, nil
+	sort.Strings(result)
+	return result, nil
 }
 
 func RepositoryRevisions(ctx context.Context, in ConnectionInput, limit int) ([]BranchRevisions, error) {
 	if limit < 1 || limit > 100 {
 		limit = 20
 	}
-	in = configuredBundleStorage(in)
 	ctx, cancel := repositoryContext(ctx, in)
 	defer cancel()
 	root, cleanup, _, err := openRepository(ctx, in, "")
@@ -529,83 +475,14 @@ func RepositoryRevisions(ctx context.Context, in ConnectionInput, limit int) ([]
 		return nil, err
 	}
 	defer cleanup()
-	refs, err := runGit(ctx, in, root, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes")
+	r, err := git.PlainOpen(root)
 	if err != nil {
 		return nil, err
 	}
-	byBranch := make(map[string]string)
-	for _, ref := range strings.Fields(string(refs)) {
-		branch := strings.TrimPrefix(ref, "refs/heads/")
-		if strings.HasPrefix(ref, "refs/remotes/origin/") {
-			branch = strings.TrimPrefix(ref, "refs/remotes/origin/")
-		}
-		if strings.HasPrefix(ref, "refs/remotes/") && !strings.HasPrefix(ref, "refs/remotes/origin/") {
-			continue
-		}
-		if branch == ref || branch == "HEAD" || strings.HasSuffix(branch, "/HEAD") {
-			continue
-		}
-		if _, exists := byBranch[branch]; !exists || strings.HasPrefix(ref, "refs/heads/") {
-			byBranch[branch] = ref
-		}
-	}
-	branches := make([]string, 0, len(byBranch))
-	for branch := range byBranch {
-		branches = append(branches, branch)
-	}
-	sort.Strings(branches)
-	defaultRef, _ := runGit(ctx, in, root, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD")
-	defaultBranch := strings.TrimPrefix(strings.TrimSpace(string(defaultRef)), "refs/remotes/origin/")
-	if defaultBranch == "" {
-		defaultRef, _ = runGit(ctx, in, root, "symbolic-ref", "--quiet", "HEAD")
-		defaultBranch = strings.TrimPrefix(strings.TrimSpace(string(defaultRef)), "refs/heads/")
-	}
-	result := make([]BranchRevisions, 0, len(branches))
-	for _, branch := range branches {
-		out, err := runGit(ctx, in, root, "log", fmt.Sprintf("-%d", limit), "--format=%H %ct", byBranch[branch])
-		if err != nil {
-			continue
-		}
-		commits := []string{}
-		times := map[string]int64{}
-		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-			fields := strings.Fields(line)
-			if len(fields) != 2 {
-				continue
-			}
-			timestamp, err := strconv.ParseInt(fields[1], 10, 64)
-			if err != nil {
-				return nil, err
-			}
-			commits = append(commits, fields[0])
-			times[fields[0]] = timestamp
-		}
-		sort.SliceStable(commits, func(i, j int) bool { return times[commits[i]] > times[commits[j]] })
-		if len(commits) > 0 {
-			result = append(result, BranchRevisions{Branch: branch, Commits: commits, CommitTimes: times, IsDefault: branch == defaultBranch})
-		}
-	}
-	sort.SliceStable(result, func(i, j int) bool {
-		return result[i].CommitTimes[result[i].Commits[0]] > result[j].CommitTimes[result[j].Commits[0]]
-	})
-	return result, nil
+	return nativeRevisions(ctx, r, limit)
 }
 
 func ResolveBranchCommit(ctx context.Context, in ConnectionInput, branch, commitID string) (string, error) {
-	branch = strings.TrimSpace(branch)
-	commitID = strings.TrimSpace(commitID)
-	if branch == "" || strings.ContainsAny(branch, "\x00\r\n") {
-		return "", errors.New("invalid repository branch")
-	}
-	if len(commitID) != 40 && len(commitID) != 64 {
-		return "", errors.New("invalid commit ID")
-	}
-	for _, r := range commitID {
-		if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'f' || r >= 'A' && r <= 'F') {
-			return "", errors.New("invalid commit ID")
-		}
-	}
-	in = configuredBundleStorage(in)
 	ctx, cancel := repositoryContext(ctx, in)
 	defer cancel()
 	root, cleanup, _, err := openRepository(ctx, in, "")
@@ -613,24 +490,125 @@ func ResolveBranchCommit(ctx context.Context, in ConnectionInput, branch, commit
 		return "", err
 	}
 	defer cleanup()
-	if _, err := runGit(ctx, in, root, "check-ref-format", "--branch", branch); err != nil {
+	r, err := git.PlainOpen(root)
+	if err != nil {
+		return "", err
+	}
+	return resolveBranchCommitInRepository(ctx, r, branch, commitID)
+}
+
+func resolveBranchCommitInRepository(ctx context.Context, r *git.Repository, branch, commitID string) (string, error) {
+	branch = strings.TrimSpace(branch)
+	commitID = strings.TrimSpace(commitID)
+	if branch == "" || strings.HasPrefix(branch, "-") || plumbing.NewBranchReferenceName(branch).Validate() != nil {
 		return "", errors.New("invalid repository branch")
 	}
-	ref := "refs/heads/" + branch
-	if _, err := runGit(ctx, in, root, "rev-parse", "--verify", "--end-of-options", ref+"^{commit}"); err != nil {
-		ref = "refs/remotes/origin/" + branch
-		if _, err := runGit(ctx, in, root, "rev-parse", "--verify", "--end-of-options", ref+"^{commit}"); err != nil {
-			return "", errors.New("repository branch not found")
-		}
+	if !validCommitID(commitID) || len(commitID) != 40 {
+		return "", errors.New("invalid or unsupported commit ID (SHA-1 required)")
 	}
-	if _, err := runGit(ctx, in, root, "merge-base", "--is-ancestor", commitID, ref); err != nil {
-		return "", errors.New("commit is not available on the selected branch")
+	head, err := resolveCommit(r, "refs/heads/"+branch)
+	if err != nil {
+		head, err = resolveCommit(r, "refs/remotes/origin/"+branch)
 	}
-	out, err := runGit(ctx, in, root, "rev-parse", "--verify", "--end-of-options", commitID+"^{commit}")
+	if err != nil {
+		return "", errors.New("repository branch not found")
+	}
+	commit, err := r.CommitObject(plumbing.NewHash(commitID))
 	if err != nil {
 		return "", errors.New("repository commit not found")
 	}
-	return strings.TrimSpace(string(out)), nil
+	iter, err := r.Log(&git.LogOptions{From: head.Hash})
+	if err != nil {
+		return "", err
+	}
+	defer iter.Close()
+	for {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		c, err := iter.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+		if c.Hash == commit.Hash {
+			return commit.Hash.String(), nil
+		}
+	}
+	return "", errors.New("commit is not available on the selected branch")
+}
+
+// PreviewRepository opens and reads the repository once for the resource preview.
+func PreviewRepository(ctx context.Context, in ConnectionInput, branch, commitID string) (Preview, error) {
+	path, err := scopedPath(in.Directory, "")
+	if err != nil {
+		return Preview{}, err
+	}
+	ctx, cancel := repositoryContext(ctx, in)
+	defer cancel()
+	root, cleanup, _, err := openRepository(ctx, in, "")
+	if err != nil {
+		return Preview{}, err
+	}
+	defer cleanup()
+	r, err := git.PlainOpen(root)
+	if err != nil {
+		return Preview{}, err
+	}
+	branches, err := nativeRevisions(ctx, r, 20)
+	if err != nil {
+		return Preview{}, err
+	}
+	branch = strings.TrimSpace(branch)
+	commitID = strings.TrimSpace(commitID)
+	if branch != "" {
+		found := false
+		for _, revision := range branches {
+			if revision.Branch == branch {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return Preview{}, errors.New("repository branch not found")
+		}
+	}
+	if commitID != "" && branch == "" {
+		return Preview{}, errors.New("repository branch is required for commit selection")
+	}
+	if branch == "" {
+		for _, revision := range branches {
+			if revision.IsDefault && len(revision.Commits) > 0 {
+				branch, commitID = revision.Branch, revision.Commits[0]
+				break
+			}
+		}
+		if branch == "" && len(branches) > 0 && len(branches[0].Commits) > 0 {
+			branch, commitID = branches[0].Branch, branches[0].Commits[0]
+		}
+	}
+	if commitID == "" {
+		for _, revision := range branches {
+			if revision.Branch == branch && len(revision.Commits) > 0 {
+				commitID = revision.Commits[0]
+				break
+			}
+		}
+	}
+	if branch == "" || commitID == "" {
+		return Preview{}, errors.New("repository has no selectable branch commit")
+	}
+	commitID, err = resolveBranchCommitInRepository(ctx, r, branch, commitID)
+	if err != nil {
+		return Preview{}, err
+	}
+	entries, err := nativeTreeFromRepository(ctx, r, commitID, path, in.Directory)
+	if err != nil {
+		return Preview{}, err
+	}
+	return Preview{Branch: branch, CommitID: commitID, Branches: branches, Entries: entries}, nil
 }
 
 func ParseEndpointSelection(subtype, remote, endpoint string) (string, string) {
@@ -678,21 +656,29 @@ func validCommitID(commitID string) bool {
 }
 
 func Checkout(ctx context.Context, in ConnectionInput, branch string) (map[string]any, error) {
-	branch = strings.TrimSpace(branch)
-	if branch == "" || strings.ContainsAny(branch, "\x00\n\r") || strings.Contains(branch, "..") {
+	if branch == "" || plumbing.NewBranchReferenceName(branch).Validate() != nil {
 		return nil, errors.New("invalid branch")
 	}
-	_, e := command(ctx, in, "symbolic-ref", "HEAD", "refs/heads/"+branch)
-	if e != nil {
-		_, e = command(ctx, in, "checkout", "--force", branch)
+	root, cleanup, _, err := openRepository(ctx, in, "")
+	if err != nil {
+		return nil, err
 	}
-	if e != nil {
-		return nil, e
+	defer cleanup()
+	r, err := git.PlainOpen(root)
+	if err != nil {
+		return nil, err
+	}
+	ref := plumbing.NewBranchReferenceName(branch)
+	if _, err = r.Reference(ref, true); err != nil {
+		return nil, err
+	}
+	if err = r.Storer.SetReference(plumbing.NewSymbolicReference(plumbing.HEAD, ref)); err != nil {
+		return nil, err
 	}
 	return map[string]any{"branch": branch}, nil
 }
+
 func Status(ctx context.Context, in ConnectionInput) (map[string]any, error) {
-	in = configuredBundleStorage(in)
 	ctx, cancel := repositoryContext(ctx, in)
 	defer cancel()
 	root, cleanup, selected, err := openRepository(ctx, in, "")
@@ -700,93 +686,54 @@ func Status(ctx context.Context, in ConnectionInput) (map[string]any, error) {
 		return nil, err
 	}
 	defer cleanup()
-	revision := snapshotRevision(ctx, in, root)
-	if revision == "" {
-		return nil, errors.New("repository has no readable commit")
-	}
-	if selected != "" {
-		revision = selected
-	}
-	branch := ""
-	if out, branchErr := runGit(ctx, in, root, "symbolic-ref", "--short", "HEAD"); branchErr == nil {
-		if head, headErr := runGit(ctx, in, root, "rev-parse", "--verify", "HEAD"); headErr == nil && strings.TrimSpace(string(head)) == revision {
-			branch = strings.TrimSpace(string(out))
-		}
-	}
-	if branch == "" {
-		if out, branchErr := runGit(ctx, in, root, "for-each-ref", "--points-at", revision, "--format=%(refname:short)", "refs/heads"); branchErr == nil {
-			branch = strings.TrimSpace(strings.Split(string(out), "\n")[0])
-		}
-	}
-	bare, err := runGit(ctx, in, root, "rev-parse", "--is-bare-repository")
+	revision := readRevision(ctx, in, root, selected)
+	r, err := git.PlainOpen(root)
 	if err != nil {
 		return nil, err
 	}
-	result := map[string]any{
-		"head": revision, "branch": branch, "has_worktree": strings.TrimSpace(string(bare)) != "true",
-		"resolved_revision": revision,
+	commit, err := resolveCommit(r, revision)
+	if err != nil {
+		return nil, err
 	}
-	if strings.TrimSpace(string(bare)) == "true" {
-		result["clean"] = nil
-		result["changed_files"] = nil
-		result["worktree_status"] = "not_applicable"
-		return result, nil
+	revision = commit.Hash.String()
+	branch := ""
+	if head, err := r.Head(); err == nil && head.Hash() == commit.Hash && head.Name().IsBranch() {
+		branch = head.Name().Short()
 	}
-	st, e := runGit(ctx, in, root, "status", "--porcelain=v1")
-	if e != nil {
-		return nil, e
+	if branch == "" {
+		refs, err := branchRefs(r)
+		if err != nil {
+			return nil, err
+		}
+		for _, ref := range refs {
+			if ref.Hash() == commit.Hash {
+				branch = strings.TrimPrefix(ref.Name().Short(), "origin/")
+				break
+			}
+		}
 	}
-	changed := 0
-	if text := strings.TrimSpace(string(st)); text != "" {
-		changed = len(strings.Split(text, "\n"))
+	worktree, err := r.Worktree()
+	bare := errors.Is(err, git.ErrIsBareRepository)
+	if err != nil && !bare {
+		return nil, err
 	}
-	result["clean"] = changed == 0
-	result["changed_files"] = changed
-	result["worktree_status"] = "available"
+	result := map[string]any{"head": revision, "branch": branch, "resolved_revision": revision, "has_worktree": !bare, "clean": nil, "changed_files": nil, "worktree_status": "not_applicable"}
+	if !bare {
+		status, err := worktree.Status()
+		if err != nil {
+			return nil, err
+		}
+		changed := 0
+		for _, s := range status {
+			if s.Staging != git.Unmodified || s.Worktree != git.Unmodified {
+				changed++
+			}
+		}
+		result["clean"] = changed == 0
+		result["changed_files"] = changed
+		result["worktree_status"] = "available"
+	}
 	return result, nil
-}
-
-type TreeEntry struct {
-	Path string `json:"path"`
-	Type string `json:"type"`
-	Size int64  `json:"size,omitempty"`
-}
-
-type TreePage struct {
-	Items      []TreeEntry `json:"items"`
-	Offset     int         `json:"offset"`
-	NextOffset int         `json:"next_offset"`
-	Total      int         `json:"total"`
-	Done       bool        `json:"done"`
-}
-
-type SearchPage struct {
-	Items           []map[string]any `json:"items"`
-	Offset          int              `json:"offset"`
-	NextOffset      int              `json:"next_offset"`
-	ObservedMatches int              `json:"observed_matches"`
-	Done            bool             `json:"done"`
-	Complete        bool             `json:"complete"`
-	Truncated       bool             `json:"truncated"`
-}
-
-type SearchOptions struct {
-	Pattern           string
-	Path              string
-	Offset            int
-	Limit             int
-	Revision          string
-	RegularExpression bool
-	IgnoreCase        bool
-}
-
-type FileRange struct {
-	Path       string `json:"path"`
-	Content    string `json:"content"`
-	Offset     int64  `json:"offset"`
-	NextOffset int64  `json:"next_offset"`
-	TotalBytes int64  `json:"total_bytes"`
-	Done       bool   `json:"done"`
 }
 
 func TreePageAt(ctx context.Context, in ConnectionInput, path string, offset, limit int, revision string) (TreePage, error) {
@@ -796,67 +743,18 @@ func TreePageAt(ctx context.Context, in ConnectionInput, path string, offset, li
 	if limit <= 0 || limit > 1000 {
 		limit = 1000
 	}
-	path, err := scopedPath(in.Directory, path)
+	entries, err := treeAt(ctx, in, path, 0, revision)
 	if err != nil {
 		return TreePage{}, err
 	}
-	ctx, cancel := repositoryContext(ctx, in)
-	defer cancel()
-	if in.PinnedRevision != "" {
-		revision = ""
+	if offset > len(entries) {
+		offset = len(entries)
 	}
-	root, cleanup, selectedRevision, err := openRepository(ctx, in, revision)
-	if err != nil {
-		return TreePage{}, err
+	end := offset + limit
+	if end > len(entries) {
+		end = len(entries)
 	}
-	defer cleanup()
-	selectedRevision = readRevision(ctx, in, root, selectedRevision)
-	args := []string{"-C", root, "ls-tree", "-r", "-l", "-z", selectedRevision}
-	if path != "" {
-		args = append(args, "--", path)
-	}
-	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Env = append(os.Environ(), gitCredentialEnvironment(in)...)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return TreePage{}, err
-	}
-	if err := cmd.Start(); err != nil {
-		return TreePage{}, err
-	}
-	page := TreePage{Offset: offset, Items: make([]TreeEntry, 0, limit)}
-	reader := bufio.NewReader(stdout)
-	for {
-		record, readErr := reader.ReadString('\x00')
-		if len(record) > 0 {
-			header, filePath, found := strings.Cut(strings.TrimSuffix(record, "\x00"), "\t")
-			fields := strings.Fields(header)
-			if found && len(fields) >= 4 {
-				size, _ := strconv.ParseInt(fields[3], 10, 64)
-				if page.Total >= offset && len(page.Items) < limit {
-					page.Items = append(page.Items, TreeEntry{Path: displayScopedPath(in.Directory, filePath), Type: "file", Size: size})
-				}
-				page.Total++
-			}
-		}
-		if readErr != nil {
-			if !errors.Is(readErr, io.EOF) {
-				_ = cmd.Process.Kill()
-				_ = cmd.Wait()
-				return TreePage{}, readErr
-			}
-			break
-		}
-	}
-	if err := cmd.Wait(); err != nil {
-		return TreePage{}, fmt.Errorf("git ls-tree: %w", err)
-	}
-	if page.Offset > page.Total {
-		page.Offset = page.Total
-	}
-	page.NextOffset = page.Offset + len(page.Items)
-	page.Done = page.NextOffset >= page.Total
-	return page, nil
+	return TreePage{Items: entries[offset:end], Offset: offset, NextOffset: end, Total: len(entries), Done: end == len(entries)}, nil
 }
 
 func FileRangeAt(ctx context.Context, in ConnectionInput, path string, offset int64, max int64, revision string) (FileRange, error) {
@@ -881,38 +779,27 @@ func FileRangeAt(ctx context.Context, in ConnectionInput, path string, offset in
 	}
 	defer cleanup()
 	selectedRevision = readRevision(ctx, in, root, selectedRevision)
-	blob, err := runGit(ctx, in, root, "rev-parse", "--verify", selectedRevision+":"+cleanPath)
+	file, err := nativeFile(root, selectedRevision, cleanPath)
 	if err != nil {
 		return FileRange{}, err
 	}
-	blob = []byte(strings.TrimSpace(string(blob)))
-	sizeOutput, err := runGit(ctx, in, root, "cat-file", "-s", string(blob))
-	if err != nil {
-		return FileRange{}, err
-	}
-	totalBytes, err := strconv.ParseInt(strings.TrimSpace(string(sizeOutput)), 10, 64)
-	if err != nil {
-		return FileRange{}, fmt.Errorf("read repository file size: %w", err)
-	}
+	totalBytes := file.Size
 	if offset >= totalBytes {
 		return FileRange{Path: displayScopedPath(in.Directory, cleanPath), Offset: totalBytes, NextOffset: totalBytes, TotalBytes: totalBytes, Done: true}, nil
 	}
-	cmd := exec.CommandContext(ctx, "git", "-C", root, "cat-file", "blob", string(blob))
-	cmd.Env = append(os.Environ(), gitCredentialEnvironment(in)...)
-	stdout, err := cmd.StdoutPipe()
+	stdout, err := file.Reader()
 	if err != nil {
 		return FileRange{}, err
 	}
-	if err := cmd.Start(); err != nil {
-		return FileRange{}, err
-	}
+	defer stdout.Close()
 	if _, err := io.CopyN(io.Discard, stdout, offset); err != nil {
-		_ = cmd.Process.Kill()
-		_ = cmd.Wait()
 		return FileRange{}, err
 	}
 	chunk := make([]byte, int(max)+4)
-	n, _ := io.ReadFull(stdout, chunk)
+	n, readErr := io.ReadFull(stdout, chunk)
+	if readErr != nil && !errors.Is(readErr, io.EOF) && !errors.Is(readErr, io.ErrUnexpectedEOF) {
+		return FileRange{}, readErr
+	}
 	chunk = chunk[:n]
 	start := 0
 	for start < len(chunk) && chunk[start]&0xC0 == 0x80 {
@@ -927,19 +814,10 @@ func FileRangeAt(ctx context.Context, in ConnectionInput, path string, offset in
 	}
 	content := chunk[start:end]
 	if !utf8ish(content) || !utf8.Valid(content) {
-		_ = cmd.Process.Kill()
-		_ = cmd.Wait()
 		return FileRange{}, errors.New("file is not UTF-8 text")
 	}
 	nextOffset := offset + int64(end)
 	done := nextOffset >= totalBytes
-	if !done {
-		_ = cmd.Process.Kill()
-	}
-	waitErr := cmd.Wait()
-	if done && waitErr != nil {
-		return FileRange{}, fmt.Errorf("read repository file: %w", waitErr)
-	}
 	return FileRange{Path: displayScopedPath(in.Directory, cleanPath), Content: string(content), Offset: offset + int64(start), NextOffset: nextOffset, TotalBytes: totalBytes, Done: done}, nil
 }
 
@@ -974,71 +852,8 @@ func SearchPageWithOptionsAt(ctx context.Context, in ConnectionInput, options Se
 	}
 	defer cleanup()
 	selectedRevision = readRevision(ctx, in, root, selectedRevision)
-	output := &limitedBuffer{max: 64 << 20}
-	stderr := &limitedBuffer{max: 4096}
-	args := []string{"-C", root, "grep", "-z", "-n", "-I"}
-	if options.RegularExpression {
-		args = append(args, "-E")
-	} else {
-		args = append(args, "-F")
-	}
-	if options.IgnoreCase {
-		args = append(args, "-i")
-	}
-	args = append(args, "-e", query, selectedRevision, "--")
-	if path != "" {
-		args = append(args, path)
-	}
-	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Env = append(os.Environ(), gitCredentialEnvironment(in)...)
-	cmd.Stdout = output
-	cmd.Stderr = stderr
-	err = cmd.Run()
-	if err != nil {
-		var exit *exec.ExitError
-		if !errors.As(err, &exit) || exit.ExitCode() != 1 {
-			message := strings.TrimSpace(stderr.String())
-			if message != "" {
-				return SearchPage{}, fmt.Errorf("git grep: %w: %s", err, message)
-			}
-			return SearchPage{}, fmt.Errorf("git grep: %w", err)
-		}
-	}
-	fields := bytes.Split(output.Bytes(), []byte{0})
-	items := make([]map[string]any, 0, limit)
-	total := 0
-	matchPath := ""
-	for i := 0; i+2 < len(fields); i += 2 {
-		if matchPath == "" {
-			matchPath = string(fields[i])
-		}
-		matchPath = strings.TrimPrefix(matchPath, selectedRevision+":")
-		line, parseErr := strconv.Atoi(string(fields[i+1]))
-		if matchPath == "" || parseErr != nil {
-			continue
-		}
-		textAndNextPath := strings.SplitN(string(fields[i+2]), "\n", 2)
-		text := strings.TrimSuffix(textAndNextPath[0], "\n")
-		if total >= offset && len(items) < limit {
-			match := map[string]any{"path": displayScopedPath(in.Directory, matchPath), "line": line, "text": text}
-			if len(text) > 4096 {
-				text = text[:4096]
-				for !utf8.ValidString(text) {
-					text = text[:len(text)-1]
-				}
-				match["text"] = text
-				match["text_truncated"] = true
-			}
-			items = append(items, match)
-		}
-		total++
-		matchPath = ""
-		if len(textAndNextPath) > 1 {
-			matchPath = textAndNextPath[1]
-		}
-	}
-	next := offset + len(items)
-	return SearchPage{Items: items, Offset: offset, NextOffset: next, ObservedMatches: total, Done: next >= total, Complete: !output.Truncated, Truncated: output.Truncated}, nil
+	options.Pattern, options.Offset, options.Limit = query, offset, limit
+	return nativeSearch(ctx, root, selectedRevision, path, in.Directory, options)
 }
 
 func readRevision(ctx context.Context, in ConnectionInput, root, selected string) string {
@@ -1099,28 +914,14 @@ func treeAt(ctx context.Context, in ConnectionInput, path string, limit int, rev
 	}
 	defer cleanup()
 	selectedRevision = readRevision(ctx, in, root, selectedRevision)
-	args := []string{"ls-tree", "-r", "-l", selectedRevision}
-	if path != "" {
-		args = append(args, "--", path)
+	entries, err := nativeTree(ctx, root, selectedRevision, path, in.Directory)
+	if err != nil {
+		return nil, err
 	}
-	out, e := runGit(ctx, in, root, args...)
-	if e != nil {
-		return nil, e
+	if limit > 0 && len(entries) > limit {
+		entries = entries[:limit]
 	}
-	var r []TreeEntry
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		f := strings.Fields(line)
-		if len(f) < 4 {
-			continue
-		}
-		n, _ := strconv.ParseInt(f[3], 10, 64)
-		p := displayScopedPath(in.Directory, strings.Join(f[4:], " "))
-		r = append(r, TreeEntry{Path: p, Type: "file", Size: n})
-		if limit > 0 && len(r) >= limit {
-			break
-		}
-	}
-	return r, nil
+	return entries, nil
 }
 func File(ctx context.Context, in ConnectionInput, path string, max int64) (string, error) {
 	return FileAt(ctx, in, path, max, "")
@@ -1145,7 +946,19 @@ func FileAt(ctx context.Context, in ConnectionInput, path string, max int64, rev
 	}
 	defer cleanup()
 	selectedRevision = readRevision(ctx, in, root, selectedRevision)
-	out, e := runGit(ctx, in, root, "show", selectedRevision+":"+path)
+	file, e := nativeFile(root, selectedRevision, path)
+	if e != nil {
+		return "", e
+	}
+	if file.Size > max {
+		return "", fmt.Errorf("file exceeds %d bytes", max)
+	}
+	reader, e := file.Reader()
+	if e != nil {
+		return "", e
+	}
+	defer reader.Close()
+	out, e := io.ReadAll(io.LimitReader(reader, max+1))
 	if e != nil {
 		return "", e
 	}
@@ -1198,22 +1011,46 @@ func Metadata(ctx context.Context, in ConnectionInput) (map[string]any, error) {
 		return nil, err
 	}
 	defer cleanup()
-	revision := snapshotRevision(ctx, in, root)
-	if revision == "" {
-		return nil, errors.New("repository has no readable commit")
+	revision := readRevision(ctx, in, root, selected)
+	r, err := git.PlainOpen(root)
+	if err != nil {
+		return nil, err
 	}
-	if selected != "" {
-		revision = selected
+	commit, err := resolveCommit(r, revision)
+	if err != nil {
+		return nil, err
 	}
-	rem, remoteErr := runGit(ctx, in, root, "remote", "-v")
-	if remoteErr != nil {
-		return nil, remoteErr
+	remotes, err := r.Remotes()
+	if err != nil {
+		return nil, err
 	}
-	log, e := runGit(ctx, in, root, "log", "-n", "20", "--date=iso-strict", "--pretty=format:%H%x09%ad%x09%an%x09%s", revision)
-	if e != nil {
-		return nil, e
+	var rem []string
+	for _, remote := range remotes {
+		for _, u := range remote.Config().URLs {
+			rem = append(rem, remote.Config().Name+"\t"+u+" (fetch)", remote.Config().Name+"\t"+u+" (push)")
+		}
 	}
-	return map[string]any{"remotes": strings.TrimSpace(string(rem)), "has_remote": strings.TrimSpace(string(rem)) != "", "resolved_revision": revision, "commits": strings.Split(strings.TrimSpace(string(log)), "\n")}, nil
+	sort.Strings(rem)
+	iter, err := r.Log(&git.LogOptions{From: commit.Hash, Order: git.LogOrderCommitterTime})
+	if err != nil {
+		return nil, err
+	}
+	defer iter.Close()
+	logs := []string{}
+	for len(logs) < 20 {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		c, err := iter.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		logs = append(logs, fmt.Sprintf("%s\t%s\t%s\t%s", c.Hash, c.Author.When.Format(time.RFC3339), c.Author.Name, strings.SplitN(c.Message, "\n", 2)[0]))
+	}
+	return map[string]any{"remotes": strings.Join(rem, "\n"), "has_remote": len(rem) > 0, "resolved_revision": commit.Hash.String(), "commits": logs}, nil
 }
 func safePath(p string) (string, error) {
 	p = strings.TrimSpace(p)

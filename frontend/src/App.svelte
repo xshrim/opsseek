@@ -1334,6 +1334,7 @@
           {scopeType}
           {skills}
           {personas}
+          currentUserId={currentUser?.id ?? ''}
         />
       {:else if view === 'persona'}
         <PersonasPage

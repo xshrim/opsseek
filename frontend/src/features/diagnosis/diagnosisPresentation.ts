@@ -78,6 +78,23 @@ export function diagnosisProcessText(snapshot: DiagnosisSnapshot | null) {
       if (item.text) lines.push(item.text);
       continue;
     }
+    if (item.kind === 'investigation') {
+      lines.push(`${item.label ?? '子智能体'} · ${item.status ?? '执行中'}`);
+      for (const progress of item.actions ?? []) {
+        if (progress.kind === 'analysis') {
+          if (progress.text) lines.push(progress.text);
+          continue;
+        }
+        lines.push(
+          `${diagnosisActionLabel(progress)} · ${progress.status ?? '执行中'} · ${progress.duration ?? '—'}`
+        );
+        if (progress.input) lines.push(`入参:\n${progress.input}`);
+        if (progress.output) lines.push(`出参:\n${progress.output}`);
+      }
+      if (item.input) lines.push(`任务范围:\n${item.input}`);
+      if (item.output) lines.push(`调查结果:\n${item.output}`);
+      continue;
+    }
     const actions = item.actions ?? [item];
     if (actions.length > 1)
       lines.push(

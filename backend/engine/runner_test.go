@@ -682,6 +682,44 @@ func TestAgentRunnerCountsUsageOncePerModelTurn(t *testing.T) {
 	}
 }
 
+func TestToolDecisionProgressTextDescribesRepositoryWork(t *testing.T) {
+	if got := toolDecisionProgressText([]string{"repository_tree"}); got != "正在读取代码仓库目录结构。" {
+		t.Fatalf("repository tree progress = %q", got)
+	}
+	if got := toolDecisionProgressText([]string{"repository_tree__resource_orders", "repository_search"}); got != "正在并行读取代码仓库目录结构、检索代码仓库内容。" {
+		t.Fatalf("parallel repository progress = %q", got)
+	}
+	if got := toolDecisionProgressText([]string{"unknown_tool"}); got != "正在调用已授权资源收集当前任务所需的信息。" {
+		t.Fatalf("generic progress = %q", got)
+	}
+}
+
+type tokenBudgetPartialModel struct{}
+
+func (tokenBudgetPartialModel) Name() string { return "token-budget-partial-model" }
+
+func (tokenBudgetPartialModel) GenerateContent(_ context.Context, _ *model.LLMRequest, _ bool) iter.Seq2[*model.LLMResponse, error] {
+	return func(yield func(*model.LLMResponse, error) bool) {
+		yield(&model.LLMResponse{
+			Content:       genai.NewContentFromText("预算前已生成的回答", genai.RoleModel),
+			UsageMetadata: &genai.GenerateContentResponseUsageMetadata{PromptTokenCount: 8, CandidatesTokenCount: 3, TotalTokenCount: 11},
+		}, nil)
+	}
+}
+
+func TestAgentRunnerReturnsPartialOutputWhenTokenBudgetIsExceeded(t *testing.T) {
+	runner := NewAgentRunner(func(context.Context, string, string, string, Purpose) (ModelBuildResult, error) {
+		return ModelBuildResult{Client: tokenBudgetPartialModel{}, Capabilities: []string{"text"}}, nil
+	})
+	result, err := runner.Run(context.Background(), Request{
+		ExecutionID: "exec-token-budget", ActorID: "actor-1", ScopeID: "scope-1", Task: "answer",
+		Budget: Budget{MaxIterations: 1, MaxTokens: 10, MaxOutputBytes: 4096},
+	})
+	if err == nil || result.ErrorCode != "token_budget" || result.Output != "预算前已生成的回答" {
+		t.Fatalf("result=%+v err=%v, want token-budget partial output", result, err)
+	}
+}
+
 type correctionTestModel struct{ turns int }
 
 func (m *correctionTestModel) Name() string { return "correction-test-model" }
@@ -805,7 +843,7 @@ func TestAgentRunnerSurfacesUnknownToolObservation(t *testing.T) {
 		if event.Type == "assistant.progress" && event.Payload["kind"] == "tool_decision" {
 			progress = true
 			text := fmt.Sprint(event.Payload["text"])
-			if text != "我会先补充核实相关信息，再根据结果继续分析。" || strings.Contains(text, "not_registered") {
+			if text != "正在调用已授权资源收集当前任务所需的信息。" || strings.Contains(text, "not_registered") {
 				t.Fatalf("fallback progress should describe the next action without tool names: %q", text)
 			}
 		}
@@ -938,9 +976,87 @@ func TestAgentRunnerRetriesThoughtOnlyResponse(t *testing.T) {
 	}
 }
 
-func TestRetryableEmptyModelErrorRecognizesFinalResponseWording(t *testing.T) {
-	if !isRetryableEmptyModelError(errors.New("model returned an empty final response")) {
-		t.Fatal("expected empty final response wording to be retryable")
+type flakyProviderModel struct {
+	mu                   sync.Mutex
+	calls                int
+	partialBeforeFailure bool
+}
+
+func (m *flakyProviderModel) Name() string { return "flaky-provider-model" }
+
+func (m *flakyProviderModel) GenerateContent(_ context.Context, _ *model.LLMRequest, _ bool) iter.Seq2[*model.LLMResponse, error] {
+	return func(yield func(*model.LLMResponse, error) bool) {
+		m.mu.Lock()
+		m.calls++
+		call := m.calls
+		m.mu.Unlock()
+		if call == 1 {
+			if m.partialBeforeFailure {
+				yield(&model.LLMResponse{Content: genai.NewContentFromText("不应展示", genai.RoleModel), Partial: true}, nil)
+			}
+			yield(nil, errors.New("call Chat Completions: EOF"))
+			return
+		}
+		yield(&model.LLMResponse{Content: genai.NewContentFromText("重连成功", genai.RoleModel)}, nil)
+	}
+}
+
+func TestRetryingModelRetriesProviderErrorsWithoutDuplicatingPartialOutput(t *testing.T) {
+	delegate := &flakyProviderModel{partialBeforeFailure: true}
+	var retries []ModelRetry
+	client := &retryingModel{
+		delegate:   delegate,
+		retryDelay: time.Millisecond,
+		onRetry: func(retry ModelRetry) error {
+			retries = append(retries, retry)
+			return nil
+		},
+	}
+	var output strings.Builder
+	for response, err := range client.GenerateContent(context.Background(), &model.LLMRequest{}, true) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		if response != nil && response.Content != nil {
+			for _, part := range response.Content.Parts {
+				if part != nil {
+					output.WriteString(part.Text)
+				}
+			}
+		}
+	}
+	if delegate.calls != 2 {
+		t.Fatalf("model calls = %d, want 2", delegate.calls)
+	}
+	if output.String() != "重连成功" {
+		t.Fatalf("output = %q, want only successful retry output", output.String())
+	}
+	if len(retries) != 2 || !retries[0].Waiting || retries[1].Waiting {
+		t.Fatalf("retry events = %#v, want waiting then retrying", retries)
+	}
+}
+
+func TestRetryingModelStopsWaitingWhenExecutionIsCancelled(t *testing.T) {
+	delegate := &flakyProviderModel{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	client := &retryingModel{
+		delegate:   delegate,
+		retryDelay: time.Second,
+		onRetry: func(retry ModelRetry) error {
+			if retry.Waiting {
+				cancel()
+			}
+			return nil
+		},
+	}
+	for _, err := range client.GenerateContent(ctx, &model.LLMRequest{}, true) {
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("error = %v, want context cancellation", err)
+		}
+	}
+	if delegate.calls != 1 {
+		t.Fatalf("model calls = %d, want retry wait to stop before another call", delegate.calls)
 	}
 }
 

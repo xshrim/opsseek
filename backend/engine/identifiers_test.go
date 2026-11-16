@@ -93,6 +93,9 @@ func TestRejectPlaceholderLocatorArguments(t *testing.T) {
 	if err := RejectPlaceholderLocatorArguments(map[string]any{"container_name": "orders-api"}); err != nil {
 		t.Fatalf("concrete locator rejected: %v", err)
 	}
+	if err := RejectPlaceholderLocatorArguments(map[string]any{"repository_path": ""}); err != nil {
+		t.Fatalf("optional repository path rejected: %v", err)
+	}
 }
 
 func TestExecutionPromptOmitsContextResourceIDs(t *testing.T) {

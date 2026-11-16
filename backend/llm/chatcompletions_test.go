@@ -34,6 +34,20 @@ func TestProviderTimeoutClient(t *testing.T) {
 	}
 }
 
+func TestHTTP2ProtocolErrorFallsBackToHTTP1Client(t *testing.T) {
+	if !isHTTP2ProtocolError(fmt.Errorf("stream error: stream ID 3; PROTOCOL_ERROR; received from peer")) {
+		t.Fatal("HTTP/2 protocol error was not recognized")
+	}
+	if isHTTP2ProtocolError(context.DeadlineExceeded) {
+		t.Fatal("context deadline must not be retried as an HTTP/2 protocol error")
+	}
+	fallback := http1FallbackClient(providerHTTPClient(15))
+	transport, ok := fallback.Transport.(*http.Transport)
+	if !ok || transport.ForceAttemptHTTP2 || transport.TLSNextProto == nil {
+		t.Fatalf("fallback transport = %#v, want HTTP/1.1-only transport", transport)
+	}
+}
+
 func TestProviderHTTPClientAllowsLongStreamingResponses(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Content-Type", "text/event-stream")

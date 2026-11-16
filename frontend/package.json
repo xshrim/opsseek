@@ -22,6 +22,7 @@
     "highlight.js": "^11.12.0",
     "lucide-svelte": "^1.0.0",
     "marked": "^18.0.11",
+    "mermaid": "^12.3.0",
     "simple-icons": "^16.31.0",
     "svelte": "^5.0.0"
   },

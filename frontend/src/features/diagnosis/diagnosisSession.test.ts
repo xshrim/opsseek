@@ -119,8 +119,163 @@ describe('diagnosis session event handling', () => {
     });
     const timeline = diagnosisLiveTimeline(current);
     expect(timeline).toHaveLength(1);
+    expect(timeline[0].kind).toBe('investigation');
     expect(timeline[0].status).toBe('已完成');
     expect(timeline[0].output).toContain('实例健康');
+  });
+
+  it('does not render an empty result before an investigation completes', () => {
+    const timeline = diagnosisLiveTimeline(
+      snapshot({
+        events: [
+          {
+            id: 1,
+            session_id: 'session-1',
+            type: 'execution.started',
+            payload: {},
+            created_at: '2026-01-01T00:00:00Z'
+          },
+          {
+            id: 2,
+            session_id: 'session-1',
+            type: 'investigation.updated',
+            payload: {
+              task_ref: 'investigation_1',
+              objective: '检查订单实例',
+              status: 'running',
+              result: {
+                facts: null,
+                inferences: null,
+                unchecked: null,
+                suggestions: null
+              }
+            },
+            created_at: '2026-01-01T00:00:01Z'
+          }
+        ]
+      })
+    );
+    expect(timeline[0].output).toBe(
+      '子智能体正在调查，完成后将显示证据和结论。'
+    );
+  });
+
+  it('nests an investigation tool trace under its child agent', () => {
+    const timeline = diagnosisLiveTimeline(
+      snapshot({
+        events: [
+          {
+            id: 1,
+            session_id: 'session-1',
+            type: 'execution.started',
+            payload: {},
+            created_at: '2026-01-01T00:00:00Z'
+          },
+          {
+            id: 2,
+            session_id: 'session-1',
+            type: 'investigation.updated',
+            payload: {
+              task_ref: 'investigation_1',
+              objective: '检查订单实例',
+              status: 'running',
+              result: { facts: [], inferences: [], unchecked: [], suggestions: [] }
+            },
+            created_at: '2026-01-01T00:00:01Z'
+          },
+          {
+            id: 3,
+            session_id: 'session-1',
+            type: 'investigation.progress',
+            payload: {
+              task_ref: 'investigation_1',
+              event_type: 'assistant.progress',
+              detail: { text: '先核验实例状态。' }
+            },
+            created_at: '2026-01-01T00:00:02Z'
+          },
+          {
+            id: 4,
+            session_id: 'session-1',
+            type: 'investigation.progress',
+            payload: {
+              task_ref: 'investigation_1',
+              event_type: 'tool.requested',
+              detail: {
+                tool: 'repository_tree',
+                call_id: 'call-1',
+                arguments: { path: 'backend' }
+              }
+            },
+            created_at: '2026-01-01T00:00:03Z'
+          },
+          {
+            id: 5,
+            session_id: 'session-1',
+            type: 'investigation.progress',
+            payload: {
+              task_ref: 'investigation_1',
+              event_type: 'tool.completed',
+              detail: {
+                tool: 'repository_tree',
+                call_id: 'call-1',
+                duration_ms: 18,
+                output: { entries: 3 }
+              }
+            },
+            created_at: '2026-01-01T00:00:04Z'
+          }
+        ]
+      })
+    );
+    expect(timeline[0].actions).toMatchObject([
+      { kind: 'analysis', text: '先核验实例状态。' },
+      {
+        kind: 'action',
+        tool: 'repository_tree',
+        status: '已完成',
+        input: expect.stringContaining('backend'),
+        output: expect.stringContaining('entries')
+      }
+    ]);
+  });
+
+  it('keeps investigation failures separate from tool calls', () => {
+    const timeline = diagnosisLiveTimeline(
+      snapshot({
+        events: [
+          {
+            id: 1,
+            session_id: 'session-1',
+            type: 'execution.started',
+            payload: {},
+            created_at: '2026-01-01T00:00:00Z'
+          },
+          {
+            id: 2,
+            session_id: 'session-1',
+            type: 'investigation.updated',
+            payload: {
+              task_ref: 'investigation_1',
+              objective: '检查订单实例',
+              status: 'failed',
+              result: {
+                facts: [],
+                inferences: [],
+                unchecked: ['jsonschema validation failed: facts item'],
+                suggestions: []
+              }
+            },
+            created_at: '2026-01-01T00:00:01Z'
+          }
+        ]
+      })
+    );
+    expect(timeline[0]).toMatchObject({
+      kind: 'investigation',
+      status: '失败',
+      detail: '调查报告格式不符合要求'
+    });
   });
 
   afterEach(() => {
@@ -333,6 +488,21 @@ describe('diagnosis session event handling', () => {
     );
     expect(restarted.state.generating).toBe(true);
     expect(restarted.state.interruptedReason).toBe('');
+  });
+
+  it('keeps a partial answer visible when the diagnosis is interrupted', () => {
+    const partial = reduceDiagnosisStreamEvent(
+      { ...state, generating: true },
+      'assistant.partial',
+      { text: '已经生成的部分回答。' }
+    );
+    const interrupted = reduceDiagnosisStreamEvent(
+      partial.state,
+      'diagnosis.failed',
+      { message: '模型连接中断' }
+    );
+    expect(interrupted.state.text).toBe('已经生成的部分回答。');
+    expect(interrupted.state.interruptedReason).toBe('模型连接中断');
   });
 
   it('does not show the previous execution while a follow-up is queued', () => {

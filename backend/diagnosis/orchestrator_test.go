@@ -15,6 +15,14 @@ import (
 	"opsseek/backend/resource"
 )
 
+func TestDiagnosisRunContextWithoutTimeoutWaitsForCancellation(t *testing.T) {
+	ctx, cancel := diagnosisRunContext(context.Background(), 0)
+	defer cancel()
+	if _, hasDeadline := ctx.Deadline(); hasDeadline {
+		t.Fatal("unbounded diagnosis context unexpectedly has a deadline")
+	}
+}
+
 func TestOrchestratorCreatesTraceableReportFromObservedEvidence(t *testing.T) {
 	store := newRecordingStore()
 	engine := fakeEngine{execute: func(_ context.Context, request engine.Request) (engine.Result, error) {
@@ -430,6 +438,48 @@ func TestOrchestratorUsesRunnerErrorMessageForFailure(t *testing.T) {
 
 	if store.session.ErrorMessage != "模型未返回可展示的最终回答，请重试。" {
 		t.Fatalf("error message=%q, want runner-safe message", store.session.ErrorMessage)
+	}
+}
+
+func TestOrchestratorPersistsPartialAssistantBeforeFailure(t *testing.T) {
+	store := newRecordingStore()
+	orchestrator := NewOrchestrator(&Service{store: store}, fakeEngine{execute: func(_ context.Context, request engine.Request) (engine.Result, error) {
+		if err := request.EventSink(engine.Event{Type: "assistant.delta", Payload: map[string]any{"text": "已生成的部分回答"}}); err != nil {
+			return engine.Result{}, err
+		}
+		return engine.Result{Status: engine.StatusFailed, ErrorCode: "provider", ErrorMessage: "模型连接中断"}, errors.New("模型连接中断")
+	}}, time.Second)
+	orchestrator.run(context.Background(), "session-1")
+
+	partialIndex, failureIndex := -1, -1
+	for index, entry := range store.log {
+		if entry == "event:assistant.partial" {
+			partialIndex = index
+		}
+		if entry == "event:diagnosis.failed" {
+			failureIndex = index
+		}
+	}
+	if len(store.messages) < 2 || store.messages[len(store.messages)-1].Content != "已生成的部分回答" {
+		t.Fatalf("partial assistant message = %#v", store.messages)
+	}
+	if partialIndex < 0 || failureIndex < 0 || partialIndex >= failureIndex {
+		t.Fatalf("event order = %v, want assistant.partial before diagnosis.failed", store.log)
+	}
+}
+
+func TestOrchestratorPersistsRunnerPartialOutputBeforeFailure(t *testing.T) {
+	store := newRecordingStore()
+	orchestrator := NewOrchestrator(&Service{store: store}, fakeEngine{execute: func(context.Context, engine.Request) (engine.Result, error) {
+		return engine.Result{Status: engine.StatusFailed, ErrorCode: "token_budget", ErrorMessage: "模型累计 Token 预算已用尽", Output: "已生成但尚未完成的回答"}, errors.New("token budget exceeded")
+	}}, time.Second)
+	orchestrator.run(context.Background(), "session-1")
+
+	if len(store.messages) < 2 || store.messages[len(store.messages)-1].Content != "已生成但尚未完成的回答" {
+		t.Fatalf("partial assistant message = %#v", store.messages)
+	}
+	if !store.hasEvent("assistant.partial") || !store.hasEvent("diagnosis.failed") {
+		t.Fatalf("events = %#v, want partial answer before failure", store.events)
 	}
 }
 

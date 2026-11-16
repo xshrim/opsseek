@@ -365,10 +365,11 @@ export function diagnosisEvidenceTimeline(
 
 export type DiagnosisLiveTimelineItem = {
   id: number;
-  kind: 'analysis' | 'action';
+  kind: 'analysis' | 'action' | 'investigation';
   text?: string;
   tool?: string;
   label?: string;
+  detail?: string;
   status?: string;
   duration?: string;
   elapsed?: string;
@@ -417,6 +418,10 @@ export function diagnosisLiveTimeline(
   const toolRequested = new Map<string, string>();
   let currentGroup: DiagnosisLiveTimelineItem | null = null;
   const investigations = new Map<string, DiagnosisLiveTimelineItem>();
+  const investigationActions = new Map<
+    string,
+    Map<string, DiagnosisLiveTimelineItem>
+  >();
   let lastAnalysis = '';
   const toolName = (event: DiagnosisEvent) =>
     String(event.payload?.tool ?? '').trim();
@@ -444,6 +449,31 @@ export function diagnosisLiveTimeline(
     } catch {
       return fallback;
     }
+  };
+  const objectValue = (value: unknown): Record<string, unknown> =>
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  const investigationFailureDetail = (task: DiagnosisInvestigationTask) => {
+    if (task.status !== 'failed') return undefined;
+    const unchecked = task.result?.unchecked ?? [];
+    const message = String(unchecked.find(Boolean) ?? '').trim();
+    if (!message) return '调查未完成，未返回具体原因';
+    if (/tool call budget exceeded/i.test(message))
+      return '调查范围较大，单轮工具调用预算已用尽。';
+    if (/jsonschema validation failed/i.test(message))
+      return '调查报告格式不符合要求';
+    return message.replace(/\s+/g, ' ').slice(0, 160);
+  };
+  const investigationOutput = (task: DiagnosisInvestigationTask) => {
+    if (task.status === 'queued') return '等待子智能体开始调查。';
+    if (task.status === 'running') return '子智能体正在调查，完成后将显示证据和结论。';
+    return jsonText({
+      facts: task.result?.facts ?? [],
+      unchecked: task.result?.unchecked ?? [],
+      inferences: task.result?.inferences ?? [],
+      suggestions: task.result?.suggestions ?? []
+    });
   };
   const ensureGroup = (event: DiagnosisEvent) => {
     if (currentGroup) return currentGroup;
@@ -534,11 +564,11 @@ export function diagnosisLiveTimeline(
       if (!item) {
         item = {
           id: event.id,
-          kind: 'action',
-          tool: 'diagnosis_investigate',
+          kind: 'investigation',
           createdAt: event.created_at
         };
         investigations.set(ref, item);
+        investigationActions.set(ref, new Map());
         items.push(item);
       }
       const labels: Record<string, string> = {
@@ -548,19 +578,92 @@ export function diagnosisLiveTimeline(
         failed: '失败',
         cancelled: '已取消'
       };
-      item.label = `调查任务 · ${task.objective || '未命名任务'}`;
+      item.label = `子智能体 · ${task.objective || '未命名任务'}`;
       item.status = labels[task.status] ?? '未知';
+      item.detail = investigationFailureDetail(task);
       item.input = jsonText({
         reason: task.reason,
         expected: task.expected,
         expert: task.expert,
         targets: task.targets
       });
-      item.output = jsonText(task.result);
+      item.output = investigationOutput(task);
       item.updatedAt = event.created_at;
       continue;
     }
-    if (event.type === 'investigation.progress') continue;
+    if (event.type === 'investigation.progress') {
+      currentGroup = null;
+      const ref = String(payload.task_ref ?? '');
+      const task = investigations.get(ref);
+      if (!task) continue;
+      const eventType = String(payload.event_type ?? '');
+      const detail = objectValue(payload.detail);
+      const actions = task.actions ?? (task.actions = []);
+      if (eventType === 'assistant.progress') {
+        const text = String(detail.text ?? '').trim();
+        if (text) {
+          actions.push({
+            id: event.id,
+            kind: 'analysis',
+            text,
+            createdAt: event.created_at,
+            updatedAt: event.created_at
+          });
+        }
+        task.updatedAt = event.created_at;
+        continue;
+      }
+      if (!eventType.startsWith('tool.')) continue;
+      const tool = String(detail.tool ?? '').trim();
+      if (!tool) continue;
+      const key = String(detail.call_id ?? detail.call_sequence ?? event.id);
+      const taskActions = investigationActions.get(ref) ?? new Map();
+      investigationActions.set(ref, taskActions);
+      let action = taskActions.get(key);
+      if (!action) {
+        action = {
+          id: event.id,
+          kind: 'action',
+          tool,
+          label: actionLabel(tool),
+          status: '等待执行',
+          duration: '—',
+          input:
+            detail.arguments === undefined
+              ? undefined
+              : jsonText(detail.arguments),
+          output: '等待工具执行结果…',
+          createdAt: event.created_at,
+          updatedAt: event.created_at
+        };
+        taskActions.set(key, action);
+        actions.push(action);
+      }
+      action.updatedAt = event.created_at;
+      if (detail.arguments !== undefined) action.input = jsonText(detail.arguments);
+      if (eventType === 'tool.requested') {
+        action.status = '等待执行';
+      } else if (eventType === 'tool.started') {
+        action.status = '执行中';
+      } else if (eventType === 'tool.completed' || eventType === 'tool.failed') {
+        const duration = diagnosisMilliseconds(
+          detail.duration_ms,
+          Math.max(
+            0,
+            new Date(event.created_at).getTime() -
+              new Date(action.createdAt ?? event.created_at).getTime()
+          )
+        );
+        action.status = eventType === 'tool.completed' ? '已完成' : '失败';
+        action.duration = diagnosisDurationMilliseconds(duration);
+        action.output =
+          detail.output === undefined
+            ? jsonText(detail.error ? { error: detail.error } : {})
+            : jsonText(detail.output);
+      }
+      task.updatedAt = event.created_at;
+      continue;
+    }
     if (!event.type.startsWith('tool.')) continue;
     const tool = toolName(event);
     if (!tool || !Object.prototype.hasOwnProperty.call(payload, 'resource_id'))
@@ -665,7 +768,11 @@ export function diagnosisLiveTimeline(
   const terminal = diagnosisRunIsTerminal(snapshot, events, executionIndex);
   if (!terminal) return items;
   return items.flatMap((item) => {
-    if (item.kind === 'analysis' || item.tool === 'context.compacted')
+    if (
+      item.kind === 'analysis' ||
+      item.kind === 'investigation' ||
+      item.tool === 'context.compacted'
+    )
       return [item];
     const actions = (item.actions ?? []).filter(
       (action) => action.status !== '等待执行' && action.status !== '执行中'

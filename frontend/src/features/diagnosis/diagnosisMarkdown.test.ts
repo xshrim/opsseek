@@ -41,6 +41,15 @@ describe('diagnosis markdown rendering', () => {
     expect(html).toContain('data-code-copy="SELECT%201%3B"');
   });
 
+  it('keeps Mermaid source as code while streaming and marks it for rendering when complete', () => {
+    const source = '```mermaid\nflowchart LR\n  API --> DB\n```';
+    expect(renderDiagnosisMarkdown(source)).toContain('diagnosis-code-wrap');
+    const html = renderDiagnosisMarkdown(source, { renderMermaid: true });
+    expect(html).toContain('diagnosis-mermaid');
+    expect(html).toContain('data-mermaid-source=');
+    expect(html).toContain('flowchart LR');
+  });
+
   it('uses identical rendering for the same live and persisted source', () => {
     const source = '## 结论\n\n**关键证据**\n\n```sql\nSELECT 1;\n```';
     expect(renderDiagnosisMarkdown(source)).toBe(
