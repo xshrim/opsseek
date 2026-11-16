@@ -196,6 +196,7 @@ Trace 和 Metrics 经 OTLP/HTTP 发到 Collector，分别进入 Jaeger 和 Prome
 | 本机运行 | 组合入口 / 单项 | `run` / `api-run`、`worker-run`、`scheduler-run`、`frontend-run`、`app-run` |
 | 容器运行 | 组合入口 | `up`、`down`、`clean` |
 | 容器运行 | 单项启动（先构建） | `api-up`、`worker-up`、`scheduler-up`、`frontend-up`、`app-up` |
+| 容器运行 | 单项停止 / 清理 / 日志 | `api-*`、`worker-*`、`scheduler-*`、`frontend-*`、`app-*`，后缀为 `down`、`clean`、`logs`；单项 `clean` 仅停止并删除对应容器，不删除共享数据卷或镜像 |
 | 二进制构建 | 主程序单项 | `api-build`、`worker-build`、`scheduler-build`、`app-build` |
 | 二进制构建 | 主程序分组 / 集中 | `backend-build` / `build`（含前端，不含 MCP） |
 | 二进制构建 | MCP 单项 / 集中 | `docker-mcp-build`、`host-mcp-build`、`kubernetes-mcp-build` / `mcp-build` |

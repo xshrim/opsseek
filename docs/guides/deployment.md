@@ -4,7 +4,7 @@
 
 使用根目录 Makefile 构建，Compose 不负责 build：
 
-默认使用 `deploy/Dockerfile`：先在本地构建制品，再复制到官方 Go/Node 基础镜像；Docker 内不安装源码依赖、不执行编译。后端保留 Git CLI、CA 证书和 SSH 客户端，以非 root 用户运行；前端继续由 Nginx 提供静态文件和 API 代理。本地需准备 Go、Node 和前端依赖（首次执行 `make deps`）。
+默认使用 `deploy/Dockerfile`：先在本地构建制品，再复制到精简运行镜像；Docker 内不安装源码依赖、不执行编译，也不携带 Go/Node 工具链。后端使用 Alpine，保留 Git CLI、CA 证书和 SSH 客户端，以非 root 用户运行；前端使用 Nginx Alpine Slim，提供静态文件和 API 代理。本地需准备 Go、Node 和前端依赖（首次执行 `make deps`）。
 
 ```bash
 # 运行发布前检查

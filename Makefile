@@ -55,7 +55,11 @@ endef
 	build api-build worker-build scheduler-build frontend-build webui-assets app-build backend-build \
 	api-run worker-run scheduler-run frontend-run app-run \
 	image api-image worker-image scheduler-image frontend-image app-image \
-	api-up worker-up scheduler-up frontend-up app-up \
+	api-up api-down api-clean api-logs \
+	worker-up worker-down worker-clean worker-logs \
+	scheduler-up scheduler-down scheduler-clean scheduler-logs \
+	frontend-up frontend-down frontend-clean frontend-logs \
+	app-up app-down app-clean app-logs \
 	test backend-test frontend-test backend-embedded-test backend-integration-test \
 	mcp-build docker-mcp-build host-mcp-build kubernetes-mcp-build \
 	mcp-run docker-mcp-run host-mcp-run kubernetes-mcp-run \
@@ -207,17 +211,62 @@ app-image: ## Build the embedded app image.
 api-up: env api-image ## Start the API container.
 	$(call compose,--profile svc up -d --wait --wait-timeout 180 api)
 
+api-down: env ## Stop the API container.
+	$(call compose,--profile svc stop api)
+
+api-clean: env ## Remove the API container without removing shared data or images.
+	$(call compose,--profile svc rm -s -f api)
+
+api-logs: env ## Follow API logs.
+	$(call compose,--profile svc logs -f api)
+
 worker-up: env worker-image ## Start the Worker container.
 	$(call compose,--profile svc up -d --wait --wait-timeout 180 worker)
+
+worker-down: env ## Stop the Worker container.
+	$(call compose,--profile svc stop worker)
+
+worker-clean: env ## Remove the Worker container without removing shared data or images.
+	$(call compose,--profile svc rm -s -f worker)
+
+worker-logs: env ## Follow Worker logs.
+	$(call compose,--profile svc logs -f worker)
 
 scheduler-up: env scheduler-image ## Start the Scheduler container.
 	$(call compose,--profile svc up -d --wait --wait-timeout 180 scheduler)
 
+scheduler-down: env ## Stop the Scheduler container.
+	$(call compose,--profile svc stop scheduler)
+
+scheduler-clean: env ## Remove the Scheduler container without removing shared data or images.
+	$(call compose,--profile svc rm -s -f scheduler)
+
+scheduler-logs: env ## Follow Scheduler logs.
+	$(call compose,--profile svc logs -f scheduler)
+
 frontend-up: env frontend-image ## Start the standalone frontend container.
 	$(call compose,--profile svc up -d --wait --wait-timeout 180 frontend)
 
+frontend-down: env ## Stop the standalone frontend container.
+	$(call compose,--profile svc stop frontend)
+
+frontend-clean: env ## Remove the frontend container without removing shared data or images.
+	$(call compose,--profile svc rm -s -f frontend)
+
+frontend-logs: env ## Follow frontend logs.
+	$(call compose,--profile svc logs -f frontend)
+
 app-up: env app-image ## Start the embedded app container.
 	$(call compose,up -d --wait --wait-timeout 180 app)
+
+app-down: env ## Stop the embedded app container.
+	$(call compose,stop app)
+
+app-clean: env ## Remove the App container without removing shared data or images.
+	$(call compose,rm -s -f app)
+
+app-logs: env ## Follow App logs.
+	$(call compose,logs -f app)
 
 # Service tests
 test: backend-test frontend-test ## Run all unit tests.

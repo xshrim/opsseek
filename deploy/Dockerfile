@@ -1,8 +1,9 @@
 # Package artifacts built on the host; no source compilation in this file.
-FROM golang:1.26-alpine AS runtime-base
+FROM alpine:3.22 AS runtime-base
 RUN apk add --no-cache ca-certificates git openssh-client \
     && addgroup -g 65532 nonroot \
-    && adduser -D -u 65532 -G nonroot nonroot
+    && adduser -D -u 65532 -G nonroot nonroot \
+    && git --version
 USER 65532:65532
 ENV HOME=/home/nonroot GIT_TERMINAL_PROMPT=0
 ARG VERSION=dev
@@ -30,10 +31,9 @@ FROM runtime-base AS scheduler
 COPY backend/bin/opskeeper-scheduler /app/opskeeper-scheduler
 ENTRYPOINT ["/app/opskeeper-scheduler"]
 
-FROM node:22-alpine AS frontend
-RUN apk add --no-cache nginx
+FROM nginx:stable-alpine-slim AS frontend
 COPY frontend/dist/ /usr/share/nginx/html/
-COPY deploy/nginx/frontend.conf /etc/nginx/http.d/default.conf
+COPY deploy/nginx/frontend.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
 
