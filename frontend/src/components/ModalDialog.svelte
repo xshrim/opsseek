@@ -151,7 +151,7 @@
     top: 50%;
     left: 50%;
     z-index: 1;
-    width: min(420px, calc(100% - 160px));
+    width: min(680px, calc(100% - 160px));
     transform: translate(-50%, -50%);
     cursor: auto;
     user-select: text;

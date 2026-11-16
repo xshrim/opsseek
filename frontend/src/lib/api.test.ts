@@ -15,7 +15,7 @@ describe('request', () => {
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
-            error: { code: 'invalid_session', message: 'expired' }
+            error: { code: 'E0025', message: 'expired' }
           }),
           { status: 401 }
         )
@@ -43,7 +43,8 @@ describe('request', () => {
       new Response(
         JSON.stringify({
           error: {
-            code: 'forbidden',
+            code: 'E0017',
+            type: 'forbidden',
             message: 'No access',
             request_id: 'req-1'
           }
@@ -56,12 +57,45 @@ describe('request', () => {
     expect(error).toBeInstanceOf(ApiError);
     expect(error).toMatchObject({
       status: 403,
-      code: 'forbidden',
+      code: 'E0017',
+      type: 'forbidden',
       requestId: 'req-1',
       message: 'No access'
     });
     document.querySelector('base')?.remove();
   });
+
+  it.each([undefined, 1002])(
+    'requests mock error %s once without refreshing a simulated 401',
+    async (number) => {
+      const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: 'M0002',
+              type: 'mock_1002',
+              message: '模拟故障：访问凭据已过期，身份认证失败',
+              request_id: 'mock-request'
+            }
+          }),
+          { status: 401 }
+        )
+      );
+
+      await expect(api.mockError(number)).rejects.toMatchObject({
+        status: 401,
+        code: 'M0002',
+        type: 'mock_1002',
+        message: '模拟故障：访问凭据已过期，身份认证失败',
+        requestId: 'mock-request'
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(String(fetchMock.mock.calls[0][0])).toBe(
+        `http://localhost:5173/opskeeper/api/v1/mock/errors${number === undefined ? '' : '?number=1002'}`
+      );
+      document.querySelector('base')?.remove();
+    }
+  );
 
   it('maps network failures to an actionable API error', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(
@@ -72,7 +106,7 @@ describe('request', () => {
     expect(error).toBeInstanceOf(ApiError);
     expect(error).toMatchObject({
       status: 0,
-      code: 'network_error',
+      code: 'E0045',
       message:
         '无法连接到 OpsKeeper API，请确认后端服务已启动且代理或网络配置正确。'
     });

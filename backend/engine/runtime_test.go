@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -97,6 +98,22 @@ func TestRuntimeResolvesPlanBeforeAgentRunner(t *testing.T) {
 	result, err := runtime.Execute(context.Background(), Request{ScopeID: "scope-1", SkillID: "skill-1", Task: "inspect"})
 	if err != nil || result.Output != "generic" || plan.calls != 1 || received.Instruction != "plan instruction" {
 		t.Fatalf("plan resolution result=%+v err=%v calls=%d request=%+v", result, err, plan.calls, received)
+	}
+}
+
+func TestRuntimePreservesDiagnosisContractWhenResolvingPlan(t *testing.T) {
+	plan := &fakePlanResolver{}
+	var received Request
+	runtime := New(fakeRunner{run: func(_ context.Context, request Request) (Result, error) {
+		received = request
+		return Result{Output: "ok"}, nil
+	}}).WithPlanResolver(plan)
+	_, err := runtime.Execute(context.Background(), Request{
+		ScopeID: "scope-1", Purpose: PurposeDiagnosis, SkillID: "skill-1", Task: "diagnose",
+		Instruction: "diagnosis baseline and scope routing",
+	})
+	if err != nil || !strings.Contains(received.Instruction, "diagnosis baseline and scope routing") || !strings.Contains(received.Instruction, "plan instruction") {
+		t.Fatalf("diagnosis plan must extend the baseline instruction: request=%+v err=%v", received, err)
 	}
 }
 

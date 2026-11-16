@@ -64,17 +64,11 @@
   ) {
     if (String(resource.subtype ?? '').toLowerCase() === 'agent')
       return mcpServerEndpointFor(resource) || '关联 MCPServer';
-    if (
-      resource.kind === 'Repository' &&
-      String(resource.subtype ?? '').toLowerCase() === 'bundle'
-    ) {
-      const backend = String(resourceCheck?.endpoint ?? 'postgresql')
-        .trim()
-        .toLowerCase();
-      const storageType = backend === 'postgres' ? 'postgresql' : backend;
-      const storageKey = String(resource.config?.storage_key ?? '').trim();
-      return storageKey ? `${storageType}:${storageKey}` : 'Bundle 尚未上传';
-    }
+    if (resource.kind === 'Repository')
+      return (
+        String(resource.config?.endpoint ?? '').trim() ||
+        '尚未选择分支和 Commit ID'
+      );
     if (resource.kind === 'Kubernetes') {
       const mode = String(
         resource.config?.connection_mode ??
@@ -120,6 +114,7 @@
           /></span
         ><span
           ><strong>{resource.name}</strong><small
+            title={endpointLabel(resource, resourceCheck)}
             >{endpointLabel(resource, resourceCheck)}</small
           ></span
         ></span

@@ -26,6 +26,8 @@
 | 需求 | 名称 | 任务 | 状态 | 需求文档 | 验收报告 |
 |---|---|---:|---|---|---|
 | R001 | 控制台体验与高频工作流优化 | T01-T09 | 实施中 | [R001-requirement.md](R001-requirement.md) | [R001-requirement-acceptance.md](R001-requirement-acceptance.md) |
+| R002 | 自举诊断故障模拟与侧栏折叠方案 | T01-T03 | 待验收 | [R002-requirement.md](R002-requirement.md) | [R002-requirement-acceptance.md](R002-requirement-acceptance.md) |
+| R003 | 公共消息码与消息组件优化 | T01-T04 | 实施中 | [R003-requirement.md](R003-requirement.md) | [R003-requirement-acceptance.md](R003-requirement-acceptance.md) |
 
 ## 4. 需求和任务总览
 

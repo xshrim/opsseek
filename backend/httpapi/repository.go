@@ -9,18 +9,23 @@ import (
 	"net/http"
 	"opskeeper/backend/authorization"
 	repositorysvc "opskeeper/backend/repository"
+	repositorytool "opskeeper/backend/tool/repository"
 )
 
 type repositoryBundleService interface {
 	UploadBundle(ctx context.Context, id string, r io.Reader, size int64) (repositorysvc.UploadResult, error)
 	Preview(ctx context.Context, id string) (repositorysvc.PreviewResult, error)
-	PreviewDraft(ctx context.Context, subtype, url, branch, username, password string) (repositorysvc.PreviewResult, error)
+	PreviewRevision(ctx context.Context, id, branch, commitID string) (repositorysvc.PreviewResult, error)
+	PreviewDraft(ctx context.Context, subtype, url, branch, commitID, username, password string) (repositorysvc.PreviewResult, error)
+	Revisions(ctx context.Context, id string) ([]repositorytool.BranchRevisions, error)
+	RevisionsDraft(ctx context.Context, subtype, url, username, password string) ([]repositorytool.BranchRevisions, error)
 }
 
 type repositoryPreviewRequest struct {
 	Subtype  string `json:"subtype"`
 	URL      string `json:"url"`
 	Branch   string `json:"branch"`
+	CommitID string `json:"commit_id"`
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
@@ -57,13 +62,26 @@ func registerRepositoryRoutes(router chi.Router, service repositoryBundleService
 		writeJSON(w, 201, out)
 	}
 	if require != nil {
+		router.With(require(authorization.ResourceCreate)).Post("/repository/revisions", func(w http.ResponseWriter, r *http.Request) {
+			var body repositoryPreviewRequest
+			if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&body); err != nil {
+				writeError(w, r, 400, "invalid_repository_preview", err.Error())
+				return
+			}
+			out, err := service.RevisionsDraft(r.Context(), body.Subtype, body.URL, body.Username, body.Password)
+			if err != nil {
+				writeError(w, r, 400, "repository_preview_failed", fmt.Sprint(err))
+				return
+			}
+			writeJSON(w, http.StatusOK, out)
+		})
 		router.With(require(authorization.ResourceCreate)).Post("/repository/preview", func(w http.ResponseWriter, r *http.Request) {
 			var body repositoryPreviewRequest
 			if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&body); err != nil {
 				writeError(w, r, 400, "invalid_repository_preview", err.Error())
 				return
 			}
-			out, err := service.PreviewDraft(r.Context(), body.Subtype, body.URL, body.Branch, body.Username, body.Password)
+			out, err := service.PreviewDraft(r.Context(), body.Subtype, body.URL, body.Branch, body.CommitID, body.Username, body.Password)
 			if err != nil {
 				writeError(w, r, 400, "repository_preview_failed", fmt.Sprint(err))
 				return
@@ -72,7 +90,15 @@ func registerRepositoryRoutes(router chi.Router, service repositoryBundleService
 		})
 		router.With(require(authorization.ResourceUpdate)).Post("/resources/{resourceID}/bundle", h)
 		router.With(require(authorization.ResourceRead)).Get("/resources/{resourceID}/repository/tree", func(w http.ResponseWriter, r *http.Request) {
-			out, err := service.Preview(r.Context(), chi.URLParam(r, "resourceID"))
+			out, err := service.PreviewRevision(r.Context(), chi.URLParam(r, "resourceID"), r.URL.Query().Get("branch"), r.URL.Query().Get("commit_id"))
+			if err != nil {
+				writeError(w, r, 400, "repository_preview_failed", fmt.Sprint(err))
+				return
+			}
+			writeJSON(w, http.StatusOK, out)
+		})
+		router.With(require(authorization.ResourceRead)).Get("/resources/{resourceID}/repository/revisions", func(w http.ResponseWriter, r *http.Request) {
+			out, err := service.Revisions(r.Context(), chi.URLParam(r, "resourceID"))
 			if err != nil {
 				writeError(w, r, 400, "repository_preview_failed", fmt.Sprint(err))
 				return
@@ -80,13 +106,26 @@ func registerRepositoryRoutes(router chi.Router, service repositoryBundleService
 			writeJSON(w, http.StatusOK, out)
 		})
 	} else {
+		router.Post("/repository/revisions", func(w http.ResponseWriter, r *http.Request) {
+			var body repositoryPreviewRequest
+			if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&body); err != nil {
+				writeError(w, r, 400, "invalid_repository_preview", err.Error())
+				return
+			}
+			out, err := service.RevisionsDraft(r.Context(), body.Subtype, body.URL, body.Username, body.Password)
+			if err != nil {
+				writeError(w, r, 400, "repository_preview_failed", fmt.Sprint(err))
+				return
+			}
+			writeJSON(w, http.StatusOK, out)
+		})
 		router.Post("/repository/preview", func(w http.ResponseWriter, r *http.Request) {
 			var body repositoryPreviewRequest
 			if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&body); err != nil {
 				writeError(w, r, 400, "invalid_repository_preview", err.Error())
 				return
 			}
-			out, err := service.PreviewDraft(r.Context(), body.Subtype, body.URL, body.Branch, body.Username, body.Password)
+			out, err := service.PreviewDraft(r.Context(), body.Subtype, body.URL, body.Branch, body.CommitID, body.Username, body.Password)
 			if err != nil {
 				writeError(w, r, 400, "repository_preview_failed", fmt.Sprint(err))
 				return
@@ -95,7 +134,15 @@ func registerRepositoryRoutes(router chi.Router, service repositoryBundleService
 		})
 		router.Post("/resources/{resourceID}/bundle", h)
 		router.Get("/resources/{resourceID}/repository/tree", func(w http.ResponseWriter, r *http.Request) {
-			out, err := service.Preview(r.Context(), chi.URLParam(r, "resourceID"))
+			out, err := service.PreviewRevision(r.Context(), chi.URLParam(r, "resourceID"), r.URL.Query().Get("branch"), r.URL.Query().Get("commit_id"))
+			if err != nil {
+				writeError(w, r, 400, "repository_preview_failed", fmt.Sprint(err))
+				return
+			}
+			writeJSON(w, http.StatusOK, out)
+		})
+		router.Get("/resources/{resourceID}/repository/revisions", func(w http.ResponseWriter, r *http.Request) {
+			out, err := service.Revisions(r.Context(), chi.URLParam(r, "resourceID"))
 			if err != nil {
 				writeError(w, r, 400, "repository_preview_failed", fmt.Sprint(err))
 				return

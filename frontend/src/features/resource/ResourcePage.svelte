@@ -41,8 +41,15 @@
   import MinIOConnectionStep from './MinIOConnectionStep.svelte';
   import MinIOReviewStep from './MinIOReviewStep.svelte';
   import RepositoryConnectionStep from './RepositoryConnectionStep.svelte';
-  import RepositoryPreviewStep from './RepositoryPreviewStep.svelte';
+  import FileUpload from '../../components/FileUpload.svelte';
+  import RepositoryBundleGuide from './RepositoryBundleGuide.svelte';
+  import RepositoryPreviewContent from './RepositoryPreviewContent.svelte';
   import RepositoryReviewStep from './RepositoryReviewStep.svelte';
+  import {
+    repositoryRevisionFromEndpoint,
+    type RepositoryBranchRevision,
+    type RepositoryPreviewEntry
+  } from './repositoryPreview';
   import ResourceSchemaFields from './ResourceSchemaFields.svelte';
   import ResourceDetailPanel from './ResourceDetailPanel.svelte';
   import {
@@ -119,7 +126,7 @@
   } from './resourceWorkflow';
   import { parseLabels } from '../../lib/labels';
   import { appURL } from '../../lib/health';
-  import { api } from '../../lib/api';
+  import { api, request } from '../../lib/api';
   import { errorMessage as formatErrorMessage } from '../../lib/errorMessage';
   import type {
     ConnectionCheck,
@@ -188,6 +195,11 @@
     resource: Resource | null
   ) => void = () => {};
   export let selectedResourceId = '';
+  export let resourceNavigationTarget: {
+    id: string;
+    name: string;
+    token: number;
+  } | null = null;
   export let resourceConnectionChecks: Record<string, ConnectionCheck | null> =
     {};
   export let operationSnapshots: Record<string, MCPSnapshot[]> = {};
@@ -431,6 +443,8 @@
   let repositoryPassword = '';
   let repositoryDefaultBranch = 'main';
   let repositoryBundleFile: File | null = null;
+  let repositoryBundleUploading = false;
+  let repositoryBundleUploaded = false;
   let repositoryBundleUploadedResourceId = '';
   let repositoryConfigurationAttempted = false;
   let editingRepositoryResourceId = '';
@@ -439,6 +453,13 @@
     type: string;
     size?: number;
   }> = [];
+  let repositoryPreviewBranches: RepositoryBranchRevision[] = [];
+  let repositoryRevisionFetchTimer: ReturnType<typeof setTimeout> | null = null;
+  let repositoryRevisionFetchID = 0;
+  let repositoryRevisionLoading = false;
+  let repositorySelectedBranch = '';
+  let repositorySelectedCommit = '';
+  let repositoryPreviewVisible = false;
   let repositoryPreviewBusy = false;
   let repositoryPreviewMessage = '';
   let repositoryWorkflowError = '';
@@ -986,15 +1007,27 @@
     repositoryUsername = '';
     repositoryPassword = '';
     repositoryDefaultBranch = String(resource.config?.default_branch ?? 'main');
+    const savedRevision = repositoryRevisionFromEndpoint(
+      String(resource.subtype ?? ''),
+      repositoryURL,
+      String(resource.config?.endpoint ?? '')
+    );
+    repositorySelectedBranch = savedRevision.branch || repositoryDefaultBranch;
+    repositorySelectedCommit = savedRevision.commitID;
     repositoryBundleFile = null;
+    repositoryBundleUploading = false;
+    repositoryBundleUploaded = false;
     repositoryBundleUploadedResourceId = '';
     repositoryPreviewEntries = [];
+    repositoryPreviewBranches = [];
+    repositoryPreviewVisible = false;
     repositoryPreviewMessage = '';
     repositoryPreviewBusy = false;
     repositoryWorkflowError = '';
     resourceAddStep = 1;
     resourceAddMenuOpen = true;
     resourceEditorOpen = false;
+    if (resourceAddSubtype === 'Bundle') void previewRepository(resource.id);
   }
   function openOracleWorkflowForEdit(resource: Resource) {
     onSelectResourceScope(resource.scope_id);
@@ -1462,10 +1495,6 @@
           return;
       }
     }
-    if (resourceKind === 'Repository' && resourceAddStep === 3) {
-      resourceAddStep = 4;
-      return;
-    }
     switch (resourceKind) {
       case 'MCPServer':
         void (editingResourceId ? updateMCPFromWorkflow() : createResource());
@@ -1857,15 +1886,26 @@
     editingMinIOResourceId = '';
   }
   function resetRepositoryDraft() {
+    if (repositoryRevisionFetchTimer)
+      clearTimeout(repositoryRevisionFetchTimer);
+    repositoryRevisionFetchTimer = null;
+    repositoryRevisionFetchID++;
+    repositoryRevisionLoading = false;
     repositoryURL = '';
     repositoryUsername = '';
     repositoryPassword = '';
     repositoryDefaultBranch = 'main';
     repositoryBundleFile = null;
+    repositoryBundleUploading = false;
+    repositoryBundleUploaded = false;
     repositoryBundleUploadedResourceId = '';
     repositoryConfigurationAttempted = false;
     editingRepositoryResourceId = '';
     repositoryPreviewEntries = [];
+    repositoryPreviewBranches = [];
+    repositorySelectedBranch = '';
+    repositorySelectedCommit = '';
+    repositoryPreviewVisible = false;
     repositoryPreviewBusy = false;
     repositoryPreviewMessage = '';
     repositoryDraftTest = null;
@@ -2486,40 +2526,124 @@
   }
   function repositoryConfigurationComplete() {
     return resourceAddSubtype === 'Git'
-      ? Boolean(repositoryURL.trim())
-      : Boolean(repositoryBundleFile || repositoryBundleConfigured);
+      ? Boolean(
+          repositoryURL.trim() &&
+          repositorySelectedBranch &&
+          repositorySelectedCommit &&
+          repositoryPreviewVisible
+        )
+      : Boolean(
+          repositoryBundleConfigured &&
+          repositoryPreviewVisible &&
+          (!repositoryBundleFile || repositoryBundleUploaded)
+        );
   }
-  async function previewRepositoryDraft() {
+  function applyRepositoryPreview(data: any) {
+    repositoryPreviewEntries = Array.isArray(data.entries) ? data.entries : [];
+    repositoryPreviewBranches = Array.isArray(data.branches)
+      ? data.branches
+      : [];
+    repositorySelectedBranch = String(data.default_branch ?? '');
+    repositorySelectedCommit = String(data.commit_id ?? '');
+    if (repositorySelectedBranch)
+      repositoryDefaultBranch = repositorySelectedBranch;
+    repositoryPreviewVisible = true;
+  }
+  function queueRepositoryRevisions() {
+    if (repositoryRevisionFetchTimer)
+      clearTimeout(repositoryRevisionFetchTimer);
+    const requestID = ++repositoryRevisionFetchID;
+    repositoryPreviewBranches = [];
+    if (!repositoryURL.trim()) {
+      repositoryRevisionLoading = false;
+      return;
+    }
+    repositoryRevisionLoading = true;
+    repositoryRevisionFetchTimer = setTimeout(async () => {
+      repositoryRevisionFetchTimer = null;
+      try {
+        const savedResource =
+          editingRepositoryResourceId &&
+          repositoryExistingResource?.config?.url === repositoryURL.trim() &&
+          !repositoryUsername.trim() &&
+          !repositoryPassword;
+        const revisions = savedResource
+          ? await request<RepositoryBranchRevision[]>(
+              `api/v1/resources/${editingRepositoryResourceId}/repository/revisions`
+            )
+          : await request<RepositoryBranchRevision[]>(
+              'api/v1/repository/revisions',
+              {
+                method: 'POST',
+                body: JSON.stringify({
+                  subtype: 'Git',
+                  url: repositoryURL.trim(),
+                  username: repositoryUsername.trim(),
+                  password: repositoryPassword
+                })
+              }
+            );
+        if (requestID !== repositoryRevisionFetchID) return;
+        repositoryPreviewBranches = revisions;
+        const branch =
+          revisions.find((item) => item.branch === repositorySelectedBranch) ??
+          revisions.find((item) => item.is_default) ??
+          revisions[0];
+        if (branch) {
+          repositorySelectedBranch = branch.branch;
+          if (!branch.commits.includes(repositorySelectedCommit))
+            repositorySelectedCommit = branch.commits[0] ?? '';
+          repositoryDefaultBranch = branch.branch;
+        }
+      } catch {
+        if (requestID === repositoryRevisionFetchID)
+          repositoryPreviewBranches = [];
+      } finally {
+        if (requestID === repositoryRevisionFetchID)
+          repositoryRevisionLoading = false;
+      }
+    }, 400);
+  }
+  async function previewRepositoryDraft(
+    branch = repositorySelectedBranch || repositoryDefaultBranch,
+    commitID = repositorySelectedCommit
+  ) {
+    if (
+      editingRepositoryResourceId &&
+      repositoryExistingResource?.config?.url === repositoryURL.trim() &&
+      !repositoryUsername.trim() &&
+      !repositoryPassword
+    ) {
+      await previewRepository(editingRepositoryResourceId, branch, commitID);
+      return;
+    }
     repositoryPreviewBusy = true;
+    repositoryPreviewVisible = false;
     repositoryPreviewMessage = '';
     repositoryPreviewEntries = [];
     repositoryDraftTest = { busy: true };
     try {
-      const response = await fetch(appURL('api/v1/repository/preview'), {
+      const data = await request<{
+        entries?: RepositoryPreviewEntry[];
+        branches?: RepositoryBranchRevision[];
+        default_branch?: string;
+        commit_id?: string;
+      }>('api/v1/repository/preview', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           subtype: resourceAddSubtype,
           url: repositoryURL.trim(),
-          branch: repositoryDefaultBranch.trim() || 'main',
+          branch: branch.trim() || 'main',
+          commit_id: commitID,
           username: repositoryUsername.trim(),
           password: repositoryPassword
         })
       });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok)
-        throw new Error(
-          data?.error?.message ?? data?.message ?? '仓库预览失败'
-        );
-      repositoryPreviewEntries = Array.isArray(data.entries)
-        ? data.entries
-        : [];
+      applyRepositoryPreview(data);
       repositoryDraftTest = {
         status: 'succeeded',
         message: '仓库内容读取通过'
       };
-      resourceAddStep = 3;
     } catch (error) {
       repositoryPreviewMessage =
         error instanceof Error ? error.message : '仓库预览失败';
@@ -4472,8 +4596,10 @@
     editingNacosResourceId = '';
     resourceAddStep = 1;
   }
-  async function persistRepositoryWorkflow() {
+  async function persistRepositoryWorkflow(saveSelection = false) {
     repositoryConfigurationAttempted = true;
+    if (saveSelection && !repositoryConfigurationComplete())
+      throw new Error('请先完成仓库预览。');
     if (resourceAddSubtype === 'Git' && !repositoryConfigurationComplete())
       throw new Error('请检查 Git 配置。');
     if (
@@ -4498,9 +4624,36 @@
       resourceAddSubtype === 'Git'
         ? {
             url: repositoryURL.trim(),
-            default_branch: repositoryDefaultBranch.trim() || 'main'
+            default_branch: repositoryDefaultBranch.trim() || 'main',
+            ...(repositorySelectedBranch && repositorySelectedCommit
+              ? {
+                  endpoint:
+                    repositoryURL.trim() +
+                    ' [' +
+                    repositorySelectedBranch +
+                    '·' +
+                    repositorySelectedCommit +
+                    ']'
+                }
+              : {})
           }
-        : { ...(existing?.config ?? {}) };
+        : {
+            ...(existing?.config ?? {}),
+            ...(saveSelection &&
+            repositorySelectedBranch &&
+            repositorySelectedCommit
+              ? {
+                  default_branch: repositorySelectedBranch,
+                  endpoint:
+                    existingID +
+                    ' [' +
+                    repositorySelectedBranch +
+                    '·' +
+                    repositorySelectedCommit +
+                    ']'
+                }
+              : {})
+          };
     const credential =
       repositoryUsername.trim() || repositoryPassword
         ? stageCredential(
@@ -4515,7 +4668,10 @@
       name: resourceName.trim(),
       subtype: resourceAddSubtype,
       labels: parseLabels(resourceLabels),
-      ...(resourceAddSubtype === 'Git' || !existing || repositoryBundleFile
+      ...(saveSelection ||
+      resourceAddSubtype === 'Git' ||
+      !existing ||
+      repositoryBundleFile
         ? { config }
         : {}),
       ...(credential ? { credential } : {})
@@ -4550,39 +4706,60 @@
     if (!repositoryBundleFile) return;
     const body = new FormData();
     body.append('bundle', repositoryBundleFile);
-    const response = await fetch(
-      appURL(`api/v1/resources/${resourceID}/bundle`),
-      {
-        method: 'POST',
-        body,
-        credentials: 'include'
-      }
+    const data = await request<{
+      commit_id?: string;
+      default_branch?: string;
+      storage_key?: string;
+      storage_backend?: string;
+    }>(`api/v1/resources/${resourceID}/bundle`, {
+      method: 'POST',
+      body
+    });
+    const commitID = String(data.commit_id ?? '');
+    if (!commitID) throw new Error('Bundle 上传成功，但未返回 commit ID。');
+    const branch = String(data.default_branch ?? '');
+    if (!branch) throw new Error('Bundle 上传成功，但未返回默认分支。');
+    const storageKey = String(data.storage_key ?? '');
+    const storageBackend = String(data.storage_backend ?? '');
+    if (!storageKey || !storageBackend)
+      throw new Error('Bundle 上传成功，但未返回存储元数据。');
+    repositoryBundleUploaded = true;
+    resources = resources.map((resource) =>
+      resource.id === resourceID
+        ? {
+            ...resource,
+            config: {
+              ...resource.config,
+              storage_key: storageKey,
+              storage_backend: storageBackend,
+              default_branch: branch,
+              endpoint: resourceID + ' [' + branch + '·' + commitID + ']'
+            }
+          }
+        : resource
     );
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok)
-      throw new Error(
-        data?.error?.message ?? data?.message ?? 'Bundle 上传失败'
-      );
   }
 
-  async function previewRepository(resourceID: string) {
+  async function previewRepository(
+    resourceID: string,
+    branch = '',
+    commitID = ''
+  ) {
     repositoryPreviewBusy = true;
+    repositoryPreviewVisible = false;
     repositoryPreviewMessage = '';
     repositoryPreviewEntries = [];
     repositoryDraftTest = { busy: true };
     try {
-      const response = await fetch(
-        appURL(`api/v1/resources/${resourceID}/repository/tree`),
-        { credentials: 'include' }
+      const data = await request<{
+        entries?: RepositoryPreviewEntry[];
+        branches?: RepositoryBranchRevision[];
+        default_branch?: string;
+        commit_id?: string;
+      }>(
+        `api/v1/resources/${resourceID}/repository/tree?${new URLSearchParams({ branch, commit_id: commitID })}`
       );
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok)
-        throw new Error(
-          data?.error?.message ?? data?.message ?? '仓库预览失败'
-        );
-      repositoryPreviewEntries = Array.isArray(data.entries)
-        ? data.entries
-        : [];
+      applyRepositoryPreview(data);
       repositoryDraftTest = {
         status: 'succeeded',
         message: '仓库内容读取通过'
@@ -4599,32 +4776,60 @@
     }
   }
 
+  async function uploadRepositoryFromWorkflow() {
+    if (!repositoryBundleFile || repositoryBundleUploading) return;
+    repositoryBundleUploading = true;
+    repositoryWorkflowError = '';
+    try {
+      const saved = await persistRepositoryWorkflow();
+      await uploadRepositoryBundle(saved.id);
+      repositoryBundleUploadedResourceId = saved.id;
+      await previewRepository(saved.id);
+    } catch (error) {
+      repositoryWorkflowError = describeError(error, 'Bundle 上传失败');
+    } finally {
+      repositoryBundleUploading = false;
+    }
+  }
+
+  async function selectRepositoryRevision(
+    event: CustomEvent<{ branch: string; commitID: string }>
+  ) {
+    const { branch, commitID } = event.detail;
+    if (!branch || !commitID || repositoryPreviewBusy) return;
+    if (resourceAddSubtype === 'Git') {
+      repositorySelectedBranch = branch;
+      repositorySelectedCommit = commitID;
+      repositoryDefaultBranch = branch;
+      return;
+    }
+    const resourceID =
+      repositoryBundleUploadedResourceId || editingRepositoryResourceId;
+    if (!resourceID) return;
+    await previewRepository(resourceID, branch, commitID);
+  }
+
   async function continueRepositoryWorkflow() {
     repositoryConfigurationAttempted = true;
     if (!repositoryConfigurationComplete()) return;
     repositoryConfigurationAttempted = false;
     repositoryWorkflowError = '';
-    if (resourceAddSubtype === 'Git') {
-      await previewRepositoryDraft();
+    if (!repositoryPreviewVisible) {
+      repositoryWorkflowError =
+        resourceAddSubtype === 'Git'
+          ? '请先点击“预览”并确认仓库内容。'
+          : '请先上传 Bundle 并等待预览完成。';
       return;
     }
-    await runResourceAction(async () => {
-      if (editingRepositoryResourceId && !repositoryBundleFile) {
-        repositoryBundleUploadedResourceId = editingRepositoryResourceId;
-        await previewRepository(editingRepositoryResourceId);
-        resourceAddStep = 3;
-        return;
-      }
-      const saved = await persistRepositoryWorkflow();
-      if (repositoryBundleFile) await uploadRepositoryBundle(saved.id);
-      repositoryBundleUploadedResourceId = saved.id;
-      await previewRepository(saved.id);
-      resourceAddStep = 3;
-    });
+    if (repositoryBundleFile && !repositoryBundleUploaded) {
+      repositoryWorkflowError = '请先点击上传按钮完成 Bundle 上传。';
+      return;
+    }
+    resourceAddStep = 3;
   }
 
   async function saveRepositoryWorkflow() {
-    await persistRepositoryWorkflow();
+    await persistRepositoryWorkflow(true);
     resourceAddMenuOpen = false;
     resourceAddStep = 1;
     resetRepositoryDraft();
@@ -4822,6 +5027,7 @@
   let resourceSearch = '';
   let selectedCatalogTags: string[] = [];
   let resourceFilterQuery = '';
+  let handledResourceNavigationToken = 0;
   let resourceFieldValues: Record<string, string> = {};
   const resourceSearchFields = [
     { key: 'name', label: '名称', placeholder: '输入资源名称' },
@@ -4839,6 +5045,15 @@
       ]
     }
   ];
+  $: if (
+    resourceNavigationTarget &&
+    resourceNavigationTarget.token !== handledResourceNavigationToken
+  ) {
+    handledResourceNavigationToken = resourceNavigationTarget.token;
+    selectedResourceId = resourceNavigationTarget.id;
+    resourceFilterQuery = `name:"${resourceNavigationTarget.name.replaceAll('"', '\\"')}"`;
+    resourceFieldValues = { name: resourceNavigationTarget.name };
+  }
   $: resourceSearchFieldPattern = resourceSearchFields
     .map((field) => field.key)
     .join('|');
@@ -5027,6 +5242,11 @@
             {resourceCanManage}
             {mcpServerEndpointFor}
             applicationReferences={applicationReferences[resource.id] ?? []}
+            on:resourceupdate={(event) => {
+              resources = resources.map((item) =>
+                item.id === event.detail.id ? event.detail : item
+              );
+            }}
           />
         </svelte:fragment>
       </ResourceCatalogList>
@@ -5057,14 +5277,13 @@
         autoHeight
         backLabel={resourceAddStep > 1 ? '上一步' : ''}
         confirmLabel={resourceAddStep === 1 ||
-        (resourceAddStep === 2 && resourceWorkflowNeedsReview()) ||
-        (resourceKind === 'Repository' && resourceAddStep === 3)
+        (resourceAddStep === 2 && resourceWorkflowNeedsReview())
           ? '下一步'
           : resourceWorkflowEditing()
             ? '保存'
             : '创建'}
         busyLabel={resourceWorkflowEditing() ? '保存中…' : '创建中…'}
-        confirmDisabled={resourceAddStep === 4 && !selectedScopeId}
+        confirmDisabled={resourceAddStep === 3 && !selectedScopeId}
         {busy}
         message={resourceKind === 'Repository' &&
         (repositoryWorkflowError || repositoryPreviewMessage)
@@ -5786,27 +6005,104 @@
               bind:url={repositoryURL}
               bind:username={repositoryUsername}
               bind:password={repositoryPassword}
-              bind:bundleFile={repositoryBundleFile}
               credentialConfigured={Boolean(
                 repositoryExistingResource?.credential_configured
               )}
               editing={Boolean(editingRepositoryResourceId)}
-              bundleConfigured={repositoryBundleConfigured}
+              bundleConfigured={repositoryBundleConfigured ||
+                repositoryBundleUploaded}
               bind:defaultBranch={repositoryDefaultBranch}
+              branches={repositoryPreviewBranches}
+              selectedBranch={repositorySelectedBranch}
+              selectedCommit={repositorySelectedCommit}
+              loadingRevisions={repositoryRevisionLoading}
+              previewBusy={repositoryPreviewBusy}
               configurationAttempted={repositoryConfigurationAttempted}
+              on:revisionsneeded={queueRepositoryRevisions}
+              on:revisionchange={(event) => {
+                repositorySelectedBranch = event.detail.branch;
+                repositorySelectedCommit = event.detail.commitID;
+                repositoryDefaultBranch = event.detail.branch;
+              }}
+              on:preview={() => void previewRepositoryDraft()}
+              on:input={() => {
+                repositoryPreviewVisible = false;
+                repositorySelectedBranch = '';
+                repositorySelectedCommit = '';
+                queueRepositoryRevisions();
+              }}
+            />
+            {#if resourceAddSubtype === 'Bundle'}
+              <section class="repository-upload-section">
+                <header>
+                  <strong
+                    >上传 Bundle <span class="required-mark">*</span></strong
+                  >
+                  <span class="repository-upload-note"
+                    >{repositoryBundleConfigured && !repositoryBundleFile
+                      ? '已有 Bundle，可上传新文件替换。'
+                      : repositoryBundleUploaded
+                        ? 'Bundle 已上传。'
+                        : '选择或拖入 Bundle 文件。'}
+                    <RepositoryBundleGuide workflow /></span
+                  >
+                </header>
+                <FileUpload
+                  bind:file={repositoryBundleFile}
+                  accept=".bundle,application/octet-stream"
+                  ariaLabel="选择 Git Bundle 文件"
+                  placeholder={repositoryBundleFile?.name ??
+                    '选择或拖入 Bundle 文件'}
+                  showUploadButton
+                  uploading={repositoryBundleUploading}
+                  disabled={repositoryPreviewBusy}
+                  on:upload={() => void uploadRepositoryFromWorkflow()}
+                  on:change={() => {
+                    repositoryBundleUploaded = false;
+                    repositoryPreviewVisible = false;
+                    repositoryPreviewEntries = [];
+                    repositorySelectedBranch = '';
+                    repositorySelectedCommit = '';
+                    repositoryWorkflowError = '';
+                  }}
+                />
+              </section>
+            {/if}
+            <RepositoryPreviewContent
+              title="仓库预览"
+              subtitle={resourceAddSubtype === 'Bundle'
+                ? '可在右侧选择分支和 commit'
+                : '选择分支和 commit 后将即时更新目录'}
+              entries={repositoryPreviewEntries}
+              branches={repositoryPreviewBranches}
+              bind:selectedBranch={repositorySelectedBranch}
+              bind:selectedCommit={repositorySelectedCommit}
+              revisionEditable={repositoryPreviewVisible}
+              showRefresh
+              refreshLabel="刷新"
+              showRevisionSelector={resourceAddSubtype !== 'Git'}
+              showPreviewArea={repositoryPreviewVisible ||
+                repositoryPreviewBusy ||
+                Boolean(repositoryPreviewMessage)}
+              busy={repositoryPreviewBusy || repositoryBundleUploading}
+              failed={Boolean(repositoryPreviewMessage)}
+              on:refresh={() =>
+                resourceAddSubtype === 'Git'
+                  ? void previewRepositoryDraft()
+                  : void previewRepository(
+                      repositoryActiveResourceId,
+                      repositorySelectedBranch,
+                      repositorySelectedCommit
+                    )}
+              on:revisionchange={selectRepositoryRevision}
             />
           {:else if resourceKind === 'Repository' && resourceAddStep === 3}
-            <RepositoryPreviewStep
-              entries={repositoryPreviewEntries}
-              busy={repositoryPreviewBusy}
-              failed={Boolean(repositoryPreviewMessage)}
-            />
-          {:else if resourceKind === 'Repository' && resourceAddStep === 4}
             <RepositoryReviewStep
               {resourceName}
               subtype={resourceAddSubtype}
               url={repositoryURL}
               defaultBranch={repositoryDefaultBranch}
+              commitID={repositorySelectedCommit}
               credentialConfigured={Boolean(
                 repositoryUsername.trim() ||
                 repositoryPassword ||

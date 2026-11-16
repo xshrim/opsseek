@@ -4,6 +4,7 @@
 services:
   api:
     image: ${IMAGE_REPOSITORY:-opskeeper}-api:${IMAGE_TAG:-local}
+    container_name: opskeeper-api
     profiles: ["svc"]
     environment:
       OPSK_LISTEN_PORT: ${OPSK_LISTEN_PORT:-8080}
@@ -21,6 +22,7 @@ services:
 
   worker:
     image: ${IMAGE_REPOSITORY:-opskeeper}-worker:${IMAGE_TAG:-local}
+    container_name: opskeeper-worker
     profiles: ["svc"]
     environment:
       OPSK_DB_HOST: postgres:5432
@@ -34,6 +36,7 @@ services:
 
   scheduler:
     image: ${IMAGE_REPOSITORY:-opskeeper}-scheduler:${IMAGE_TAG:-local}
+    container_name: opskeeper-scheduler
     profiles: ["svc"]
     environment:
       OPSK_DB_HOST: postgres:5432
@@ -47,6 +50,7 @@ services:
 
   frontend:
     image: ${IMAGE_REPOSITORY:-opskeeper}-frontend:${IMAGE_TAG:-local}
+    container_name: opskeeper-frontend
     profiles: ["svc"]
     ports:
       - "5173:80"
@@ -54,6 +58,7 @@ services:
 
   app:
     image: ${IMAGE_REPOSITORY:-opskeeper}-app:${IMAGE_TAG:-local}
+    container_name: opskeeper-app
     environment:
       OPSK_LISTEN_PORT: ${OPSK_LISTEN_PORT:-8080}
       OPSK_DB_HOST: postgres:5432

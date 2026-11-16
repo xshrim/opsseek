@@ -15,6 +15,8 @@
   } from '../../lib/api';
   import { parseLabels } from '../../lib/labels';
   import {
+    applicationKeywordFromSelector,
+    preserveConfiguredValue,
     resourcesForRuntime,
     runtimeLabel,
     slugify,
@@ -64,6 +66,7 @@
   let namespaceRequestId = 0;
   let discoveryRequestId = 0;
   let discoveryTimer: ReturnType<typeof setTimeout> | undefined;
+  let initializedApplicationId = '';
 
   let name = '';
   let code = '';
@@ -101,7 +104,11 @@
   $: isKubernetes = runtimeKind === 'cloud_native';
   $: runtimeLabelText = runtimeLabel(runtimeKind);
 
-  $: if (initialApplication && !selectedCandidateKey) {
+  $: if (
+    initialApplication &&
+    initializedApplicationId !== initialApplication.id
+  ) {
+    initializedApplicationId = initialApplication.id;
     runtimeResourceIds = [
       ...new Set(
         initialApplication.instances.map(
@@ -109,6 +116,15 @@
         )
       )
     ];
+    const firstInstance = initialApplication.instances[0];
+    keyword = applicationKeywordFromSelector(
+      runtimeKind,
+      firstInstance?.selector
+    );
+    if (runtimeKind === 'cloud_native' && firstInstance) {
+      namespace = String(firstInstance.selector.namespace ?? '');
+      void loadNamespaces(firstInstance.target_resource_id);
+    }
     name = initialApplication.name;
     code = initialApplication.code;
     icon = initialApplication.icon || 'lucide:AppWindow';
@@ -182,6 +198,15 @@
 
   function selectCandidate(candidate: Candidate) {
     selectedCandidateKey = candidate.key;
+    if (initialApplication) {
+      name = preserveConfiguredValue(name, candidate.name);
+      code = preserveConfiguredValue(code, slugify(candidate.name));
+      logPath = preserveConfiguredValue(
+        logPath,
+        String(candidate.instances[0]?.log_binding?.path ?? '')
+      );
+      return;
+    }
     name = candidate.name;
     code = slugify(candidate.name);
     icon = 'lucide:AppWindow';
@@ -196,6 +221,7 @@
   function clearCandidate() {
     candidates = [];
     selectedCandidateKey = '';
+    if (initialApplication) return;
     name = '';
     code = '';
     icon = 'lucide:AppWindow';
@@ -376,10 +402,10 @@
     <section class="topology-application-runtime">
       <div class="topology-application-section-heading">
         <span
-          ><ResourceBrandIcon
-            resource={{ kind: runtimeLabelText }}
-            size={16}
-          /></span
+          ><span class="project-runtime-icon"><ResourceBrandIcon
+              resource={{ kind: runtimeLabelText }}
+              size={16}
+            /></span></span
         >
         <div>
           <strong>{runtimeLabelText} 运行时</strong><small
@@ -592,7 +618,7 @@
             /></FormField
           >
           <FormField
-            label="应用日志配置"
+            label="应用日志路径"
             className="topology-application-full-field"
             ><TextInput
               bind:value={logPath}

@@ -146,7 +146,7 @@ func TestCreateTeamMapsConflict(t *testing.T) {
 
 	router.ServeHTTP(response, request)
 
-	if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), `"code":"conflict"`) {
+	if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), `"code":"E0012"`) {
 		t.Fatalf("POST /api/v1/teams response = %d %s", response.Code, response.Body.String())
 	}
 }

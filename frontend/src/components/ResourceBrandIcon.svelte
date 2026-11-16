@@ -32,9 +32,10 @@
     OceanBase: Database,
     TongRDS: Database,
     MCPServer: Waypoints,
-    Monitor: Activity,
     Loki: Activity,
     Tempo: Activity,
+    Jaeger: Activity,
+    Skywalking: Activity,
     Alertmanager: Activity
   }[resource.kind];
 </script>

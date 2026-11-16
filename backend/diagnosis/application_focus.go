@@ -25,10 +25,12 @@ type applicationResourceRelation struct {
 	ApplicationName string         `json:"application_name,omitempty"`
 	ProjectID       string         `json:"-"`
 	ProjectName     string         `json:"project_name,omitempty"`
+	Type            string         `json:"type,omitempty"`
 	Relation        string         `json:"relation"`
 	RuntimeKind     string         `json:"runtime_kind,omitempty"`
 	Status          string         `json:"status,omitempty"`
 	Binding         map[string]any `json:"binding,omitempty"`
+	LogBinding      map[string]any `json:"log_binding,omitempty"`
 }
 
 type applicationResourceFocusInput struct {
@@ -102,10 +104,12 @@ type rawResourceInfo struct {
 	ID          string         `json:"id"`
 	Name        string         `json:"name"`
 	Kind        string         `json:"kind"`
+	Type        string         `json:"type"`
 	Relation    string         `json:"relation"`
 	RuntimeKind string         `json:"runtime_kind,omitempty"`
 	Status      string         `json:"status"`
 	Binding     map[string]any `json:"binding,omitempty"`
+	LogBinding  map[string]any `json:"log_binding,omitempty"`
 }
 
 // buildApplicationLocatorHints creates a server-only mapping from the
@@ -182,14 +186,17 @@ func buildApplicationResourceBindings(raw json.RawMessage) map[string]map[string
 				directory, _ = resource.Binding["path"].(string)
 			}
 			directory = strings.Trim(strings.TrimSpace(strings.ReplaceAll(directory, "\\", "/")), "/")
-			if directory == "" {
-				continue
+			binding := make(map[string]any)
+			if directory != "" {
+				binding["directory"] = directory
 			}
-			binding := map[string]any{"directory": directory}
-			for _, key := range []string{"revision", "branch"} {
+			for _, key := range []string{"revision", "branch", "commit_id"} {
 				if value, ok := resource.Binding[key].(string); ok && strings.TrimSpace(value) != "" {
 					binding[key] = strings.TrimSpace(value)
 				}
+			}
+			if len(binding) == 0 {
+				continue
 			}
 			resourceID := strings.TrimSpace(resource.ID)
 			if resourceID == "" {
@@ -199,7 +206,7 @@ func buildApplicationResourceBindings(raw json.RawMessage) map[string]map[string
 				continue
 			}
 			if current, exists := bindings[resourceID]; exists {
-				for _, key := range []string{"directory", "revision", "branch"} {
+				for _, key := range []string{"directory", "revision", "branch", "commit_id"} {
 					if fmt.Sprint(current[key]) != fmt.Sprint(binding[key]) {
 						delete(bindings, resourceID)
 						conflicts[resourceID] = struct{}{}
@@ -249,8 +256,8 @@ func buildApplicationResourceFocus(raw json.RawMessage) applicationResourceFocus
 			focus.Relations = append(focus.Relations, applicationResourceRelation{
 				ApplicationID: selected.Application.ID, ApplicationName: selected.Application.Name,
 				ProjectID: selected.Project.ID, ProjectName: selected.Project.Name,
-				Relation: resource.Relation, RuntimeKind: resource.RuntimeKind,
-				Status: resource.Status, Binding: resource.Binding,
+				Type: resource.Type, Relation: resource.Relation, RuntimeKind: resource.RuntimeKind,
+				Status: resource.Status, Binding: resource.Binding, LogBinding: resource.LogBinding,
 			})
 		}
 	}

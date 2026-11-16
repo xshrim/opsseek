@@ -7,14 +7,14 @@ describe('errorMessage', () => {
     const options = { forbidden: 'forbidden', unauthorized: 'login again' };
     expect(
       errorMessage(
-        new ApiError(403, { code: 'forbidden', message: 'raw' }),
+        new ApiError(403, { code: 'E0017', message: 'raw' }),
         'fallback',
         options
       )
     ).toBe('forbidden');
     expect(
       errorMessage(
-        new ApiError(401, { code: 'unauthorized', message: 'raw' }),
+        new ApiError(401, { code: 'E0025', message: 'raw' }),
         'fallback',
         options
       )
@@ -24,7 +24,7 @@ describe('errorMessage', () => {
   it('preserves server detail and handles syntax or unknown errors', () => {
     expect(
       errorMessage(
-        new ApiError(500, { code: 'internal', message: 'detail' }),
+        new ApiError(500, { code: 'E0018', message: 'detail' }),
         'fallback'
       )
     ).toBe('detail');

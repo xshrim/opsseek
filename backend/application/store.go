@@ -314,7 +314,23 @@ func (s *store) DiagnosticScopeProjects(ctx context.Context, scopeID, teamName s
 	return items, rows.Err()
 }
 
-func (s *store) DiagnosticScopeApplications(ctx context.Context, scopeID, teamName, projectCode string, offset, limit int) (DiagnosticScopeApplicationPage, error) {
+func (s *store) DiagnosticScopeContext(ctx context.Context, scopeID string) (DiagnosticScopeContext, error) {
+	var item DiagnosticScopeContext
+	err := s.pool.QueryRow(ctx, `SELECT current_scope.scope_type, COALESCE(team.name, project_team.name, ''),
+       COALESCE(project.name, ''), COALESCE(project.code, '')
+  FROM scopes current_scope
+  LEFT JOIN teams team ON team.scope_id=current_scope.id AND team.deleted_at IS NULL
+  LEFT JOIN projects project ON project.scope_id=current_scope.id AND project.deleted_at IS NULL
+  LEFT JOIN teams project_team ON project_team.id=project.team_id AND project_team.deleted_at IS NULL
+ WHERE current_scope.id=$1::uuid AND current_scope.deleted_at IS NULL`, scopeID).
+		Scan(&item.ScopeType, &item.TeamName, &item.ProjectName, &item.ProjectCode)
+	if err != nil {
+		return DiagnosticScopeContext{}, fmt.Errorf("get diagnostic scope context: %w", err)
+	}
+	return item, nil
+}
+
+func (s *store) DiagnosticScopeApplications(ctx context.Context, scopeID, teamName, projectName, projectCode string, offset, limit int) (DiagnosticScopeApplicationPage, error) {
 	if offset < 0 {
 		offset = 0
 	}
@@ -328,19 +344,21 @@ func (s *store) DiagnosticScopeApplications(ctx context.Context, scopeID, teamNa
   FROM applications application
   JOIN projects project ON project.id=application.project_id AND project.deleted_at IS NULL
   JOIN teams team ON team.id=project.team_id AND team.deleted_at IS NULL
+  LEFT JOIN application_instances instance ON instance.application_id=application.id
  WHERE application.deleted_at IS NULL
    AND resource_scope_contains($1::uuid, project.scope_id)
    AND ($2='' OR team.name=$2)
-   AND ($3='' OR project.code=$3)
+   AND ($3='' OR project.name=$3)
+   AND ($4='' OR project.code=$4)
  GROUP BY team.id,team.name,project.id,project.name,project.code,application.id,application.name,application.code,application.runtime_kind,application.status,application.critical
  ORDER BY application.name,application.code
- LIMIT $4 OFFSET $5`
-	args := []any{scopeID, teamName, projectCode, limit, offset}
+ LIMIT $5 OFFSET $6`
+	args := []any{scopeID, teamName, projectName, projectCode, limit, offset}
 	if filter, restricted := authorization.ScopeFilterFromContext(ctx); restricted {
 		if len(filter.ScopeIDs) == 0 {
 			return DiagnosticScopeApplicationPage{Items: []DiagnosticScopeApplication{}, Offset: offset, Limit: limit}, nil
 		}
-		query = strings.Replace(query, "   AND ($3='' OR project.code=$3)", "   AND ($3='' OR project.code=$3)\n   AND project.scope_id = ANY($6::uuid[])", 1)
+		query = strings.Replace(query, "   AND ($4='' OR project.code=$4)", "   AND ($4='' OR project.code=$4)\n   AND project.scope_id = ANY($7::uuid[])", 1)
 		args = append(args, filter.ScopeIDs)
 	}
 	rows, err := s.pool.Query(ctx, query, args...)
@@ -751,9 +769,9 @@ func (s *store) DiagnosticContext(ctx context.Context, scopeID, applicationID st
 			continue
 		}
 		resources = append(resources, DiagnosticResource{
-			ID: instance.TargetResourceID, Type: resource.DisplayName, Name: resource.Name, Kind: resource.Kind,
+			ID: instance.TargetResourceID, Type: diagnosticResourceType(resource.Kind, resource.DisplayName), Name: resource.Name, Kind: resource.Kind,
 			Relation: "runtime", RuntimeKind: instance.RuntimeKind, Status: instance.Status,
-			Binding: sanitizeInstanceSelector(instance.RuntimeKind, instance.Selector),
+			Binding: sanitizeInstanceSelector(instance.RuntimeKind, instance.Selector), LogBinding: sanitizeInstanceLogBinding(instance.LogBinding),
 		})
 	}
 	for _, dependency := range item.Dependencies {
@@ -762,7 +780,7 @@ func (s *store) DiagnosticContext(ctx context.Context, scopeID, applicationID st
 			continue
 		}
 		resources = append(resources, DiagnosticResource{
-			ID: dependency.TargetResourceID, Type: resource.DisplayName, Name: resource.Name, Kind: resource.Kind,
+			ID: dependency.TargetResourceID, Type: diagnosticResourceType(resource.Kind, resource.DisplayName), Name: resource.Name, Kind: resource.Kind,
 			Relation: "association", Status: dependency.Status, Binding: sanitizeBinding(dependency.DependencyKind, dependency.Binding),
 		})
 	}
@@ -792,9 +810,9 @@ func diagnosticInstances(items []Instance, allowed map[string]diagnosticResource
 			continue
 		}
 		result = append(result, DiagnosticInstance{
-			ID: item.ID, Type: allowed[item.TargetResourceID].DisplayName, Name: item.Name, RuntimeKind: item.RuntimeKind, TargetResourceID: item.TargetResourceID,
+			ID: item.ID, Type: diagnosticResourceType(allowed[item.TargetResourceID].Kind, allowed[item.TargetResourceID].DisplayName), Name: item.Name, RuntimeKind: item.RuntimeKind, TargetResourceID: item.TargetResourceID,
 			TargetResourceName: item.TargetResourceName, TargetResourceKind: item.TargetResourceKind,
-			Selector: sanitizeInstanceSelector(item.RuntimeKind, item.Selector), Status: item.Status,
+			Selector: sanitizeInstanceSelector(item.RuntimeKind, item.Selector), LogBinding: sanitizeInstanceLogBinding(item.LogBinding), Status: item.Status,
 		})
 	}
 	return result
@@ -807,7 +825,7 @@ func diagnosticDependencies(items []Dependency, allowed map[string]diagnosticRes
 			continue
 		}
 		result = append(result, DiagnosticDependency{
-			ID: item.ID, Type: allowed[item.TargetResourceID].DisplayName, TargetResourceID: item.TargetResourceID, TargetResourceName: item.TargetResourceName,
+			ID: item.ID, Type: diagnosticResourceType(allowed[item.TargetResourceID].Kind, allowed[item.TargetResourceID].DisplayName), TargetResourceID: item.TargetResourceID, TargetResourceName: item.TargetResourceName,
 			TargetResourceKind: item.TargetResourceKind, DependencyKind: item.DependencyKind,
 			Binding: sanitizeBinding(item.DependencyKind, item.Binding), Required: item.Required, Status: item.Status,
 		})
@@ -842,7 +860,7 @@ func (s *store) diagnosticResources(ctx context.Context, scopeID string, item Ap
 	}
 	query, args := appendResourceScopeVisibility(
 		`SELECT r.id::text,r.name,r.kind,COALESCE(NULLIF(rs.display_name,''),r.kind) FROM resources r LEFT JOIN resource_schemas rs ON rs.kind=r.kind AND rs.version=r.schema_version WHERE r.id=ANY($1::uuid[]) AND resource_scope_contains(r.scope_id,$2::uuid) AND r.deleted_at IS NULL`,
-		[]any{ids, scopeID}, ctx, "resources",
+		[]any{ids, scopeID}, ctx, "r",
 	)
 	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
@@ -1022,6 +1040,14 @@ func sanitizeInstanceSelector(kind string, value map[string]any) map[string]any 
 	return result
 }
 
+func sanitizeInstanceLogBinding(value map[string]any) map[string]any {
+	path, ok := value["path"].(string)
+	if !ok || strings.TrimSpace(path) == "" {
+		return nil
+	}
+	return map[string]any{"path": safeBindingText(path)}
+}
+
 func safeBindingText(value string) string {
 	value = strings.TrimSpace(value)
 	if len([]rune(value)) > 512 {
@@ -1082,9 +1108,13 @@ func (s *store) Topology(ctx context.Context, projectID string) (Topology, error
 		edges = append(edges, TopologyEdge{ID: "contains:" + app.ID, SourceID: projectID, TargetID: app.ID, Relation: "contains"})
 	}
 	resourceQuery, resourceArgs := appendResourceScopeVisibility(`SELECT DISTINCT r.id::text,r.scope_id::text,r.name,r.kind,r.subtype,r.labels,
-  EXISTS (SELECT 1 FROM project_topology_resources ptr WHERE ptr.project_id=$2::uuid AND ptr.resource_id=r.id),resource_scope.scope_type
+  EXISTS (SELECT 1 FROM project_topology_resources ptr WHERE ptr.project_id=$2::uuid AND ptr.resource_id=r.id),resource_scope.scope_type,
+  COALESCE(resource_platform.name, resource_team.name, resource_project.name, '')
   FROM resources r
 	JOIN scopes resource_scope ON resource_scope.id=r.scope_id
+	LEFT JOIN platforms resource_platform ON resource_platform.scope_id=r.scope_id AND resource_platform.deleted_at IS NULL
+	LEFT JOIN teams resource_team ON resource_team.scope_id=r.scope_id AND resource_team.deleted_at IS NULL
+	LEFT JOIN projects resource_project ON resource_project.scope_id=r.scope_id AND resource_project.deleted_at IS NULL
 	JOIN projects current_project ON current_project.id=$2::uuid
 	-- Project resources are always topology nodes; visible platform/team resources need an explicit topology membership or application binding.
 	WHERE r.deleted_at IS NULL AND (r.scope_id=current_project.scope_id OR EXISTS (SELECT 1 FROM project_topology_resources topology_resource WHERE topology_resource.project_id=$2::uuid AND topology_resource.resource_id=r.id) OR EXISTS (SELECT 1 FROM application_instances i WHERE i.application_id=ANY($1::uuid[]) AND i.target_resource_id=r.id)
@@ -1100,7 +1130,8 @@ func (s *store) Topology(ctx context.Context, projectID string) (Topology, error
 		var rawLabels []byte
 		var topologyMember bool
 		var scopeType string
-		if err := resourceRows.Scan(&node.ID, &node.ScopeID, &node.Name, &node.ResourceKind, &subtype, &rawLabels, &topologyMember, &scopeType); err != nil {
+		var scopeName string
+		if err := resourceRows.Scan(&node.ID, &node.ScopeID, &node.Name, &node.ResourceKind, &subtype, &rawLabels, &topologyMember, &scopeType, &scopeName); err != nil {
 			resourceRows.Close()
 			return Topology{}, fmt.Errorf("scan application topology resource: %w", err)
 		}
@@ -1110,7 +1141,7 @@ func (s *store) Topology(ctx context.Context, projectID string) (Topology, error
 			resourceRows.Close()
 			return Topology{}, fmt.Errorf("decode application topology resource labels: %w", err)
 		}
-		node.Metadata = map[string]any{"subtype": subtype, "labels": labels, "external": node.ScopeID != project.ScopeID, "topology_member": topologyMember, "scope_type": scopeType}
+		node.Metadata = map[string]any{"subtype": subtype, "labels": labels, "external": node.ScopeID != project.ScopeID, "topology_member": topologyMember, "scope_type": scopeType, "scope_name": scopeName}
 		nodes = append(nodes, node)
 		resourceSet[node.ID] = struct{}{}
 	}

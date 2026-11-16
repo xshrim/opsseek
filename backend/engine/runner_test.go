@@ -800,7 +800,15 @@ func TestAgentRunnerSurfacesUnknownToolObservation(t *testing.T) {
 	}
 	failed := false
 	resumed := false
+	progress := false
 	for _, event := range events {
+		if event.Type == "assistant.progress" && event.Payload["kind"] == "tool_decision" {
+			progress = true
+			text := fmt.Sprint(event.Payload["text"])
+			if text != "我会先补充核实相关信息，再根据结果继续分析。" || strings.Contains(text, "not_registered") {
+				t.Fatalf("fallback progress should describe the next action without tool names: %q", text)
+			}
+		}
 		if event.Type == "tool.failed" && event.Payload["error_code"] == "tool_not_found" {
 			failed = true
 		}
@@ -816,6 +824,9 @@ func TestAgentRunnerSurfacesUnknownToolObservation(t *testing.T) {
 	}
 	if !resumed {
 		t.Fatalf("unknown tool observation was not surfaced: %+v", events)
+	}
+	if !progress {
+		t.Fatal("missing fallback progress for a tool-only model turn")
 	}
 }
 

@@ -101,6 +101,7 @@ func NewRouter(logger *slog.Logger, healthService *health.Service, build version
 			}
 			if options.Identity != nil {
 				registerAuthRoutes(router, options.Identity, basePath, options.CookieSecure, options.Access)
+				router.With(authHandler{service: options.Identity}.requireAuth).Get("/mock/errors", mockError)
 			}
 			if options.Identity != nil && (options.Users != nil || options.Access != nil) {
 				managementRouter := router.With(authHandler{service: options.Identity}.requireAuth).With(requireAuthorizationConfigured(options.Authorization))

@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 const basePathPattern =
   /^\/(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)(?:\/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/;
 
-export default defineConfig(({ command }) => {
+export default defineConfig(({ command, mode }) => {
   const basePath = process.env.OPSK_BASE_PATH ?? '/opskeeper';
   if (
     basePath !== '/' &&
@@ -27,6 +27,7 @@ export default defineConfig(({ command }) => {
     headers: { Origin: 'http://localhost:8080' }
   };
   return {
+    resolve: mode === 'test' ? { conditions: ['browser'] } : undefined,
     base: command === 'serve' ? baseHref : './',
     plugins: [
       svelte(),

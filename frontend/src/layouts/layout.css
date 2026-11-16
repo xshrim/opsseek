@@ -25,11 +25,22 @@
   font-weight: 700;
 }
 .workspace-label {
-  margin: 34px 8px 10px;
+  margin: 18px 0 9px;
+  padding: 0;
+  align-self: stretch;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--theme-fg-muted);
   font-size: 10px;
   font-weight: 700;
+  line-height: 12px;
   letter-spacing: 0.08em;
+  text-align: center;
+}
+.workspace-label:hover {
+  color: var(--theme-accent);
+  background: transparent;
 }
 .nav-item {
   display: flex;
@@ -90,7 +101,7 @@
   top: 50%;
   left: 50%;
   z-index: 2;
-  width: min(480px, calc(100% - 440px));
+  width: min(720px, calc(100% - 320px));
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
@@ -180,7 +191,7 @@
     gap: 8px;
   }
   .topbar-message-slot {
-    width: min(300px, calc(100% - 150px));
+    width: min(520px, calc(100% - 24px));
   }
   .topbar-actions {
     width: 100%;
@@ -266,8 +277,10 @@
   white-space: nowrap;
 }
 .workspace-label {
-  margin: 28px 8px 9px;
+  margin: 18px 0 9px;
   color: var(--theme-fg-subtle);
+  font-size: 12px;
+  line-height: 12px;
 }
 .sidebar nav {
   display: grid;
@@ -403,9 +416,35 @@
   background: var(--theme-bg-hover);
 }
 .sidebar-toggle {
+  position: absolute;
+  right: -34px;
+  bottom: 12px;
+  z-index: 6;
   justify-content: center;
-  width: 34px;
+  width: 50px;
+  min-height: 34px;
   padding: 0;
+  color: var(--theme-border);
+  background: transparent;
+  border-radius: 0;
+}
+.sidebar-toggle:hover {
+  color: var(--theme-accent);
+  background: transparent;
+}
+.sidebar-toggle svg {
+  position: relative;
+  z-index: 1;
+}
+.sidebar-toggle-expanded svg {
+  transform: translateX(-2.25px);
+}
+.sidebar-toggle-collapsed svg {
+  transform: translateX(2.25px);
+}
+.sidebar-toggle:focus-visible {
+  outline: 2px solid var(--theme-border-focus);
+  outline-offset: -2px;
 }
 .user-menu {
   position: absolute;
@@ -450,10 +489,12 @@
   padding: 0;
 }
 .sidebar.sidebar-compact .brand-copy,
-.sidebar.sidebar-compact .workspace-label,
 .sidebar.sidebar-compact .nav-item-label,
 .sidebar.sidebar-compact .user-menu-name {
   display: none;
+}
+.sidebar.sidebar-compact .workspace-label {
+  visibility: hidden;
 }
 .sidebar.sidebar-compact .nav-item {
   justify-content: center;
@@ -674,6 +715,13 @@
 :root[data-theme='dark'] .user-menu button:hover {
   color: var(--theme-teal);
   background: var(--theme-bg-selected);
+}
+:root[data-theme='dark'] .sidebar-toggle,
+:root[data-theme='dark'] .sidebar-toggle:hover {
+  background: transparent;
+}
+:root[data-theme='dark'] .sidebar-toggle {
+  color: var(--theme-border);
 }
 :root[data-theme='dark'] .scope-bar,
 :root[data-theme='dark'] .scope-picker,

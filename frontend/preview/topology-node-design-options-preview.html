@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>拓扑节点样式 · 10 种设计预览</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --page: #eef2f4;
+        --surface: #ffffff;
+        --raised: #f8fafb;
+        --text: #243038;
+        --muted: #69767d;
+        --subtle: #95a2a8;
+        --line: #d9e1e4;
+        --line-strong: #c3d0d5;
+        --app: #356b8b;
+        --app-soft: #e5f1f7;
+        --resource: #36745f;
+        --resource-soft: #e8f3ed;
+        --runtime: #98703d;
+        --runtime-soft: #f7efe3;
+        --entity: #876246;
+        --entity-soft: #f5ece6;
+        --scope-platform: #6a5d91;
+        --scope-team: #3f7080;
+        --scope-project: #65783e;
+        font:
+          13px/1.45 Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        color: var(--text);
+        background: var(--page);
+      }
+      button {
+        font: inherit;
+        cursor: pointer;
+      }
+      button:focus-visible {
+        outline: 2px solid var(--app);
+        outline-offset: 3px;
+      }
+      svg {
+        display: block;
+        width: 18px;
+        height: 18px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .icon-defs {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+      }
+      .page {
+        width: min(1240px, calc(100% - 36px));
+        margin: 0 auto;
+        padding: 30px 0 44px;
+      }
+      .eyebrow {
+        margin: 0 0 5px;
+        color: var(--app);
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: 0.14em;
+      }
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+      h1 {
+        font-size: 24px;
+        line-height: 1.2;
+      }
+      .intro {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 20px;
+        margin-bottom: 18px;
+      }
+      .intro p {
+        max-width: 760px;
+        margin-top: 7px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .selection {
+        min-width: 230px;
+        padding: 9px 11px;
+        color: var(--muted);
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--app);
+        border-radius: 5px;
+        font-size: 11px;
+      }
+      .selection strong {
+        color: var(--text);
+      }
+      .designs {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 7px;
+        margin-bottom: 13px;
+      }
+      .design {
+        min-width: 0;
+        min-height: 58px;
+        padding: 8px 10px;
+        color: var(--muted);
+        text-align: left;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 5px;
+      }
+      .design:hover {
+        border-color: #9cb2ba;
+      }
+      .design[aria-pressed='true'] {
+        color: var(--text);
+        background: var(--app-soft);
+        border-color: var(--app);
+        box-shadow: inset 0 0 0 1px var(--app);
+      }
+      .design b {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 11px;
+      }
+      .design b span {
+        display: grid;
+        place-items: center;
+        width: 19px;
+        height: 19px;
+        flex: none;
+        color: #fff;
+        background: var(--app);
+        border-radius: 4px;
+        font-size: 10px;
+      }
+      .design small {
+        display: block;
+        margin: 4px 0 0 26px;
+        color: var(--muted);
+        font-size: 10px;
+        line-height: 1.25;
+      }
+      .preview {
+        overflow: hidden;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+      }
+      .preview-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 13px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      .preview-head h2 {
+        font-size: 14px;
+      }
+      .preview-head p {
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 10px;
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .legend i {
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+      }
+      .legend .app i {
+        background: var(--app);
+      }
+      .legend .resource i {
+        background: var(--resource);
+      }
+      .legend .runtime i {
+        background: var(--runtime);
+      }
+      .legend .entity i {
+        background: var(--entity);
+      }
+      .canvas {
+        position: relative;
+        min-height: 470px;
+        padding: 30px;
+        background: linear-gradient(135deg, #f8fafb 0%, #eef3f5 100%);
+      }
+      .canvas::before {
+        position: absolute;
+        inset: 0;
+        opacity: 0.38;
+        pointer-events: none;
+        content: '';
+        background-image:
+          linear-gradient(#dce5e8 1px, transparent 1px),
+          linear-gradient(90deg, #dce5e8 1px, transparent 1px);
+        background-size: 24px 24px;
+      }
+      .canvas-inner {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 78px 90px;
+        max-width: 910px;
+        margin: 0 auto;
+      }
+      .wire {
+        position: absolute;
+        z-index: 0;
+        background: #a9b9bf;
+        transform-origin: left center;
+      }
+      .wire.one {
+        top: 86px;
+        left: 25%;
+        width: 50%;
+        height: 1px;
+      }
+      .wire.two {
+        top: 245px;
+        left: 25%;
+        width: 50%;
+        height: 1px;
+      }
+      .wire.three {
+        top: 118px;
+        left: 50%;
+        width: 1px;
+        height: 170px;
+      }
+      .wire::after {
+        position: absolute;
+        right: -1px;
+        top: -3px;
+        width: 0;
+        height: 0;
+        content: '';
+        border-top: 4px solid transparent;
+        border-bottom: 4px solid transparent;
+        border-left: 7px solid #a9b9bf;
+      }
+      .node-wrap {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        min-height: 122px;
+      }
+      .node {
+        position: relative;
+        display: grid;
+        width: min(100%, 330px);
+        min-height: 88px;
+        color: var(--text);
+        background: var(--surface);
+      }
+      .node.app {
+        --tone: var(--app);
+        --tone-soft: var(--app-soft);
+      }
+      .node.resource {
+        --tone: var(--resource);
+        --tone-soft: var(--resource-soft);
+      }
+      .node.runtime {
+        --tone: var(--runtime);
+        --tone-soft: var(--runtime-soft);
+      }
+      .node.entity {
+        --tone: var(--entity);
+        --tone-soft: var(--entity-soft);
+      }
+      .node-row {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        gap: 8px;
+      }
+      .node-title {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        gap: 7px;
+      }
+      .node-title strong {
+        min-width: 0;
+        color: var(--text);
+        font-size: 12px;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+      }
+      .node-icon {
+        display: grid;
+        place-items: center;
+        width: 26px;
+        height: 26px;
+        flex: none;
+        color: var(--tone);
+      }
+      .node-icon svg {
+        width: 17px;
+        height: 17px;
+      }
+      .category {
+        flex: none;
+        color: var(--tone);
+        font-size: 9px;
+        font-weight: 750;
+        letter-spacing: 0.04em;
+      }
+      .level {
+        display: inline-flex;
+        align-items: center;
+        min-height: 19px;
+        margin-left: auto;
+        padding: 2px 6px;
+        color: #fff;
+        background: var(--scope-project);
+        border-radius: 3px;
+        font-size: 9px;
+        white-space: nowrap;
+      }
+      .level.platform {
+        background: var(--scope-platform);
+      }
+      .level.team {
+        background: var(--scope-team);
+      }
+      .level.project {
+        background: var(--scope-project);
+      }
+      .level.external {
+        background: var(--entity);
+      }
+      .node-subrow {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+        min-width: 0;
+        color: var(--muted);
+        font-size: 10px;
+      }
+      .node-subrow .kind {
+        min-width: 0;
+        color: var(--tone);
+        font-weight: 650;
+        overflow-wrap: anywhere;
+      }
+      .node-subrow .scope-name {
+        min-width: 0;
+        color: var(--muted);
+        text-align: right;
+        overflow-wrap: anywhere;
+      }
+      .node-subrow .scope-name::before {
+        content: '· ';
+        color: var(--subtle);
+      }
+      .node-note {
+        min-width: 0;
+        color: var(--muted);
+        font-size: 10px;
+        overflow-wrap: anywhere;
+      }
+
+      /* 01: Current canvas, tightened into a two-row card. */
+      .design-1 .node {
+        grid-template-rows: auto auto;
+        gap: 7px;
+        padding: 10px 11px 9px 14px;
+        border: 1px solid color-mix(in srgb, var(--tone) 38%, var(--line));
+        border-radius: 5px;
+        box-shadow: 0 3px 10px #26333b16;
+      }
+      .design-1 .node::before {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 4px;
+        content: '';
+        background: var(--tone);
+        border-radius: 5px 0 0 5px;
+      }
+      .design-1 .category {
+        order: -1;
+      }
+      /* 02: Color rail with a compact type header. */
+      .design-2 .node {
+        grid-template-rows: auto auto;
+        gap: 7px;
+        padding: 0 11px 10px;
+        border: 1px solid var(--line-strong);
+        border-radius: 5px;
+        overflow: hidden;
+      }
+      .design-2 .node-row {
+        padding: 8px 0 6px;
+        border-bottom: 1px solid var(--line);
+      }
+      .design-2 .node-row::before {
+        width: 4px;
+        align-self: stretch;
+        margin: -8px 2px -6px -11px;
+        content: '';
+        background: var(--tone);
+      }
+      .design-2 .node-icon {
+        width: 23px;
+        height: 23px;
+      }
+      /* 03: Icon tile and open typography. */
+      .design-3 .node {
+        grid-template-columns: 37px 1fr;
+        grid-template-rows: auto auto;
+        column-gap: 9px;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: color-mix(in srgb, var(--tone-soft) 45%, var(--surface));
+      }
+      .design-3 .node-icon {
+        grid-row: 1 / -1;
+        width: 37px;
+        height: 37px;
+        border-radius: 7px;
+        background: var(--tone-soft);
+      }
+      .design-3 .node-row {
+        display: contents;
+      }
+      .design-3 .node-title {
+        grid-column: 2;
+      }
+      .design-3 .node-subrow {
+        grid-column: 2;
+      }
+      .design-3 .category {
+        display: none;
+      }
+      /* 04: Top label and a right-aligned level badge. */
+      .design-4 .node {
+        grid-template-rows: auto auto;
+        gap: 8px;
+        padding: 10px 11px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+      }
+      .design-4 .node-row {
+        align-items: start;
+      }
+      .design-4 .node-row::before {
+        position: absolute;
+        top: -1px;
+        left: 12px;
+        width: 35px;
+        height: 3px;
+        content: '';
+        background: var(--tone);
+      }
+      .design-4 .node-title {
+        flex: 1;
+        align-items: start;
+      }
+      .design-4 .node-icon {
+        height: 22px;
+      }
+      .design-4 .category {
+        position: absolute;
+        top: -16px;
+        left: 0;
+        padding: 2px 5px;
+        color: var(--tone);
+        background: var(--tone-soft);
+        border-radius: 3px 3px 0 0;
+      }
+      /* 05: Capsule metadata with a quiet body. */
+      .design-5 .node {
+        grid-template-rows: auto auto;
+        gap: 8px;
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+      }
+      .design-5 .node-row {
+        gap: 6px;
+      }
+      .design-5 .node-icon {
+        width: 24px;
+        height: 24px;
+        background: var(--tone-soft);
+        border-radius: 50%;
+      }
+      .design-5 .level {
+        border-radius: 10px;
+      }
+      .design-5 .node-subrow .kind,
+      .design-5 .node-subrow .scope-name {
+        padding: 2px 6px;
+        background: var(--tone-soft);
+        border-radius: 9px;
+      }
+      .design-5 .node-subrow .scope-name::before {
+        content: '';
+      }
+      /* 06: Two-column metadata alignment. */
+      .design-6 .node {
+        grid-template-rows: auto auto;
+        gap: 8px;
+        padding: 10px 12px;
+        border: 1px solid var(--line-strong);
+        border-radius: 4px;
+        border-top: 3px solid var(--tone);
+      }
+      .design-6 .node-subrow {
+        padding-top: 7px;
+        border-top: 1px dashed var(--line);
+      }
+      .design-6 .node-subrow .scope-name {
+        max-width: 48%;
+      }
+      /* 07: Corner status and a clear vertical hierarchy. */
+      .design-7 .node {
+        grid-template-rows: auto auto;
+        gap: 7px;
+        padding: 12px 11px 9px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        box-shadow: inset 0 0 0 1px var(--tone-soft);
+      }
+      .design-7 .node::after {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 0;
+        height: 0;
+        content: '';
+        border-top: 22px solid var(--tone);
+        border-left: 22px solid transparent;
+      }
+      .design-7 .level {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        z-index: 1;
+        min-height: 14px;
+        padding: 1px 4px;
+        font-size: 8px;
+      }
+      .design-7 .node-row {
+        padding-right: 19px;
+      }
+      .design-7 .category {
+        order: -1;
+      }
+      /* 08: Flat canvas label, optimized for scanning many nodes. */
+      .design-8 .node {
+        grid-template-rows: auto auto;
+        gap: 6px;
+        padding: 9px 10px;
+        border: 0;
+        border-left: 3px solid var(--tone);
+        border-radius: 0;
+        background: color-mix(in srgb, var(--tone-soft) 48%, var(--surface));
+        box-shadow: 0 1px 0 var(--line);
+      }
+      .design-8 .node-icon {
+        width: 22px;
+        height: 22px;
+      }
+      .design-8 .level {
+        background: transparent;
+        color: var(--tone);
+        border: 1px solid color-mix(in srgb, var(--tone) 40%, var(--line));
+      }
+      /* 09: Header band with the level on the same upper row. */
+      .design-9 .node {
+        grid-template-rows: auto auto;
+        gap: 8px;
+        padding: 0 11px 10px;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        overflow: hidden;
+      }
+      .design-9 .node-row {
+        min-height: 38px;
+        margin: 0 -11px;
+        padding: 5px 11px;
+        background: var(--tone-soft);
+      }
+      .design-9 .node-icon {
+        width: 23px;
+        height: 23px;
+      }
+      .design-9 .category {
+        order: -1;
+      }
+      /* 10: Strong title line, with a small scope marker at the far edge. */
+      .design-10 .node {
+        grid-template-rows: auto auto;
+        gap: 6px;
+        padding: 9px 11px;
+        border: 1px solid var(--line-strong);
+        border-radius: 3px;
+      }
+      .design-10 .node-row {
+        padding-bottom: 6px;
+        border-bottom: 2px solid var(--tone-soft);
+      }
+      .design-10 .node-icon {
+        width: 21px;
+        height: 21px;
+      }
+      .design-10 .level {
+        min-height: 17px;
+        padding: 1px 5px;
+        border-radius: 2px;
+      }
+      .design-10 .node-subrow .kind {
+        font-weight: 750;
+      }
+
+      @media (max-width: 900px) {
+        .designs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .intro {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+        .selection {
+          width: 100%;
+        }
+        .canvas-inner {
+          gap: 56px 22px;
+        }
+      }
+      @media (max-width: 620px) {
+        .page {
+          width: calc(100% - 20px);
+          padding-top: 18px;
+        }
+        h1 {
+          font-size: 20px;
+        }
+        .designs {
+          grid-template-columns: 1fr;
+        }
+        .preview-head {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+        .legend {
+          justify-content: flex-start;
+        }
+        .canvas {
+          padding: 24px 14px;
+        }
+        .canvas-inner {
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
+        .wire {
+          display: none;
+        }
+        .node-wrap {
+          min-height: 0;
+        }
+        .node {
+          width: 100%;
+          max-width: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <svg class="icon-defs" aria-hidden="true">
+      <symbol id="icon-app" viewBox="0 0 24 24">
+        <rect x="4" y="3" width="16" height="18" rx="3" />
+        <path d="M8 7h8M8 11h8M8 15h5" />
+      </symbol>
+      <symbol id="icon-database" viewBox="0 0 24 24">
+        <ellipse cx="12" cy="5" rx="7" ry="3" />
+        <path
+          d="M5 5v7c0 1.7 3.1 3 7 3s7-1.3 7-3V5M5 12v7c0 1.7 3.1 3 7 3s7-1.3 7-3v-7"
+        />
+      </symbol>
+      <symbol id="icon-server" viewBox="0 0 24 24">
+        <rect x="4" y="4" width="16" height="6" rx="2" />
+        <rect x="4" y="14" width="16" height="6" rx="2" />
+        <path d="M8 7h.01M8 17h.01M12 7h5M12 17h5" />
+      </symbol>
+      <symbol id="icon-entity" viewBox="0 0 24 24">
+        <path d="M5 4h14v16H5z" />
+        <path d="M8 8h8M8 12h8M8 16h5" />
+      </symbol>
+    </svg>
+    <main class="page">
+      <section class="intro">
+        <div>
+          <p class="eyebrow">TOPOLOGY NODE DESIGN</p>
+          <h1>拓扑节点样式 · 10 种方案</h1>
+          <p>
+            基于当前拓扑画布节点结构，比较不同信息层级。每个方案都展示应用、资源、运行时和实体四类节点。
+          </p>
+        </div>
+        <div class="selection">
+          当前方案：<strong id="selected-name">01 · 画布原生</strong
+          ><br />节点信息：<strong
+            >图标、名称、类型 / 副本、级别、对象名称</strong
+          >
+        </div>
+      </section>
+
+      <nav class="designs" id="designs" aria-label="节点样式方案"></nav>
+
+      <section class="preview" aria-label="拓扑节点样式预览">
+        <header class="preview-head">
+          <div>
+            <h2 id="preview-title">01 · 画布原生</h2>
+            <p id="preview-description">
+              保留当前左色条和节点信息结构，调整信息行对齐。
+            </p>
+          </div>
+          <div class="legend" aria-label="节点类别图例">
+            <span class="app"><i></i>应用</span
+            ><span class="resource"><i></i>资源</span
+            ><span class="runtime"><i></i>运行时</span
+            ><span class="entity"><i></i>实体</span>
+          </div>
+        </header>
+        <div class="canvas">
+          <div class="canvas-inner" id="canvas-inner"></div>
+        </div>
+      </section>
+    </main>
+    <script>
+      const designs = [
+        ['画布原生', '保留当前左色条和节点信息结构，调整信息行对齐。'],
+        ['色带标题', '上行用色带分隔标题，下行保留左右信息对齐。'],
+        ['图标卡片', '图标独立成块，名称和副标题形成清晰的阅读列。'],
+        ['顶部标签', '类别标签上移，级别色块与标题行保持同一水平线。'],
+        ['胶囊元数据', '轻量胶囊化信息，适合画布中节点密度较高的场景。'],
+        ['双列属性', '底部属性行以细分隔线区分类型和所属对象。'],
+        ['折角级别', '右上折角承载级别，减少徽标对标题空间的挤压。'],
+        ['平面扫描', '去除多余卡片阴影，突出色条和文字，便于快速扫描。'],
+        ['标题带', '标题区域使用类别浅色带，内容区域保持安静。'],
+        ['强调标题', '标题下方增加类别色线，底部属性更偏向数据表风格。']
+      ];
+      const nodes = [
+        {
+          kind: 'app',
+          category: '应用',
+          icon: 'app',
+          name: '支付 API',
+          meta: '3 副本',
+          level: '项目',
+          levelClass: 'project',
+          scopeName: '支付平台'
+        },
+        {
+          kind: 'resource',
+          category: '资源',
+          icon: 'database',
+          name: 'orders-primary',
+          meta: 'PostgreSQL',
+          level: '团队',
+          levelClass: 'team',
+          scopeName: '交易技术部'
+        },
+        {
+          kind: 'runtime',
+          category: '运行时',
+          icon: 'server',
+          name: 'prod-k8s-east-01',
+          meta: 'Kubernetes',
+          level: '平台',
+          levelClass: 'platform',
+          scopeName: '生产平台'
+        },
+        {
+          kind: 'entity',
+          category: '实体',
+          icon: 'entity',
+          name: '外部支付网关',
+          meta: '第三方支付回调',
+          level: '外部',
+          levelClass: 'external',
+          scopeName: '合作方系统'
+        }
+      ];
+      const designsRoot = document.getElementById('designs');
+      const canvas = document.getElementById('canvas-inner');
+      const selectedName = document.getElementById('selected-name');
+      const previewTitle = document.getElementById('preview-title');
+      const previewDescription = document.getElementById('preview-description');
+
+      function icon(name) {
+        return `<svg aria-hidden="true"><use href="#icon-${name}"></use></svg>`;
+      }
+      function nodeMarkup(node) {
+        return `<article class="node ${node.kind}" aria-label="${node.category} ${node.name}">
+          <div class="node-row">
+            <div class="node-title"><span class="node-icon">${icon(node.icon)}</span><strong>${node.name}</strong></div>
+            <span class="category">${node.category}</span>
+            <span class="level ${node.levelClass}">${node.level}</span>
+          </div>
+          <div class="node-subrow"><span class="kind">${node.meta}</span><span class="scope-name">${node.scopeName}</span></div>
+        </article>`;
+      }
+      function selectDesign(index) {
+        const [name, description] = designs[index];
+        document
+          .querySelectorAll('.design')
+          .forEach((button, buttonIndex) =>
+            button.setAttribute('aria-pressed', String(buttonIndex === index))
+          );
+        selectedName.textContent = `${String(index + 1).padStart(2, '0')} · ${name}`;
+        previewTitle.textContent = `${String(index + 1).padStart(2, '0')} · ${name}`;
+        previewDescription.textContent = description;
+        canvas.className = `canvas-inner design-${index + 1}`;
+        canvas.innerHTML = `<span class="wire one" aria-hidden="true"></span><span class="wire two" aria-hidden="true"></span><span class="wire three" aria-hidden="true"></span>${nodes.map((node) => `<div class="node-wrap">${nodeMarkup(node)}</div>`).join('')}`;
+      }
+      designsRoot.innerHTML = designs
+        .map(
+          ([name, description], index) =>
+            `<button class="design" type="button" aria-pressed="${index === 0}" data-index="${index}"><b><span>${String(index + 1).padStart(2, '0')}</span>${name}</b><small>${description}</small></button>`
+        )
+        .join('');
+      designsRoot.addEventListener('click', (event) => {
+        const button = event.target.closest('.design');
+        if (button) selectDesign(Number(button.dataset.index));
+      });
+      selectDesign(0);
+    </script>
+  </body>
+</html>

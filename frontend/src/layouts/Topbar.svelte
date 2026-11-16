@@ -19,6 +19,9 @@
   export let title = '';
   export let activeMessage = '';
   export let activeMessageTone: Tone = 'info';
+  export let activeMessageHTTPStatus: number | undefined = undefined;
+  export let activeMessageCode: string | undefined = undefined;
+  export let activeMessageType: string | undefined = undefined;
   export let messageInChildSurface = false;
   export let hasPlatformRole = false;
   export let selectedTeamId = '';
@@ -326,7 +329,13 @@
   </div>
   {#if activeMessage && !messageInChildSurface}
     <div class="topbar-message-slot">
-      <MessageBanner message={activeMessage} tone={activeMessageTone} />
+      <MessageBanner
+        message={activeMessage}
+        tone={activeMessageTone}
+        httpStatus={activeMessageHTTPStatus}
+        messageCode={activeMessageCode}
+        messageType={activeMessageType}
+      />
     </div>
   {/if}
 </header>

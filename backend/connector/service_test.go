@@ -55,6 +55,16 @@ func TestRepositoryContextProviderRegistersReadToolsForGitAndBundle(t *testing.T
 			}
 			found := map[string]bool{}
 			for _, tool := range resolved.Tools {
+				switch tool.Name {
+				case "repository_tree", "repository_file":
+					if !strings.Contains(tool.Description, "next_offset") || !strings.Contains(tool.Description, "done=true") {
+						t.Errorf("%s description does not explain completion: %q", tool.Name, tool.Description)
+					}
+				case "repository_search":
+					if !strings.Contains(tool.Description, "next_offset") || !strings.Contains(tool.Description, "complete=true") {
+						t.Errorf("repository_search description does not explain completeness: %q", tool.Description)
+					}
+				}
 				found[tool.Name] = true
 				var schema map[string]any
 				if err := json.Unmarshal(tool.InputSchema, &schema); err != nil {

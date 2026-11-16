@@ -29,6 +29,10 @@ class ControllerEventSource {
     } as MessageEvent;
     (this.listeners.get(type) ?? this.onmessage)?.(event);
   }
+
+  emitError() {
+    this.onerror?.();
+  }
 }
 
 function message(
@@ -184,6 +188,21 @@ describe('diagnosis session controller lifecycle', () => {
     expect(harness.getSnapshot().session.status).toBe('succeeded');
     expect(harness.updatedSessions.at(-1)?.status).toBe('succeeded');
     expect(ControllerEventSource.current?.close).toHaveBeenCalled();
+  });
+
+  it('refreshes before reopening a failed event stream', async () => {
+    vi.stubGlobal('EventSource', ControllerEventSource);
+    const harness = createHarness(snapshot());
+    harness.controller.open('session-1');
+    const first = ControllerEventSource.current;
+    first?.emitError();
+
+    await vi.waitFor(() =>
+      expect(harness.api.diagnosisSession).toHaveBeenCalledWith('session-1')
+    );
+    await vi.waitFor(() =>
+      expect(ControllerEventSource.current).not.toBe(first)
+    );
   });
 
   it('reopens the stream when an old terminal event races with a queued follow-up', async () => {

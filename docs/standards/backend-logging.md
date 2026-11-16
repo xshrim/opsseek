@@ -63,7 +63,7 @@ reqid clientip method path status duration
 error_code=<稳定错误码> error_summary=<已脱敏的响应原因>
 ```
 
-这两个字段与错误响应中的 `error.code`、`error.message` 一致，便于仅查看请求日志时定位问题。
+`error_code` 是稳定的日志诊断类别，错误响应中的 `error.code` 是面向用户的五位消息码；`error_summary` 与响应中的 `error.message` 一致。两者含义不同，不能互相替代。
 
 ### 3.2 其他类别
 
@@ -91,10 +91,10 @@ request failed reqid=<request-id> status=<http-status> error_type=<error-code> e
 HTTP 错误响应统一使用以下结构：
 
 ```json
-{"error":{"code":"internal_error","message":"resource lookup failed: connection refused","request_id":"<request-id>"}}
+{"error":{"code":"E0018","type":"internal_error","message":"resource lookup failed: connection refused","request_id":"<request-id>"}}
 ```
 
-`code` 用于程序分支，`message` 用于用户和前端提示，`request_id` 用于关联日志。认证失败等安全敏感场景可以使用固定文案，避免暴露账号是否存在或凭据校验细节。
+`error.code` 是固定五位消息码，用于展示；`error.type` 是稳定的错误类别短码，用户报告问题时可一并提供；`error.message` 用于具体提示，`request_id` 用于关联日志。认证失败等安全敏感场景可以使用固定文案，避免暴露账号是否存在或凭据校验细节。
 
 ## 4. 输出格式
 

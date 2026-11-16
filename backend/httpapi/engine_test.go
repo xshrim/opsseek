@@ -95,7 +95,7 @@ func TestEngineErrorResponseRedactsUpstreamCredentials(t *testing.T) {
 			if strings.Contains(body, "super-secret") {
 				t.Fatalf("credential leaked in response: %s", body)
 			}
-			if !strings.Contains(body, test.code) {
+			if !strings.Contains(body, `"code":"`+errorMessageCodes[test.code]+`"`) {
 				t.Fatalf("error code missing from response: %s", body)
 			}
 		})

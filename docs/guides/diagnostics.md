@@ -55,3 +55,31 @@ GET  /api/v1/diagnosis-sessions/{id}/events
 ```
 
 完整 API 和前端事件契约见 [design/ai-engine.md](../design/ai-engine.md)；当前项目的资源工具边界见 [integrations.md](integrations.md)。
+
+## 6. 自举诊断故障模拟
+
+登录后点击左侧 **WORKSPACE**，会请求 `GET <basePath>/api/v1/mock/errors`，随机返回一种模拟错误，并在主标题栏中央显示 HTTP 状态、编号和错误消息，5 秒后消失。接口仅生成 HTTP 错误和关联日志，不会真的断开依赖、耗尽连接池或修改数据。
+
+需要复现同一种错误时，携带编号，例如：
+
+```bash
+# 使用登录接口保存的 Cookie；默认 basePath 为 /opskeeper
+curl -i -b cookies.txt 'http://localhost:8080/opskeeper/api/v1/mock/errors?number=1007'
+```
+
+| 编号 | HTTP | 模拟场景 |
+| --- | --- | --- |
+| 1001 | 400 | 参数解析失败 |
+| 1002 | 401 | 凭据过期 |
+| 1003 | 403 | 资源访问被拒绝 |
+| 1004 | 404 | 实例不存在 |
+| 1005 | 409 | 资源版本冲突 |
+| 1006 | 429 | 请求限流 |
+| 1007 | 500 | 数据库连接池耗尽 |
+| 1008 | 502 | 上游连接重置 |
+| 1009 | 503 | 消息队列不可用 |
+| 1010 | 504 | 上游响应超时 |
+
+响应使用统一消息字段：模拟故障的展示码为 `error.code`（`M0001`–`M0010`），类别短码为 `error.type`（`mock_1001`–`mock_1010`），正文是 `error.message`，并包含 `error.request_id`。请求参数 `number=1001..1010` 用于选择故障，不在响应中重复返回。非法、未知或重复的编号返回 HTTP 400、展示码 `E0022` 和类别短码 `invalid_mock_number`。模拟 401 不刷新会话，也不注销用户。
+
+通过 `request_id` 关联请求日志与错误日志；模拟错误日志包含 `mock=true` 和 `error_number`，4xx 为 WARN，5xx 为 ERROR。模拟请求会影响错误率、日志及链路监控，测试时应与真实故障区分；这些日志只能证明发生了模拟，不能证明消息所描述的底层故障真实存在。

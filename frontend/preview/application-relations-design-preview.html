@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>应用关联配置 · 10 种设计预览</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --page: #f3f5f6;
+        --surface: #fff;
+        --raised: #f8fafb;
+        --text: #202a31;
+        --muted: #65727a;
+        --line: #dce3e6;
+        --blue: #276b8e;
+        --blue-soft: #e5f2f8;
+        --green: #34745e;
+        --green-soft: #eaf4ef;
+        --orange: #a85e32;
+        --orange-soft: #fbefe6;
+        font: 13px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; color: var(--text); background: var(--page); }
+      button, input { font: inherit; }
+      button { color: inherit; cursor: pointer; }
+      .topbar { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; min-height: 54px; padding: 9px max(18px, calc((100vw - 1440px) / 2)); background: var(--surface); border-bottom: 1px solid var(--line); }
+      .brand { display: flex; align-items: center; gap: 9px; }
+      .mark { display: grid; place-items: center; width: 27px; height: 27px; color: #fff; background: #285a66; border-radius: 5px; font-weight: 750; }
+      .brand strong, .brand small { display: block; }
+      .brand strong { font-size: 12px; }
+      .brand small { color: var(--muted); font-size: 10px; }
+      .top-note { color: var(--muted); font-size: 11px; }
+      main { width: min(1360px, calc(100% - 36px)); margin: 0 auto; padding: 24px 0 40px; }
+      .intro { display: flex; justify-content: space-between; align-items: end; gap: 20px; margin-bottom: 16px; }
+      .eyebrow { margin: 0 0 4px; color: var(--blue); font-size: 10px; font-weight: 750; }
+      h1 { margin: 0; font-size: 22px; line-height: 1.2; }
+      .intro p { max-width: 780px; margin: 6px 0 0; color: var(--muted); font-size: 11px; }
+      .selection { min-width: 210px; padding: 8px 10px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--blue); border-radius: 4px; color: var(--muted); font-size: 10px; }
+      .selection b { color: var(--text); }
+      .options { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; margin-bottom: 13px; }
+      .option { min-height: 54px; padding: 7px 9px; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
+      .option:hover { border-color: #9fb6c0; }
+      .option[aria-pressed="true"] { border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); background: var(--blue-soft); }
+      .option b { display: flex; align-items: center; gap: 7px; font-size: 10px; }
+      .option i { display: grid; place-items: center; width: 17px; height: 17px; color: #fff; background: var(--blue); border-radius: 3px; font-size: 9px; font-style: normal; }
+      .option small { display: block; margin: 3px 0 0 24px; color: var(--muted); font-size: 9px; }
+      .preview { background: var(--surface); border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+      .preview-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 15px; border-bottom: 1px solid var(--line); }
+      .preview-head h2 { margin: 0; font-size: 13px; }
+      .preview-head p { margin: 3px 0 0; color: var(--muted); font-size: 10px; }
+      .tabs { display: flex; gap: 4px; padding: 3px; background: #edf1f3; border-radius: 4px; }
+      .tab { padding: 6px 10px; background: transparent; border: 0; border-radius: 3px; color: var(--muted); font-size: 10px; }
+      .tab[aria-selected="true"] { color: var(--text); background: var(--surface); box-shadow: 0 1px 3px #26333b1c; }
+      .content { min-height: 350px; padding: 14px; }
+      .toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+      .search { flex: 1; min-width: 160px; height: 32px; padding: 0 9px; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
+      .count { color: var(--muted); font-size: 10px; white-space: nowrap; }
+      .action { min-height: 30px; padding: 0 9px; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; font-size: 10px; }
+      .action.primary { color: #fff; background: var(--blue); border-color: var(--blue); }
+      .rows { display: grid; gap: 7px; }
+      .row { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 9px 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
+      .check { width: 15px; height: 15px; accent-color: var(--blue); flex: none; }
+      .row-main { min-width: 0; flex: 1; }
+      .row-main strong, .row-main small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .row-main strong { font-size: 11px; }
+      .row-main small { margin-top: 2px; color: var(--muted); font-size: 9px; }
+      .kind { flex: none; padding: 3px 6px; color: var(--green); background: var(--green-soft); border-radius: 3px; font-size: 9px; }
+      .fields { display: flex; flex-wrap: wrap; gap: 6px; }
+      .field { height: 27px; width: 130px; padding: 0 7px; background: var(--raised); border: 1px solid var(--line); border-radius: 3px; font-size: 9px; }
+      .empty { padding: 30px; color: var(--muted); text-align: center; border: 1px dashed var(--line); border-radius: 4px; font-size: 11px; }
+      .mini { display: grid; place-items: center; width: 24px; height: 24px; flex: none; color: var(--blue); background: var(--blue-soft); border-radius: 4px; font-size: 9px; font-weight: 700; }
+      /* Individual layout variations for the ten selectable concepts. */
+      .layout-1 .row { border-radius: 0; border-width: 0 0 1px; padding: 8px 4px; }
+      .layout-1 .row:first-child { border-top: 1px solid var(--line); }
+      .layout-1 .row::after { content: "绑定对象"; order: 2; margin-right: 4px; color: var(--muted); font-size: 9px; }
+      .layout-1 .fields { order: 3; }
+      .layout-2 { display: grid; grid-template-columns: minmax(220px, .8fr) 1.4fr; gap: 12px; }
+      .layout-2 .rows { align-content: start; }
+      .layout-2 .row { cursor: pointer; }
+      .layout-2 .row.active { background: var(--blue-soft); border-color: #9dc4d5; }
+      .inspector { padding: 14px; background: var(--raised); border: 1px solid var(--line); border-radius: 4px; }
+      .inspector h3 { margin: 0 0 4px; font-size: 12px; }
+      .inspector p { margin: 0 0 13px; color: var(--muted); font-size: 10px; }
+      .layout-3 .rows { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .layout-3 .row { align-items: flex-start; flex-wrap: wrap; }
+      .layout-3 .row-main { flex-basis: calc(100% - 45px); }
+      .layout-3 .fields { width: 100%; padding-left: 25px; }
+      .layout-4 .row { border-left: 3px solid var(--green); }
+      .layout-4 .row:nth-child(2) { border-left-color: var(--orange); }
+      .layout-4 .rows::before { content: "已关联资源 · 按类型分组"; margin: 0 0 1px; color: var(--muted); font-size: 9px; }
+      .layout-5 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+      .column { min-height: 230px; padding: 9px; background: var(--raised); border: 1px solid var(--line); border-radius: 4px; }
+      .column h3 { margin: 0 0 8px; font-size: 10px; }
+      .column .row { margin-bottom: 6px; padding: 7px; }
+      .layout-6 .row { position: relative; border-left: 2px solid #b8d5df; border-radius: 0 4px 4px 0; }
+      .layout-6 .row::before { content: ""; position: absolute; left: -5px; top: calc(50% - 4px); width: 6px; height: 6px; background: var(--blue); border-radius: 50%; }
+      .layout-7 .row { display: grid; grid-template-columns: 22px minmax(140px, .65fr) minmax(260px, 1.4fr) auto; }
+      .layout-7 .row::before { content: attr(data-step); display: grid; place-items: center; width: 20px; height: 20px; color: var(--blue); background: var(--blue-soft); border-radius: 50%; font-size: 9px; }
+      .layout-8 .rows { gap: 0; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+      .layout-8 .row { min-height: 45px; border: 0; border-radius: 0; border-bottom: 1px solid var(--line); }
+      .layout-8 .row:nth-child(odd) { background: #f7f9fa; }
+      .layout-9 .rows { grid-template-columns: 1fr 1fr; gap: 12px; }
+      .layout-9 .row { align-items: flex-start; flex-direction: column; }
+      .layout-9 .row-head { display: flex; align-items: center; gap: 8px; width: 100%; }
+      .layout-9 .fields { padding-left: 23px; }
+      .layout-10 .row { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 11px 3px; }
+      .layout-10 .row .kind { order: -1; color: var(--orange); background: var(--orange-soft); }
+      .layout-10 .field { width: 110px; }
+      @media (max-width: 900px) { .options { grid-template-columns: repeat(2, minmax(0, 1fr)); } .intro { align-items: flex-start; flex-direction: column; } .layout-3 .rows, .layout-9 .rows { grid-template-columns: 1fr; } .layout-5 { grid-template-columns: 1fr; } .layout-7 .row { grid-template-columns: 22px minmax(100px, 1fr); } .layout-7 .fields { grid-column: 2; } }
+      @media (max-width: 600px) { main { width: calc(100% - 20px); padding-top: 16px; } .top-note { display: none; } .preview-head { align-items: flex-start; flex-direction: column; } .layout-2 { grid-template-columns: 1fr; } .layout-2 .inspector { min-height: 140px; } .toolbar { flex-wrap: wrap; } .search { flex-basis: 100%; } .fields { width: 100%; padding-left: 25px; } .layout-1 .row { flex-wrap: wrap; } .layout-1 .row::after { display: none; } }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand"><span class="mark">A</span><span><strong>OpsKeeper · 应用关系设计</strong><small>资源关联与应用依赖</small></span></div>
+      <span class="top-note">静态交互预览 · 当前选择仅用于比较方案</span>
+    </header>
+    <main>
+      <section class="intro">
+        <div><p class="eyebrow">APPLICATION RELATIONSHIPS</p><h1>选择关联配置的呈现方式</h1><p>对比资源关联和应用依赖两类配置的 10 种布局。当前业务弹窗不受此预览影响。</p></div>
+        <div class="selection">当前方案：<b id="selected-name">01 · 紧凑关系表</b><br />预览分区：<b id="selected-tab">资源关联</b></div>
+      </section>
+      <nav class="options" id="options" aria-label="设计方案"></nav>
+      <section class="preview" aria-label="方案预览">
+        <header class="preview-head">
+          <div><h2 id="preview-title">01 · 紧凑关系表</h2><p id="preview-description">列表密度高，便于快速核对多条关系和绑定对象。</p></div>
+          <div class="tabs" role="tablist"><button class="tab" role="tab" aria-selected="true" data-tab="resources">资源关联</button><button class="tab" role="tab" aria-selected="false" data-tab="applications">应用依赖</button></div>
+        </header>
+        <div class="content" id="content"></div>
+      </section>
+    </main>
+    <script>
+      const designs = [
+        ['紧凑关系表', '列表密度高，便于快速核对多条关系和绑定对象。'],
+        ['列表与属性面板', '左侧选目标，右侧集中维护当前关系属性。'],
+        ['双列关系卡片', '每条关系独立成卡，适合绑定字段较多的对象。'],
+        ['按类型分组', '依资源或应用类别分组，突出关联对象的分类。'],
+        ['待选 / 已选泳道', '三栏呈现候选、已关联与属性，适合长列表。'],
+        ['连接清单', '以连接线索强调应用到资源的关系路径。'],
+        ['步骤式配置行', '按选择对象、配置范围、确认关系的顺序排列。'],
+        ['数据网格', '表格化对照名称、类型、对象范围和状态。'],
+        ['标签与范围面板', '先扫读对象标签，再展开各自的精确范围。'],
+        ['类型色带清单', '以轻量色带区分关系类别，减少卡片边框。']
+      ];
+      let design = 0;
+      let tab = 'resources';
+      const options = document.querySelector('#options');
+      const content = document.querySelector('#content');
+      const datasets = {
+        resources: [
+          { name: '生产订单库', meta: 'Oracle · 数据库 · 必需', icon: 'DB', fields: ['数据库: orders', 'Schema: sales'] },
+          { name: '订单事件流', meta: 'Kafka · 消息队列 · 必需', icon: 'MQ', fields: ['Topic: order.created', 'Group: order-api'] },
+          { name: '日志平台', meta: 'Loki · 日志检索 · 可选', icon: 'LOG', fields: ['对象: orders-api', '标签: env=prod'] }
+        ],
+        applications: [
+          { name: '身份服务', meta: 'identity-api · 平台基础服务', icon: 'APP', fields: ['关系: depends_on', '状态: active'] },
+          { name: '支付服务', meta: 'payments-api · 同项目', icon: 'APP', fields: ['关系: depends_on', '状态: active'] },
+          { name: '通知服务', meta: 'notify-worker · 团队服务', icon: 'APP', fields: ['关系: depends_on', '状态: active'] }
+        ]
+      };
+      function row(item, index, variant) {
+        const fields = item.fields.map((field) => `<span class="field">${field}</span>`).join('');
+        const head = `<span class="mini">${item.icon}</span><span class="row-main"><strong>${item.name}</strong><small>${item.meta}</small></span>`;
+        if (variant === 9) return `<article class="row"><div class="row-head"><input class="check" type="checkbox" checked /><span class="row-main"><strong>${item.name}</strong><small>${item.meta}</small></span><span class="kind">已关联</span></div><div class="fields">${fields}</div></article>`;
+        return `<article class="row ${index === 0 ? 'active' : ''}" data-step="${index + 1}"><input class="check" type="checkbox" checked />${head}<div class="fields">${fields}</div><span class="kind">${tab === 'resources' ? '已关联' : '依赖'}</span></article>`;
+      }
+      function render() {
+        const [name, description] = designs[design];
+        document.querySelector('#selected-name').textContent = `${String(design + 1).padStart(2, '0')} · ${name}`;
+        document.querySelector('#selected-tab').textContent = tab === 'resources' ? '资源关联' : '应用依赖';
+        document.querySelector('#preview-title').textContent = `${String(design + 1).padStart(2, '0')} · ${name}`;
+        document.querySelector('#preview-description').textContent = description;
+        content.className = 'content';
+        const items = datasets[tab];
+        const toolbar = `<div class="toolbar"><input class="search" value="${tab === 'resources' ? '搜索资源名称或类型' : '搜索应用名称或编号'}" aria-label="搜索" /><span class="count">已选择 3 项</span><button class="action">清空</button><button class="action primary">添加${tab === 'resources' ? '资源关联' : '应用依赖'}</button></div>`;
+        if (design === 1) {
+          content.innerHTML = `${toolbar}<div class="layout-2"><div class="rows">${items.map((item, i) => row(item, i, design + 1)).join('')}</div><aside class="inspector"><h3>${items[0].name}</h3><p>${items[0].meta} · 已关联</p><div class="fields">${items[0].fields.map((field) => `<span class="field">${field}</span>`).join('')}</div></aside></div>`;
+        } else if (design === 4) {
+          content.innerHTML = `${toolbar}<div class="layout-5"><section class="column"><h3>可关联</h3><div class="row"><input class="check" type="checkbox" /><span class="row-main"><strong>${tab === 'resources' ? '缓存集群' : '库存服务'}</strong><small>Redis · 可选</small></span></div></section><section class="column"><h3>当前关联 · 3</h3>${items.map((item, i) => row(item, i, design + 1)).join('')}</section><section class="column"><h3>当前属性</h3><div class="fields">${items[0].fields.map((field) => `<span class="field">${field}</span>`).join('')}</div></section></div>`;
+        } else {
+          content.innerHTML = `${toolbar}<div class="layout-${design + 1}"><div class="rows">${items.map((item, i) => row(item, i, design + 1)).join('')}</div></div>`;
+        }
+      }
+      designs.forEach(([name, description], index) => {
+        const button = document.createElement('button');
+        button.className = 'option';
+        button.type = 'button';
+        button.setAttribute('aria-pressed', String(index === design));
+        button.innerHTML = `<b><i>${String(index + 1).padStart(2, '0')}</i>${name}</b><small>${description}</small>`;
+        button.addEventListener('click', () => {
+          design = index;
+          document.querySelectorAll('.option').forEach((item, itemIndex) => item.setAttribute('aria-pressed', String(itemIndex === index)));
+          render();
+        });
+        options.append(button);
+      });
+      document.querySelectorAll('[data-tab]').forEach((button) => button.addEventListener('click', () => {
+        tab = button.dataset.tab;
+        document.querySelectorAll('[data-tab]').forEach((item) => item.setAttribute('aria-selected', String(item === button)));
+        render();
+      }));
+      render();
+    </script>
+  </body>
+</html>

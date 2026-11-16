@@ -5,8 +5,10 @@
 使用根目录 Makefile 构建，Compose 不负责 build：
 
 ```bash
+# 运行发布前检查
 make quality
-make image IMAGE_REPOSITORY=registry.example.com/opskeeper IMAGE_TAG=<version>
+# 构建 API、Worker、Scheduler、Frontend、App 五个服务镜像
+make image IMAGE_REPOSITORY=registry.example.com/opskeeper IMAGE_TAG=v0.1.0
 ```
 
 生成五个同版本镜像：
@@ -20,6 +22,19 @@ opskeeper-app        # 嵌入前端的单进程服务
 ```
 
 发布应记录每个镜像 digest，不使用 `latest`。构建阶段不读取运行时 Secret。
+
+MCP 制品与服务制品分开构建，不会被 `make build` 或 `make image` 隐式带入：
+
+```bash
+# 构建 Docker、Host、Kubernetes MCP 二进制
+make mcp-build
+# 只构建一个 MCP 镜像
+make docker-mcp-image IMAGE_REPOSITORY=registry.example.com/opskeeper IMAGE_TAG=v0.1.0
+# 构建三个 MCP 镜像
+make mcp-image IMAGE_REPOSITORY=registry.example.com/opskeeper IMAGE_TAG=v0.1.0
+```
+
+对应镜像为 `opskeeper-docker-mcp`、`opskeeper-host-mcp`、`opskeeper-kubernetes-mcp`。它们默认分别监听 `8811`、`8813`、`8812`，运行时必须单独提供 Bearer Token 和所需访问能力。Docker MCP 需要显式挂载可访问的 Docker socket；Host MCP 在容器中只会观察容器自身，除非按部署边界额外挂载主机资源；Kubernetes MCP 需要提供集群网络和凭据。不要把这些高权限挂载或令牌写入镜像。
 
 ## 2. Compose
 

@@ -76,3 +76,21 @@ func TestResourceTypeLabelsMigrationCoversRequestedKinds(t *testing.T) {
 	}
 	t.Fatal("migration 91 was not loaded")
 }
+
+func TestObservabilityModesMigrationAddsSkywalkingAndNormalizesLegacyModes(t *testing.T) {
+	items, err := load()
+	if err != nil {
+		t.Fatalf("load() error = %v", err)
+	}
+	for _, item := range items {
+		if item.version == 95 {
+			for _, expected := range []string{"'Skywalking'", "'Prometheus'", "'Alertmanager'", "SET subtype = 'Direct'"} {
+				if !strings.Contains(item.sql, expected) {
+					t.Errorf("migration 95 does not contain %q", expected)
+				}
+			}
+			return
+		}
+	}
+	t.Fatal("migration 95 was not loaded")
+}

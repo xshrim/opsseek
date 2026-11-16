@@ -25,10 +25,13 @@ func (scopeToolApplications) DiagnosticContext(context.Context, string, string) 
 func (scopeToolApplications) DiagnosticScopeTeams(context.Context, string) ([]appdomain.DiagnosticScopeTeam, error) {
 	return []appdomain.DiagnosticScopeTeam{{Name: "Payments", Status: "active", ProjectCount: 2}}, nil
 }
+func (scopeToolApplications) DiagnosticScopeContext(context.Context, string) (appdomain.DiagnosticScopeContext, error) {
+	return appdomain.DiagnosticScopeContext{ScopeType: "project", TeamName: "Commerce Team", ProjectName: "Commerce", ProjectCode: "commerce"}, nil
+}
 func (scopeToolApplications) DiagnosticScopeProjects(context.Context, string, string) ([]appdomain.DiagnosticScopeProject, error) {
 	return []appdomain.DiagnosticScopeProject{{Name: "Checkout", Code: "checkout", Status: "active", ApplicationCount: 1}}, nil
 }
-func (scopeToolApplications) DiagnosticScopeApplications(context.Context, string, string, string, int, int) (appdomain.DiagnosticScopeApplicationPage, error) {
+func (scopeToolApplications) DiagnosticScopeApplications(context.Context, string, string, string, string, int, int) (appdomain.DiagnosticScopeApplicationPage, error) {
 	return appdomain.DiagnosticScopeApplicationPage{Items: []appdomain.DiagnosticScopeApplication{{Name: "Orders", Code: "orders", RuntimeKind: appdomain.RuntimeDocker}}, Total: 1, Limit: 100}, nil
 }
 func (scopeToolApplications) DiagnosticApplicationContextByLocator(context.Context, string, string, string) (appdomain.DiagnosticContext, error) {
@@ -41,11 +44,31 @@ func (missingScopeToolApplications) DiagnosticApplicationContextByLocator(contex
 	return appdomain.DiagnosticContext{}, appdomain.ErrNotFound
 }
 
+type recordingScopeApplications struct {
+	scopeToolApplications
+	teamName    string
+	projectName string
+}
+
+func (s *recordingScopeApplications) DiagnosticScopeApplications(_ context.Context, _, teamName, projectName, _ string, _, _ int) (appdomain.DiagnosticScopeApplicationPage, error) {
+	s.teamName = teamName
+	s.projectName = projectName
+	return appdomain.DiagnosticScopeApplicationPage{Limit: 100}, nil
+}
+
 func TestDiagnosticScopeToolsAreBoundedAndStripInternalIDs(t *testing.T) {
 	service := &Service{applications: scopeToolApplications{}}
 	tools := service.diagnosticScopeTools(context.Background(), "scope-1")
 	if len(tools) != 4 {
 		t.Fatalf("tool count = %d", len(tools))
+	}
+	applicationsSchema := string(tools[2].Definition().InputSchema)
+	if !strings.Contains(applicationsSchema, `"project_name"`) || !strings.Contains(applicationsSchema, `绝不能填写项目名`) {
+		t.Fatalf("application scope tool does not distinguish project and team names: %s", applicationsSchema)
+	}
+	applicationsDescription := tools[2].Definition().Description
+	if !strings.Contains(applicationsDescription, "当前团队") || !strings.Contains(applicationsDescription, "diagnosis_application_context") || !strings.Contains(tools[3].Definition().Description, "绝不能用于列出团队/项目") {
+		t.Fatalf("application-list and application-detail tools are not clearly distinguished: %q / %q", applicationsDescription, tools[3].Definition().Description)
 	}
 	for _, item := range tools {
 		definition := item.Definition()
@@ -63,6 +86,24 @@ func TestDiagnosticScopeToolsAreBoundedAndStripInternalIDs(t *testing.T) {
 	}
 	if strings.Contains(string(encoded), "internal-app-id") || strings.Contains(string(encoded), "internal-resource-id") {
 		t.Fatalf("internal IDs leaked from scope tool: %v", result.Output)
+	}
+}
+
+func TestDiagnosticScopeApplicationToolPassesTeamAndProjectNamesSeparately(t *testing.T) {
+	applications := &recordingScopeApplications{}
+	tools := (&Service{applications: applications}).diagnosticScopeTools(context.Background(), "scope-1")
+	tool := tools[2]
+	if _, err := tool.Invoke(context.Background(), map[string]any{"team_name": "Commerce Team"}); err != nil {
+		t.Fatal(err)
+	}
+	if applications.teamName != "Commerce Team" || applications.projectName != "" {
+		t.Fatalf("team query filters = team %q, project %q", applications.teamName, applications.projectName)
+	}
+	if _, err := tool.Invoke(context.Background(), map[string]any{"project_name": "Commerce"}); err != nil {
+		t.Fatal(err)
+	}
+	if applications.teamName != "" || applications.projectName != "Commerce" {
+		t.Fatalf("project query filters = team %q, project %q", applications.teamName, applications.projectName)
 	}
 }
 

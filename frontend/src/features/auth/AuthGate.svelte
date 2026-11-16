@@ -90,7 +90,7 @@
       loginIdentifier = 'admin';
       authError = '';
     } catch (error) {
-      if (error instanceof ApiError && error.code === 'bootstrap_complete') {
+      if (error instanceof ApiError && error.code === 'E0006') {
         bootstrapRequired = false;
         bootstrapPassword = '';
         bootstrapConfirmPassword = '';

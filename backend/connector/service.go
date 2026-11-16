@@ -84,16 +84,21 @@ func (s *Service) Test(ctx context.Context, actorID, resourceID string) (Check, 
 		check.CheckedBy = &actorID
 	}
 
-	if item.Kind == "Repository" && strings.EqualFold(strings.TrimSpace(item.Subtype), "Bundle") {
+	if item.Kind == "Repository" && (strings.EqualFold(strings.TrimSpace(item.Subtype), "Bundle") || strings.EqualFold(strings.TrimSpace(item.Subtype), "Git")) {
 		backend := strings.ToLower(strings.TrimSpace(s.repositoryStorage.Backend))
-		if backend == "" || backend == "postgresql" {
+		if strings.EqualFold(item.Subtype, "Bundle") && (backend == "" || backend == "postgresql") {
 			backend = "postgres"
 		}
-		check.Endpoint = backend
-		if backend == "postgres" {
-			check.Endpoint = "postgresql"
+		if strings.EqualFold(item.Subtype, "Bundle") {
+			check.Endpoint = backend
+			if backend == "postgres" {
+				check.Endpoint = "postgresql"
+			}
+			err = s.executeForResource(ctx, item, func(runCtx context.Context) error { return s.testRepositoryBundle(runCtx, item.Config) })
+		} else {
+			check.Endpoint = stringValue(item.Config, "url")
+			err = s.executeForResource(ctx, item, func(runCtx context.Context) error { return s.testRepositoryGit(runCtx, item) })
 		}
-		err = s.executeForResource(ctx, item, func(runCtx context.Context) error { return s.testRepositoryBundle(runCtx, item.Config) })
 	} else {
 		adapter, prepareErr := s.prepare(ctx, item)
 		err = prepareErr

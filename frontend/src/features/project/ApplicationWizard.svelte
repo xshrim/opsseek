@@ -1,6 +1,8 @@
 <script lang="ts">
   import {
     ArrowRight,
+    AppWindow,
+    ChevronDown,
     ListChecks,
     ListX,
     Plus,
@@ -12,35 +14,49 @@
   } from 'lucide-svelte';
   import { onDestroy, onMount } from 'svelte';
   import DropdownSelect from '../../components/DropdownSelect.svelte';
-  import EntityBrandIcon from '../../components/EntityBrandIcon.svelte';
+  import Combobox, { type ComboboxOption } from '../../components/Combobox.svelte';
   import FormField from '../../components/FormField.svelte';
   import IconPicker from '../../components/IconPicker.svelte';
   import ResourceBrandIcon from '../../components/ResourceBrandIcon.svelte';
+  import ScopeLevelBadge from '../../components/ScopeLevelBadge.svelte';
   import TextArea from '../../components/TextArea.svelte';
   import TextInput from '../../components/TextInput.svelte';
   import ModalDialog from '../../components/ModalDialog.svelte';
   import SearchInput from '../../components/SearchInput.svelte';
   import Tabs from '../../components/Tabs.svelte';
+  import ResourceBindingPicker from './ResourceBindingPicker.svelte';
+  import ReadonlyTable from '../../components/ReadonlyTable.svelte';
+  import type { ReadonlyTableColumn } from '../../components/ReadonlyTable.svelte';
   import { formatLabels, parseLabels } from '../../lib/labels';
   import type { Application, Resource, User } from '../../lib/api';
   import { api } from '../../lib/api';
   import {
     resourcesForRuntime,
     runtimeLabel,
+    normalizeRepositoryBinding,
     slugify,
+    preserveConfiguredValue,
     type ApplicationResourceCreationResult,
     type ApplicationDraft,
     type ApplicationInstanceDraft,
     type ApplicationRuntimeKind,
     type RuntimeResourceKind
   } from './projectTypes';
+  import {
+    resourceCatalogTagClass,
+    resourceCatalogTagsFor,
+    resourceSubtypeFor
+  } from '../resource/resourceCatalog';
 
   export let resources: Resource[] = [];
+  export let resourceScopeTypes: Record<string, string> = {};
   export let users: User[] = [];
   export let applications: Application[] = [];
-  export let projects: Array<{ id: string; name: string }> = [];
+  export let projects: Array<{ id: string; name: string; icon?: string }> = [];
   export let initialApplication: Application | null = null;
   export let initialRuntimeKind = '';
+  export let initialTab: 'basic' | 'bindings' | 'applications' = 'basic';
+  export let topology: import('../../lib/api').ProjectTopology | null = null;
   export let onSave: (applications: ApplicationDraft[]) => Promise<void> | void;
   export let onUpdate: (
     application: Application,
@@ -89,16 +105,29 @@
     applicationRelations: ApplicationRelationDraft[];
   };
   type ResourceBindingDraft = {
+    key: string;
     resourceId: string;
     dependencyKind: string;
     binding: Record<string, string>;
     required: boolean;
   };
+  function emptyResourceBinding(): ResourceBindingDraft {
+    return {
+      key: crypto.randomUUID(),
+      resourceId: '',
+      dependencyKind: 'other',
+      binding: {},
+      required: true
+    };
+  }
   type ApplicationRelationDraft = {
     targetApplicationId: string;
     projectId?: string;
+    projectText?: string;
+    applicationText?: string;
     relationKind: 'depends_on';
   };
+  type ExternalDependencyDraft = { projectName: string; description: string };
   const runtimeChoices: Array<{
     kind: ApplicationRuntimeKind;
     label: string;
@@ -124,27 +153,10 @@
       description: '按命名空间和标签筛选'
     }
   ];
-  const resourceBindingGroups = [
-    { key: 'repository', label: '代码仓库', resourceKinds: ['Repository'] },
-    { key: 'registry', label: '注册中心', resourceKinds: ['Nacos'] },
-    { key: 'configuration', label: '配置中心', resourceKinds: ['Nacos'] },
-    {
-      key: 'database',
-      label: '数据库',
-      resourceKinds: ['PostgreSQL', 'MySQL', 'Oracle', 'OceanBase']
-    },
-    { key: 'cache', label: '缓存', resourceKinds: ['Redis'] },
-    {
-      key: 'messaging',
-      label: '消息队列',
-      resourceKinds: ['Kafka', 'RabbitMQ']
-    },
-    { key: 'storage', label: '存储', resourceKinds: ['MinIO'] },
-    {
-      key: 'observability',
-      label: '可观测性',
-      resourceKinds: ['Prometheus', 'Loki']
-    }
+  const applicationDependencyColumns: ReadonlyTableColumn[] = [
+    { key: 'project', label: '依赖项目', width: '42%' },
+    { key: 'application', label: '依赖应用', width: '48%' },
+    { key: 'actions', label: '操作', width: '10%', className: 'application-dependency-actions' }
   ];
 
   let step = 0;
@@ -169,14 +181,17 @@
   let createdResources: Resource[] = [];
   let handledResourceCreationRequestId = '';
   let editInitialized = false;
+  let initializedApplicationId = '';
   let bindingsCleared = false;
   let namespaceRequestId = 0;
   let discoveryRequestId = 0;
   let workloadRequestId = 0;
   let workloadTimer: ReturnType<typeof setTimeout> | undefined;
   let candidateSearch = '';
-  let applicationTab: 'basic' | 'bindings' | 'applications' = 'basic';
+  let applicationTab: 'basic' | 'bindings' | 'applications' = initialTab;
+  let collapsedBindingKeys = new Set<string>();
   let applicationCatalog: Array<Application & { project_name?: string }> = [];
+  let applicationProjectOptions: ComboboxOption[] = [];
 
   $: availableResources = [...resources, ...createdResources].filter(
     (resource, index, all) =>
@@ -202,27 +217,57 @@
       description: user.display_name ? user.username : user.email || user.phone
     }));
   $: applicationProjectOptions = projects.map((project) => ({
-    value: project.id,
-    label: project.name
-  }));
+      value: project.id,
+      label: project.name,
+      iconKind: 'Project',
+      icon: project.icon || 'lucide:FolderKanban'
+    }));
+  $: if (!initialApplication) {
+    editInitialized = false;
+    initializedApplicationId = '';
+  }
+  $: if (
+    initialApplication &&
+    (!editInitialized || initializedApplicationId !== initialApplication.id)
+  ) {
+    initializedApplicationId = initialApplication.id;
+    initializeEdit(initialApplication);
+  }
+  // Keep the current application visible if an async candidate refresh clears the list.
+  $: if (
+    initialApplication &&
+    editInitialized &&
+    !bindingsCleared &&
+    !loading &&
+    candidates.length === 0
+  ) {
+    if (initialApplication.instances.length === 0)
+      setUnboundCandidate(initialApplication);
+    else
+      setEditCandidate(
+        initialApplication,
+        parseExternalWorkloadIdentity(initialApplication.external_uid)
+      );
+  }
   $: activeCandidate = candidates.find(
     (candidate) => candidate.key === activeCandidateKey
   );
   $: activeDraft = activeCandidate
     ? candidateDrafts[activeCandidate.key]
     : undefined;
-  $: visibleCandidates = candidates.filter((candidate) =>
-    [
-      candidate.name,
-      candidate.identity,
-      candidate.kind ?? '',
-      candidate.namespace ?? ''
-    ].some((value) =>
-      value
-        .toLocaleLowerCase()
-        .includes(candidateSearch.trim().toLocaleLowerCase())
-    )
-  );
+  $: normalizedCandidateSearch = candidateSearch.trim().toLocaleLowerCase();
+  $: visibleCandidates = normalizedCandidateSearch
+    ? candidates.filter((candidate) =>
+        [
+          candidate.name,
+          candidate.identity,
+          candidate.kind ?? '',
+          candidate.namespace ?? ''
+        ].some((value) =>
+          value.toLocaleLowerCase().includes(normalizedCandidateSearch)
+        )
+      )
+    : candidates;
   $: allCandidatesSelected =
     candidates.length > 0 &&
     candidates.every((candidate) =>
@@ -231,8 +276,6 @@
   $: runtimeLocked =
     Boolean(initialApplication?.instances.length) && !bindingsCleared;
 
-  $: if (initialApplication && !editInitialized)
-    initializeEdit(initialApplication);
   $: if (
     resourceCreationResult &&
     resourceCreationResult.requestId !== handledResourceCreationRequestId
@@ -282,6 +325,8 @@
 
   function initializeEdit(application: Application) {
     editInitialized = true;
+    bindingsCleared = false;
+    candidateSearch = '';
     runtimeKind = application.runtime_kind as ApplicationRuntimeKind;
     const externalWorkload =
       runtimeKind === 'cloud_native'
@@ -353,6 +398,11 @@
       ...candidateDrafts,
       [candidate.key]: draftFromApplication(application)
     };
+    collapsedBindingKeys = new Set(
+      candidateDrafts[candidate.key].resourceBindings
+        .filter((binding) => binding.resourceId)
+        .map((binding) => binding.key)
+    );
   }
 
   function draftFromApplication(application: Application): CandidateDraft {
@@ -369,23 +419,49 @@
         application.instances[0]?.log_binding?.path ??
           (runtimeKind === 'virtual_machine' ? '' : 'stdout')
       ),
-      resourceBindings: (application.dependencies ?? []).map((dependency) => ({
-        resourceId: dependency.target_resource_id,
-        dependencyKind: dependency.dependency_kind,
-        binding: Object.fromEntries(
+      resourceBindings: [
+        ...(application.dependencies ?? []).map((dependency) => {
+        const binding = Object.fromEntries(
           Object.entries(dependency.binding ?? {}).map(([key, value]) => [
             key === 'path' && dependency.dependency_kind === 'repository'
               ? 'directory'
               : key,
             String(value)
           ])
-        ),
-        required: dependency.required
-      })),
-      applicationRelations: (application.relations ?? []).map((relation) => ({
-        targetApplicationId: relation.target_application_id,
-        relationKind: 'depends_on'
-      }))
+        );
+        return {
+          key: crypto.randomUUID(),
+          resourceId: dependency.target_resource_id,
+          dependencyKind: dependency.dependency_kind,
+          binding:
+            dependency.dependency_kind === 'repository'
+              ? normalizeRepositoryBinding(binding)
+              : binding,
+          required: dependency.required
+        };
+        }),
+        emptyResourceBinding()
+      ],
+      applicationRelations: [
+        ...(application.relations ?? []).map((relation) => ({
+          targetApplicationId: relation.target_application_id,
+          relationKind: 'depends_on' as const
+        })),
+        ...(topology?.nodes ?? [])
+          .filter(
+            (node) =>
+              node.kind === 'annotation' &&
+              node.metadata?.dependency_source_application_id === application.id
+          )
+          .map((node) => ({
+            targetApplicationId: '',
+            projectText: String(node.metadata?.dependency_project_name ?? ''),
+            applicationText: String(
+              node.metadata?.description ?? node.name
+            ),
+            relationKind: 'depends_on' as const
+          }))
+      ],
     };
   }
 
@@ -407,6 +483,11 @@
       ...candidateDrafts,
       [key]: draftFromApplication(application)
     };
+    collapsedBindingKeys = new Set(
+      candidateDrafts[key].resourceBindings
+        .filter((binding) => binding.resourceId)
+        .map((binding) => binding.key)
+    );
   }
 
   function setNewUnboundCandidate() {
@@ -435,8 +516,8 @@
         technicalOwnerIds: [],
         operationsOwnerIds: [],
         logPath: runtimeKind === 'virtual_machine' ? '' : 'stdout',
-        resourceBindings: [],
-        applicationRelations: []
+        resourceBindings: [emptyResourceBinding()],
+        applicationRelations: [],
       }
     };
   }
@@ -693,8 +774,8 @@
           technicalOwnerIds: [],
           operationsOwnerIds: [],
           logPath: runtimeKind === 'virtual_machine' ? '' : 'stdout',
-          resourceBindings: [],
-          applicationRelations: []
+          resourceBindings: [emptyResourceBinding()],
+          applicationRelations: [],
         };
       }
     });
@@ -783,9 +864,14 @@
           placeholder: '例如 services/orders'
         },
         {
-          key: 'revision',
-          label: '分支 / Revision（可选）',
+          key: 'branch',
+          label: '分支（可选）',
           placeholder: '例如 main'
+        },
+        {
+          key: 'commit_id',
+          label: 'Commit ID（可选）',
+          placeholder: '输入完整或缩写的 commit ID'
         }
       ];
     if (kind === 'observability')
@@ -814,20 +900,38 @@
     if (resource.kind === 'Nacos') return 'configuration';
     if (resource.kind === 'Repository') return 'repository';
     if (resource.kind === 'MinIO') return 'storage';
-    if (['Prometheus', 'Loki'].includes(resource.kind)) return 'observability';
+    if (
+      [
+        'Prometheus',
+        'Loki',
+        'Tempo',
+        'Jaeger',
+        'Skywalking',
+        'Alertmanager'
+      ].includes(resource.kind)
+    )
+      return 'observability';
     return 'other';
   }
 
-  function resourceBindingLabel(kind: string) {
-    return (
-      resourceBindingGroups.find((group) => group.key === kind)?.label ??
-      '其他资源'
-    );
+  function resourceScopeType(scopeId: string): 'platform' | 'team' | 'project' | 'scope' {
+    const type = resourceScopeTypes[scopeId];
+    return type === 'platform' || type === 'team' || type === 'project'
+      ? type
+      : 'scope';
+  }
+
+  function resourceScopeLabel(scopeId: string) {
+    const type = resourceScopeTypes[scopeId];
+    if (type === 'platform') return '平台';
+    if (type === 'team') return '团队';
+    if (type === 'project') return '项目';
+    return '其他范围';
   }
 
   function updateBinding(
     key: string,
-    resourceId: string,
+    bindingKey: string,
     field: string,
     value: string
   ) {
@@ -837,21 +941,70 @@
       key,
       'resourceBindings',
       draft.resourceBindings.map((item) =>
-        item.resourceId === resourceId
+        item.key === bindingKey
           ? { ...item, binding: { ...item.binding, [field]: value } }
           : item
       )
     );
   }
 
-  function removeResourceBinding(key: string, resourceId: string) {
+  function removeResourceBinding(key: string, bindingKey: string) {
     const draft = candidateDrafts[key];
-    if (draft)
+    if (draft) {
+      const remaining = draft.resourceBindings.filter(
+        (item) => item.key !== bindingKey
+      );
       updateDraft(
         key,
         'resourceBindings',
-        draft.resourceBindings.filter((item) => item.resourceId !== resourceId)
+        remaining.some((item) => !item.resourceId)
+          ? remaining
+          : [...remaining, emptyResourceBinding()]
       );
+    }
+    collapsedBindingKeys.delete(bindingKey);
+    collapsedBindingKeys = new Set(collapsedBindingKeys);
+  }
+
+  function selectResourceBinding(key: string, bindingKey: string, resourceId: string) {
+    const draft = candidateDrafts[key];
+    const resource = availableResources.find((item) => item.id === resourceId);
+    if (!draft || !resource) return;
+    const next = draft.resourceBindings.map((item) =>
+      item.key === bindingKey
+        ? {
+            ...item,
+            resourceId,
+            dependencyKind: dependencyKindForResource(resource),
+            binding: {}
+          }
+        : item
+    );
+    const nextBindings = next.some((item) => !item.resourceId)
+      ? next
+      : [...next, emptyResourceBinding()];
+    updateDraft(
+      key,
+      'resourceBindings',
+      nextBindings
+    );
+    collapsedBindingKeys = new Set(
+      nextBindings
+        .filter((item) => item.key !== bindingKey)
+        .map((item) => item.key)
+    );
+  }
+
+  function toggleResourceBinding(bindingKey: string) {
+    if (collapsedBindingKeys.has(bindingKey)) {
+      collapsedBindingKeys = new Set(
+        candidateDrafts[activeCandidateKey]?.resourceBindings
+          .map((item) => item.key)
+          .filter((key) => key !== bindingKey) ?? []
+      );
+    } else {
+      collapsedBindingKeys = new Set([...collapsedBindingKeys, bindingKey]);
+    }
   }
 
   function addApplicationDependency(key: string) {
@@ -866,8 +1019,8 @@
   function updateApplicationDependency(
     key: string,
     index: number,
-    targetApplicationId: string,
-    projectId?: string
+    field: 'project' | 'application',
+    value: string
   ) {
     const draft = candidateDrafts[key];
     if (!draft) return;
@@ -876,13 +1029,43 @@
       'applicationRelations',
       draft.applicationRelations.map((item, itemIndex) =>
         itemIndex === index
-          ? {
-              ...item,
-              targetApplicationId,
-              ...(projectId !== undefined ? { projectId } : {})
-            }
+          ? field === 'project'
+            ? {
+                ...item,
+                projectId: projects.some((project) => project.id === value)
+                  ? value
+                  : '',
+                projectText: projects.some((project) => project.id === value)
+                  ? ''
+                  : value,
+                targetApplicationId: '',
+                applicationText: ''
+              }
+            : {
+                ...item,
+                targetApplicationId: applicationCatalog.some(
+                  (application) => application.id === value
+                )
+                  ? value
+                  : '',
+                applicationText: applicationCatalog.some(
+                  (application) => application.id === value
+                )
+                  ? ''
+                  : value
+              }
           : item
       )
+    );
+  }
+
+  function dependencyProjectId(dependency: ApplicationRelationDraft) {
+    return (
+      dependency.projectId ??
+      applicationCatalog.find(
+        (item) => item.id === dependency.targetApplicationId
+      )?.project_id ??
+      ''
     );
   }
 
@@ -910,6 +1093,30 @@
     if (!candidates.some((candidate) => candidate.key === activeCandidateKey)) {
       activeCandidateKey = candidates[0]?.key ?? '';
     }
+  }
+
+  function selectCandidate(key: string) {
+    if (initialApplication && activeCandidateKey && key !== activeCandidateKey) {
+      const current = candidateDrafts[activeCandidateKey];
+      const next = candidateDrafts[key];
+      if (current && next)
+        candidateDrafts = {
+          ...candidateDrafts,
+          [key]: {
+            ...next,
+            ...current,
+            name: preserveConfiguredValue(current.name, next.name),
+            code: preserveConfiguredValue(current.code, next.code),
+            logPath: preserveConfiguredValue(current.logPath, next.logPath)
+          }
+        };
+    }
+    activeCandidateKey = key;
+    collapsedBindingKeys = new Set(
+      (candidateDrafts[key]?.resourceBindings ?? [])
+        .filter((binding) => binding.resourceId)
+        .map((binding) => binding.key)
+    );
   }
 
   function resourceNamesForCandidate(candidate: Candidate) {
@@ -1105,17 +1312,28 @@
       critical: draft.critical,
       technicalOwnerIds: draft.technicalOwnerIds,
       operationsOwnerIds: draft.operationsOwnerIds,
-      dependencies: draft.resourceBindings.map((binding) => ({
+      dependencies: draft.resourceBindings.filter((binding) => binding.resourceId).map((binding) => ({
         dependency_kind: binding.dependencyKind,
         target_resource_id: binding.resourceId,
         binding: binding.binding,
         required: binding.required
       })),
-      relations: draft.applicationRelations.map((relation) => ({
+      relations: draft.applicationRelations
+        .filter((relation) => Boolean(relation.targetApplicationId))
+        .map((relation) => ({
         target_application_id: relation.targetApplicationId,
         relation_kind: relation.relationKind,
         status: 'active'
-      })),
+        })),
+      externalDependencies: draft.applicationRelations
+        .filter((relation) => Boolean(relation.applicationText?.trim()))
+        .map((relation) => ({
+          projectName:
+            relation.projectText?.trim() ||
+            projects.find((project) => project.id === relation.projectId)?.name ||
+            '',
+          description: relation.applicationText!.trim()
+        })),
       instances
     };
   }
@@ -1214,7 +1432,7 @@
             disabled={runtimeLocked}
             on:click={() => selectRuntime(option.kind)}
           >
-            <ResourceBrandIcon resource={{ kind: option.label }} size={26} />
+            <span class="project-runtime-icon"><ResourceBrandIcon resource={{ kind: option.label }} size={26} /></span>
             <strong
               >{option.label}<small class="runtime-choice-kind"
                 >{option.subtitle}</small
@@ -1389,12 +1607,12 @@
             </div>
           </div>
           <div class="application-candidate-list">
-            {#each visibleCandidates as candidate}
+            {#each (normalizedCandidateSearch ? visibleCandidates : candidates) as candidate}
               <button
                 class="application-candidate"
                 class:active={activeCandidateKey === candidate.key}
                 type="button"
-                on:click={() => (activeCandidateKey = candidate.key)}
+                on:click={() => selectCandidate(candidate.key)}
               >
                 {#if !initialApplication}
                   <input
@@ -1406,23 +1624,22 @@
                     on:change={() => toggleCandidate(candidate.key)}
                   />
                 {/if}
-                <EntityBrandIcon
-                  kind="Application"
-                  fallback="lucide:AppWindow"
+                <AppWindow
+                  class="project-application-node-icon"
                   size={17}
                 />
                 <span
                   ><strong>{candidate.name}</strong><small
-                    ><ResourceBrandIcon
-                      resource={{ kind: runtimeLabel(runtimeKind) }}
-                      size={12}
-                    />{resourceNamesForCandidate(candidate)} · {candidate.replicas}
+                    ><span class="application-runtime-icon"><ResourceBrandIcon
+                        resource={{ kind: runtimeLabel(runtimeKind) }}
+                        size={12}
+                      /></span>{resourceNamesForCandidate(candidate)} · {candidate.replicas}
                     个实例</small
                   ></span
                 >
               </button>
             {/each}
-            {#if visibleCandidates.length === 0}<div
+            {#if (normalizedCandidateSearch ? visibleCandidates : candidates).length === 0}<div
                 class="application-candidate-empty"
               >
                 <Search size={15} />没有匹配的应用
@@ -1448,10 +1665,10 @@
               <div>
                 <h3>{activeDraft.name || activeCandidate.name}</h3>
                 <p>
-                  <ResourceBrandIcon
-                    resource={{ kind: runtimeLabel(runtimeKind) }}
-                    size={12}
-                  />{runtimeLabel(runtimeKind)} · {activeCandidate.replicas} 个实例
+                  <span class="application-runtime-icon"><ResourceBrandIcon
+                      resource={{ kind: runtimeLabel(runtimeKind) }}
+                      size={12}
+                    /></span>{runtimeLabel(runtimeKind)} · {activeCandidate.replicas} 个实例
                   · {candidateLocator(activeCandidate)}
                 </p>
               </div>
@@ -1472,7 +1689,7 @@
                   'basic' | 'bindings' | 'applications')}
               ariaLabel="应用配置分区"
             />
-            {#if applicationTab === 'basic'}<div class="application-form-grid">
+            {#if applicationTab === 'basic'}<div class="application-config-panel application-form-grid">
                 <div class="application-identity-row">
                   <div class="application-identity-half">
                     <FormField label="应用标识" required
@@ -1585,7 +1802,7 @@
                     /></FormField
                   >
                 </div>
-                <FormField label="应用日志配置" className="full-field"
+                <FormField label="应用日志路径" className="full-field"
                   ><TextInput
                     value={activeDraft.logPath}
                     placeholder={runtimeKind === 'virtual_machine'
@@ -1614,175 +1831,193 @@
                 >
               </div>{:else if applicationTab === 'bindings'}
               <div
-                class="application-relations-panel application-bindings-panel"
+                class="application-config-panel application-relations-panel application-bindings-panel"
               >
                 <p>
                   自定义添加具体资源，并填写应用实际使用的库、Topic、命名空间或其他对象。
                 </p>
-                <FormField label="关联资源">
-                  <DropdownSelect
-                    options={availableResources.map((resource) => ({
-                      value: resource.id,
-                      label: resource.name,
-                      description: resource.kind
-                    }))}
-                    value={activeDraft.resourceBindings.map(
-                      (item) => item.resourceId
-                    )}
-                    multiple
-                    taggedSelection
-                    searchable
-                    placeholder="选择资源"
-                    ariaLabel="选择关联资源"
-                    on:change={(event) => {
-                      const selected = Array.isArray(event.detail)
-                        ? event.detail
-                        : event.detail
-                          ? [event.detail]
-                          : [];
-                      const existing = activeDraft.resourceBindings.filter(
-                        (item) => selected.includes(item.resourceId)
-                      );
-                      const next = selected.map(
-                        (resourceId) =>
-                          existing.find(
-                            (item) => item.resourceId === resourceId
-                          ) ?? {
-                            resourceId,
-                            dependencyKind: dependencyKindForResource(
-                              availableResources.find(
-                                (resource) => resource.id === resourceId
-                              )
-                            ),
-                            binding: {},
-                            required: true
-                          }
-                      );
-                      updateDraft(
-                        activeCandidate.key,
-                        'resourceBindings',
-                        next
-                      );
-                    }}
-                  />
-                </FormField>
-                {#each activeDraft.resourceBindings as binding}
+                <div class="application-binding-list">
+                {#each activeDraft.resourceBindings as binding (binding.key)}
                   {@const resource = availableResources.find(
                     (item) => item.id === binding.resourceId
                   )}
                   <div class="application-binding-detail">
-                    <div class="application-binding-detail-heading">
-                      <span
-                        ><strong>{resource?.name ?? binding.resourceId}</strong
-                        ><small
-                          >{resource?.kind ??
-                            resourceBindingLabel(binding.dependencyKind)}</small
-                        ></span
-                      ><button
-                        class="icon-button"
-                        type="button"
-                        aria-label="移除资源关联"
-                        data-tooltip="移除资源关联"
-                        on:click={() =>
-                          removeResourceBinding(
-                            activeCandidate.key,
-                            binding.resourceId
-                          )}><X size={14} /></button
-                      >
-                    </div>
-                    <div class="application-binding-fields">
-                      {#each bindingFields(binding.dependencyKind) as field}
-                        <FormField label={field.label}
-                          ><TextInput
-                            value={binding.binding[field.key] ?? ''}
-                            placeholder={field.placeholder}
-                            on:value={(event) =>
-                              updateBinding(
-                                activeCandidate.key,
-                                binding.resourceId,
-                                field.key,
-                                String(event.detail)
-                              )}
-                          /></FormField
+                    <div
+                      class="application-binding-detail-heading"
+                      role="button"
+                      tabindex="0"
+                      aria-expanded={!collapsedBindingKeys.has(binding.key)}
+                      on:click={() => toggleResourceBinding(binding.key)}
+                      on:keydown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          toggleResourceBinding(binding.key);
+                        }
+                      }}
+                    >
+                      <span class="application-binding-heading-main">
+                        <ResourceBindingPicker
+                          resources={availableResources.filter(
+                            (item) =>
+                              item.id === binding.resourceId ||
+                              !activeDraft.resourceBindings.some(
+                                (other) =>
+                                  other.key !== binding.key &&
+                                  other.resourceId === item.id
+                              )
+                          )}
+                          {resourceScopeTypes}
+                          selectedResourceId={binding.resourceId}
+                          onSelect={(resourceId) =>
+                            selectResourceBinding(
+                              activeCandidate.key,
+                              binding.key,
+                              resourceId
+                            )}
+                        />
+                        {#if resource}
+                          {@const tag = resourceCatalogTagsFor(resource)[0] ?? '资源'}
+                          {@const tagClass = resourceCatalogTagClass(tag)}
+                          <strong>{resource.name}</strong>
+                          <span class={`resource-catalog-tag resource-catalog-tag-${tagClass}`}>{tag}</span>
+                        {:else}
+                        <strong class="application-binding-unselected">选择资源</strong>
+                        {/if}
+                      </span>
+                      <span class="application-binding-heading-meta">
+                        {#if resource}
+                          <small>{resource.kind} · {resourceSubtypeFor(resource)}</small>
+                          <ScopeLevelBadge
+                            className="resource-binding-level-badge"
+                            type={resourceScopeType(resource.scope_id)}
+                            label={resourceScopeLabel(resource.scope_id)}
+                          />
+                        {/if}
+                        <button
+                          class="icon-button"
+                          type="button"
+                          aria-label="移除资源关联"
+                          data-tooltip="移除资源关联"
+                          on:click|stopPropagation={() =>
+                            removeResourceBinding(
+                              activeCandidate.key,
+                              binding.key
+                            )}><X size={14} /></button
                         >
-                      {/each}
+                        <ChevronDown
+                          class={`application-binding-collapse-icon${collapsedBindingKeys.has(binding.key) ? ' collapsed' : ''}`}
+                          size={15}
+                        />
+                      </span>
                     </div>
+                    {#if !collapsedBindingKeys.has(binding.key)}
+                    {#if resource}
+                      <div class="application-binding-fields">
+                        {#each bindingFields(binding.dependencyKind) as field}
+                          <FormField label={field.label}
+                            ><TextInput
+                              value={binding.binding[field.key] ?? ''}
+                              placeholder={field.placeholder}
+                              on:value={(event) =>
+                                updateBinding(
+                                  activeCandidate.key,
+                                  binding.key,
+                                  field.key,
+                                  String(event.detail)
+                                )}
+                            /></FormField
+                          >
+                        {/each}
+                      </div>
+                    {:else}
+                      <div class="application-binding-empty-state">
+                        点击左上角图标选择资源
+                      </div>
+                    {/if}
+                    {/if}
                   </div>
+                {:else}
+                  <div class="application-binding-list-empty">尚未添加资源关联</div>
                 {/each}
+                </div>
               </div>
             {:else}
               <div
-                class="application-relations-panel application-relations-config"
+                class="application-config-panel application-relations-panel application-relations-config"
               >
                 <p>配置当前应用依赖的应用。每条依赖可跨项目选择。</p>
-                {#each activeDraft.applicationRelations as dependency, dependencyIndex}
-                  {@const target = applicationCatalog.find(
-                    (item) => item.id === dependency.targetApplicationId
-                  )}
-                  {@const projectId =
-                    dependency.projectId ?? target?.project_id ?? ''}
-                  <div class="application-dependency-row">
-                    <FormField label="依赖项目"
-                      ><DropdownSelect
-                        options={applicationProjectOptions}
-                        value={projectId}
-                        searchable
-                        placeholder="选择项目"
-                        ariaLabel="依赖项目"
-                        on:change={(event) =>
-                          updateApplicationDependency(
-                            activeCandidate.key,
-                            dependencyIndex,
-                            '',
-                            String(event.detail)
-                          )}
-                      /></FormField
-                    >
-                    <FormField label="依赖应用"
-                      ><DropdownSelect
-                        options={applicationCatalog
-                          .filter(
-                            (item) =>
-                              item.project_id === projectId &&
-                              item.id !== initialApplication?.id
-                          )
-                          .map((item) => ({
-                            value: item.id,
-                            label: item.name,
-                            description: item.code
-                          }))}
-                        value={dependency.targetApplicationId}
-                        searchable
-                        placeholder={projectId ? '选择应用' : '先选择项目'}
-                        disabled={!projectId}
-                        ariaLabel="依赖应用"
-                        on:change={(event) =>
-                          updateApplicationDependency(
-                            activeCandidate.key,
-                            dependencyIndex,
-                            String(event.detail)
-                          )}
-                      /></FormField
-                    >
-                    <button
-                      class="icon-button danger-action"
-                      type="button"
-                      aria-label="移除应用依赖"
-                      data-tooltip="移除应用依赖"
-                      on:click={() =>
-                        removeApplicationDependency(
-                          activeCandidate.key,
-                          dependencyIndex
-                        )}><X size={14} /></button
-                    >
-                  </div>
-                {/each}
-                <button
-                  class="text-button application-add-dependency"
-                  type="button"
-                  on:click={() => addApplicationDependency(activeCandidate.key)}
-                  ><Plus size={14} />新增依赖</button
-                >
+                <div class="application-dependency-table">
+                  <ReadonlyTable
+                    columns={applicationDependencyColumns}
+                    rows={activeDraft.applicationRelations.map((dependency, index) => ({
+                      ...dependency,
+                      index,
+                      projectId: dependencyProjectId(dependency)
+                    }))}
+                    emptyText="尚未配置应用依赖"
+                  >
+                    <svelte:fragment slot="cell" let:row let:column>
+                      {#if column.key === 'project'}
+                        <Combobox
+                          options={applicationProjectOptions}
+                          value={row.projectId || row.projectText || ''}
+                          allowEmpty
+                          placeholder="选择或输入项目（可留空）"
+                          ariaLabel="依赖项目"
+                          on:change={(event) =>
+                            updateApplicationDependency(
+                              activeCandidate.key,
+                              row.index,
+                              'project',
+                              String(event.detail)
+                            )}
+                        />
+                      {:else if column.key === 'application'}
+                        <Combobox
+                          options={applicationCatalog
+                            .filter((item) =>
+                              item.id !== initialApplication?.id &&
+                              (!row.projectId || item.project_id === row.projectId)
+                            )
+                            .map((item) => ({
+                              value: item.id,
+                              label: item.name,
+                              description: item.project_name || item.code,
+                              iconKind: 'Application'
+                            }))}
+                          value={row.targetApplicationId || row.applicationText || ''}
+                          placeholder="选择或输入依赖应用"
+                          ariaLabel="依赖应用"
+                          on:change={(event) =>
+                            updateApplicationDependency(
+                              activeCandidate.key,
+                              row.index,
+                              'application',
+                              String(event.detail)
+                            )}
+                        />
+                      {:else}
+                        <button
+                          class="icon-button danger-action"
+                          type="button"
+                          aria-label="移除应用依赖"
+                          data-tooltip="移除应用依赖"
+                          on:click={() =>
+                            removeApplicationDependency(
+                              activeCandidate.key,
+                              row.index
+                            )}><X size={14} /></button
+                        >
+                      {/if}
+                    </svelte:fragment>
+                  </ReadonlyTable>
+                  <button
+                    class="application-dependency-add-row"
+                    type="button"
+                    on:click={() => addApplicationDependency(activeCandidate.key)}
+                    ><ChevronDown size={14} />新增依赖</button
+                  >
+                </div>
               </div>
             {/if}
           {:else}

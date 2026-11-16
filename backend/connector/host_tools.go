@@ -26,7 +26,7 @@ func (s *Service) resolveHostTools(ctx context.Context, item engine.ContextResou
 		input.ConnectionInput = connection
 		return hostOutput(host.Info(ctx, input))
 	})
-	add("host_metrics", "Read Linux host metrics as structured JSON.", hostDirectSchema(map[string]any{"sample_seconds": map[string]any{"type": "integer", "minimum": 0, "maximum": host.MaxSampleSeconds}}), func(ctx context.Context, args map[string]any) (engine.ToolResult, error) {
+	add("host_metrics", "Read host-wide Linux CPU and memory metrics as structured JSON. These values describe the machine, not an individual application process.", hostDirectSchema(map[string]any{"sample_seconds": map[string]any{"type": "integer", "minimum": 0, "maximum": host.MaxSampleSeconds}}), func(ctx context.Context, args map[string]any) (engine.ToolResult, error) {
 		input, err := decodeHost[host.MetricsInput](args)
 		if err != nil {
 			return engine.ToolResult{}, err
@@ -34,7 +34,7 @@ func (s *Service) resolveHostTools(ctx context.Context, item engine.ContextResou
 		input.ConnectionInput = connection
 		return hostOutput(host.Metrics(ctx, input))
 	})
-	add("host_processes", "Read information about selected Linux processes. A keyword supports case-insensitive substring terms joined by & for AND or | for OR; commas and spaces imply AND, and quoted terms are kept intact.", hostDirectSchema(map[string]any{"pid": map[string]any{"type": "integer", "minimum": 1}, "keyword": map[string]any{"type": "string", "description": "Case-insensitive process filter. A&B means AND, A|B means OR, commas/spaces imply AND, and single/double quoted terms are not split."}, "limit": map[string]any{"type": "integer", "minimum": 1, "maximum": host.MaxProcessLimit}}), func(ctx context.Context, args map[string]any) (engine.ToolResult, error) {
+	add("host_processes", "Read matched Linux process identity, start time, state, command line, CPU and memory details. Use this for process-level facts; use host_metrics for machine-wide CPU and memory. Filter against a known process locator when available. A keyword supports case-insensitive terms joined by & for AND or | for OR; commas and spaces imply AND, and quoted terms stay intact.", hostDirectSchema(map[string]any{"pid": map[string]any{"type": "integer", "minimum": 1}, "keyword": map[string]any{"type": "string", "description": "Case-insensitive process filter. A&B means AND, A|B means OR, commas/spaces imply AND, and single/double quoted terms are not split."}, "limit": map[string]any{"type": "integer", "minimum": 1, "maximum": host.MaxProcessLimit}}), func(ctx context.Context, args map[string]any) (engine.ToolResult, error) {
 		input, err := decodeHost[host.ProcessesInput](args)
 		if err != nil {
 			return engine.ToolResult{}, err
@@ -42,7 +42,7 @@ func (s *Service) resolveHostTools(ctx context.Context, item engine.ContextResou
 		input.ConnectionInput = connection
 		return hostOutput(host.Processes(ctx, input))
 	})
-	add("host_file_logs", "Read bounded logs from a Linux host file.", hostDirectSchema(map[string]any{"path": map[string]any{"type": "string"}, "tail": map[string]any{"type": "string"}, "since": map[string]any{"type": "string"}, "until": map[string]any{"type": "string"}, "keyword": map[string]any{"type": "string"}, "timestamps": map[string]any{"type": "boolean"}}), func(ctx context.Context, args map[string]any) (engine.ToolResult, error) {
+	add("host_file_logs", "Read bounded logs from a regular Linux host file path. This tool does not capture a process's stdout stream; do not pass output targets such as stdout as file paths.", hostDirectSchema(map[string]any{"path": map[string]any{"type": "string", "description": "Absolute regular-file path on the host; this is not a stream name such as stdout."}, "tail": map[string]any{"type": "string"}, "since": map[string]any{"type": "string"}, "until": map[string]any{"type": "string"}, "keyword": map[string]any{"type": "string"}, "timestamps": map[string]any{"type": "boolean"}}), func(ctx context.Context, args map[string]any) (engine.ToolResult, error) {
 		input, err := decodeHost[host.FileLogsInput](args)
 		if err != nil {
 			return engine.ToolResult{}, err

@@ -1834,7 +1834,6 @@
 .team-icon {
   color: var(--theme-fg-muted);
   background: var(--theme-bg-surface);
-  border-color: var(--theme-border);
 }
 
 @media (max-width: 720px) {

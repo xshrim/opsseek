@@ -1,9 +1,13 @@
 <script lang="ts">
+  import { onMount, createEventDispatcher } from 'svelte';
+  import { Eye } from 'lucide-svelte';
   import FormField from '../../components/FormField.svelte';
+  import GroupedSelect from '../../components/GroupedSelect.svelte';
   import PasswordInput from '../../components/PasswordInput.svelte';
   import TextInput from '../../components/TextInput.svelte';
-  import BundleFileInput from '../../components/BundleFileInput.svelte';
-  import RepositoryBundleGuide from './RepositoryBundleGuide.svelte';
+  import type { RepositoryBranchRevision } from './repositoryPreview';
+  import { repositoryRevisionGroups } from './repositoryPreview';
+
   export let subtype = 'Git';
   export let url = '';
   export let username = '';
@@ -12,96 +16,151 @@
   export let editing = false;
   export let bundleConfigured = false;
   export let defaultBranch = 'main';
-  export let bundleFile: File | null = null;
+  export let branches: RepositoryBranchRevision[] = [];
+  export let selectedBranch = '';
+  export let selectedCommit = '';
+  export let loadingRevisions = false;
+  export let previewBusy = false;
   export let configurationAttempted = false;
+  const dispatch = createEventDispatcher<{
+    input: void;
+    revisionsneeded: void;
+    revisionchange: { branch: string; commitID: string };
+    preview: void;
+  }>();
   $: issues =
     subtype === 'Git'
-      ? !url.trim()
-        ? ['Git 仓库 URL']
-        : []
-      : !bundleFile && !bundleConfigured
+      ? [
+          !url.trim() ? 'Git 仓库 URL' : '',
+          !selectedBranch || !selectedCommit ? '默认分支和 Commit ID' : ''
+        ].filter(Boolean)
+      : !bundleConfigured
         ? ['Bundle 文件']
         : [];
   $: valid = issues.length === 0;
+  $: revisionGroups = repositoryRevisionGroups(
+    branches,
+    selectedBranch,
+    selectedCommit
+  );
+
+  onMount(() => {
+    if (subtype === 'Git' && url.trim()) dispatch('revisionsneeded');
+  });
 </script>
 
-<div class="stack-form">
-  {#if subtype === 'Git'}
-    <FormField label="Git 仓库 URL"
-      ><TextInput
+{#if subtype === 'Git'}
+  <div class="git-config-row">
+    <FormField className="git-url-field" label="Git 仓库 URL" required>
+      <TextInput
         bind:value={url}
+        type="url"
         placeholder="https://git.example.com/team/repo.git"
-      /></FormField
-    >
-    <FormField label="默认分支"
-      ><TextInput bind:value={defaultBranch} placeholder="main" /></FormField
-    >
-    <FormField label="HTTPS 用户名（私有仓库必填）"
-      ><TextInput
-        bind:value={username}
-        autocomplete="username"
-        placeholder={editing && credentialConfigured
-          ? '已配置凭据，留空以保留'
-          : ''}
-      /></FormField
-    >
-    <FormField label="HTTPS 密码或访问令牌（私有仓库必填）"
-      ><PasswordInput
-        bind:value={password}
-        autocomplete="new-password"
-        placeholder={editing && credentialConfigured
-          ? '已配置凭据，留空以保留'
-          : ''}
-        ariaLabel="Git HTTPS 密码或访问令牌"
-      /></FormField
-    >
-    <p class="muted">
-      公开仓库可不填写凭据；私有仓库需填写可拉取远程仓库的用户名和密码或访问令牌。凭据加密保存，不要写入
-      URL。
-    </p>
-  {:else}
-    <FormField
-      label="Bundle 文件"
-      required={!bundleConfigured}
-      className={bundleConfigured
-        ? 'bundle-file-field bundle-configured'
-        : 'bundle-file-field'}
-    >
-      <BundleFileInput bind:file={bundleFile} />
+        on:input={() => dispatch('input')}
+      />
     </FormField>
-    <div class="muted bundle-description">
-      <span
-        >请先将代码仓库打包为 Git Bundle 文件，再上传至平台；平台会校验 Bundle
-        内容并用于后续的源码级诊断。</span
-      >
-      <RepositoryBundleGuide resource={null} workflow summaryLabel="了解详情" />
+    <div class="git-credential-fields">
+      <FormField label="HTTPS 用户名">
+        <TextInput
+          bind:value={username}
+          autocomplete="username"
+          placeholder={editing && credentialConfigured
+            ? '留空以保留现有凭据'
+            : ''}
+          on:input={() => dispatch('input')}
+        />
+      </FormField>
+      <FormField label="HTTPS 访问令牌">
+        <PasswordInput
+          bind:value={password}
+          autocomplete="new-password"
+          placeholder={editing && credentialConfigured
+            ? '留空以保留现有凭据'
+            : ''}
+          ariaLabel="HTTPS 访问令牌"
+          secretLabel="访问令牌"
+          on:input={() => dispatch('input')}
+        />
+      </FormField>
     </div>
-  {/if}
-  {#if configurationAttempted && !valid}<p class="form-error">
-      请填写：{issues.join('、')}。
-    </p>{/if}
-</div>
+    <div class="git-revision-controls">
+      <FormField label="默认分支" required>
+        <GroupedSelect
+          groups={revisionGroups}
+          group={selectedBranch || defaultBranch}
+          value={selectedCommit}
+          groupLabel="分支"
+          optionLabel="Commit ID"
+          ariaLabel="选择默认分支和 Commit ID"
+          placeholder={loadingRevisions
+            ? '正在读取版本…'
+            : '填写仓库地址以读取版本'}
+          disabled={loadingRevisions || branches.length === 0}
+          on:change={(event) =>
+            dispatch('revisionchange', {
+              branch: event.detail.group,
+              commitID: event.detail.value
+            })}
+        />
+      </FormField>
+      <button
+        class="secondary repository-preview-button"
+        type="button"
+        disabled={!url.trim() ||
+          !selectedBranch ||
+          !selectedCommit ||
+          loadingRevisions ||
+          previewBusy}
+        on:click={() => dispatch('preview')}
+      >
+        <Eye size={14} aria-hidden="true" />{previewBusy ? '预览中…' : '预览'}
+      </button>
+    </div>
+    {#if configurationAttempted && !valid}<p
+        class="form-error git-config-error"
+      >
+        请填写 Git 仓库 URL 并选择默认分支和 Commit ID。
+      </p>{/if}
+  </div>
+{:else if configurationAttempted && !valid}
+  <p class="form-error">请上传 Bundle 文件。</p>
+{/if}
 
 <style>
-  :global(.bundle-file-field .form-field-label) {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
+  .git-config-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    align-items: end;
+    gap: 12px;
+    min-width: 0;
   }
-  :global(.bundle-configured .form-field-label)::after {
-    content: '当前 Bundle 已上传并正在使用，留空将保留现有版本，选择新文件则替换。';
-    color: var(--theme-fg-muted);
-    font-size: 11px;
-    font-weight: 400;
+  .git-credential-fields {
+    display: grid;
+    gap: 7px;
+    min-width: 0;
   }
-  .bundle-description {
-    display: flex;
+  .git-revision-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 7px;
+    min-width: 0;
+  }
+  .repository-preview-button {
+    display: inline-flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    color: var(--theme-fg);
+    justify-content: center;
+    gap: 5px;
+    min-height: 36px;
+    white-space: nowrap;
   }
-  .bundle-description :global(.repository-bundle-guide.compact[open]) {
-    flex-basis: 100%;
+  .git-config-error {
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+  @media (max-width: 760px) {
+    .git-config-row {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
 </style>

@@ -1,21 +1,6 @@
 export function installDiagnosisDocumentListeners(options: {
-  isModelMenuOpen: () => boolean;
-  closeModelMenu: () => void;
   copyCode: (encoded: string) => void;
 }) {
-  const handlePointerDown = (event: PointerEvent) => {
-    const target = event.target;
-    if (!(target instanceof Element)) return;
-    if (
-      options.isModelMenuOpen() &&
-      !target.closest('.diagnosis-model-picker')
-    ) {
-      options.closeModelMenu();
-    }
-  };
-  const handleKeydown = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') options.closeModelMenu();
-  };
   const handleMarkdownClick = (event: MouseEvent) => {
     const target = event.target as HTMLElement | null;
     const button = target?.closest<HTMLButtonElement>('[data-code-copy]');
@@ -23,12 +8,8 @@ export function installDiagnosisDocumentListeners(options: {
     event.preventDefault();
     options.copyCode(button.dataset.codeCopy ?? '');
   };
-  document.addEventListener('pointerdown', handlePointerDown);
-  document.addEventListener('keydown', handleKeydown);
   document.addEventListener('click', handleMarkdownClick);
   return () => {
-    document.removeEventListener('pointerdown', handlePointerDown);
-    document.removeEventListener('keydown', handleKeydown);
     document.removeEventListener('click', handleMarkdownClick);
   };
 }

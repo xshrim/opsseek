@@ -54,6 +54,18 @@ func TestApplyLocatorHintsReplacesModelPlaceholders(t *testing.T) {
 	}
 }
 
+func TestApplyLocatorHintsMapsHostApplicationSelector(t *testing.T) {
+	got := ApplyLocatorHints(map[string]any{"command_line": "command_line"}, map[string]any{"process_command_line": "orders --serve"})
+	if got["command_line"] != "orders --serve" {
+		t.Fatalf("Host command-line hint = %#v, want application process selector", got)
+	}
+
+	got = ApplyLocatorHints(map[string]any{"command_line": "billing --serve"}, map[string]any{"process_command_line": "orders --serve"})
+	if got["command_line"] != "billing --serve" {
+		t.Fatalf("concrete model locator should remain authoritative: %#v", got)
+	}
+}
+
 func TestNormalizeDockerLocatorArgumentsMovesNamesOutOfContainerID(t *testing.T) {
 	got := NormalizeDockerLocatorArguments(map[string]any{"container_id": "opskeeper-postgres"})
 	if _, exists := got["container_id"]; exists {

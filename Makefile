@@ -44,7 +44,23 @@ endef
 
 .DEFAULT_GOAL := help
 
-.PHONY: help deps env run up down clean db-up db-down db-clean db-logs obs-up obs-down obs-clean obs-logs infra-up infra-down infra-clean infra-logs api-run worker-run scheduler-run frontend-run app-run api-image worker-image scheduler-image frontend-image app-image image api-up worker-up scheduler-up frontend-up app-up sample-seed sample-clean docker-mcp-test docker-mcp-build docker-mcp-run host-mcp-test host-mcp-build host-mcp-run kubernetes-mcp-test kubernetes-mcp-build kubernetes-mcp-run test backend-test backend-embedded-test backend-integration-test llm-provider-test frontend-test lint backend-lint frontend-lint deploy-lint helm-lint format format-check frontend-build webui-assets backend-build build quality
+.PHONY: \
+	help deps env sample-seed sample-clean \
+	run up down clean \
+	db-up db-down db-clean db-logs \
+	obs-up obs-down obs-clean obs-logs \
+	infra-up infra-down infra-clean infra-logs \
+	build api-build worker-build scheduler-build frontend-build webui-assets app-build backend-build \
+	api-run worker-run scheduler-run frontend-run app-run \
+	image api-image worker-image scheduler-image frontend-image app-image \
+	api-up worker-up scheduler-up frontend-up app-up \
+	test backend-test frontend-test backend-embedded-test backend-integration-test \
+	mcp-build docker-mcp-build host-mcp-build kubernetes-mcp-build \
+	mcp-run docker-mcp-run host-mcp-run kubernetes-mcp-run \
+	mcp-image docker-mcp-image host-mcp-image kubernetes-mcp-image \
+	mcp-test docker-mcp-test host-mcp-test kubernetes-mcp-test \
+	backend-lint frontend-lint deploy-lint helm-lint lint \
+	quality format format-check llm-provider-test
 
 help: ## Show available commands.
 	@awk 'BEGIN {FS = ":.*## "; printf "OpsKeeper development commands:\n\n"} /^[a-zA-Z_-]+:.*## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -59,6 +75,12 @@ env: ## Create and synchronize the local environment files.
 	cp .env.example deploy/compose/.env.example
 	cp .env deploy/compose/.env
 
+sample-seed: env ## Insert local sample teams, projects, users, GLM channel, Docker and Host resources, and role bindings.
+	@set -a; source .env; set +a; cd backend && go run ./cmd/sampledata seed
+
+sample-clean: env ## Remove only marked local sample teams, projects, users, GLM channel, Docker and Host resources, and bindings.
+	@set -a; source .env; set +a; cd backend && go run ./cmd/sampledata clean
+
 run: env db-up app-run ## Start PostgreSQL and run the embedded app locally.
 
 up: env app-image ## Start PostgreSQL and the embedded app container.
@@ -69,12 +91,6 @@ down: env ## Stop PostgreSQL and the embedded app container.
 
 clean: env ## Remove all local Compose containers, networks, and data volumes.
 	$(call compose,down --volumes --remove-orphans)
-
-sample-seed: env ## Insert local sample teams, projects, users, GLM channel, Docker and Host resources, and role bindings.
-	@set -a; source .env; set +a; cd backend && go run ./cmd/sampledata seed
-
-sample-clean: env ## Remove only marked local sample teams, projects, users, GLM channel, Docker and Host resources, and bindings.
-	@set -a; source .env; set +a; cd backend && go run ./cmd/sampledata clean
 
 db-up: env ## Start the PostgreSQL development dependency.
 	$(call compose,up -d --wait --wait-timeout 60 postgres)
@@ -109,6 +125,36 @@ infra-clean: env db-clean obs-clean ## Remove the database and observability con
 infra-logs: env ## Follow database and observability logs.
 	$(call compose,--profile obs logs -f postgres jaeger otel-collector prometheus loki grafana)
 
+# Service artifacts
+build: api-build worker-build scheduler-build frontend-build app-build ## Build API, Worker, Scheduler, Frontend, and App artifacts.
+
+api-build: ## Build the API binary.
+	mkdir -p backend/bin
+	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opskeeper-api ./cmd/api
+
+worker-build: ## Build the Worker binary.
+	mkdir -p backend/bin
+	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opskeeper-worker ./cmd/worker
+
+scheduler-build: ## Build the Scheduler binary.
+	mkdir -p backend/bin
+	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opskeeper-scheduler ./cmd/scheduler
+
+frontend-build: ## Build the frontend static assets.
+	cd frontend && npm run build
+
+webui-assets: frontend-build ## Copy frontend assets for the embedded App.
+	mkdir -p $(WEBUI_DIST)
+	find $(WEBUI_DIST) -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+	cp -R frontend/dist/. $(WEBUI_DIST)/
+
+app-build: webui-assets ## Build the embedded App binary.
+	mkdir -p backend/bin
+	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -tags=embed_webui -o bin/opskeeper-app ./cmd/api
+
+backend-build: api-build worker-build scheduler-build app-build ## Build all backend service binaries.
+
+# Service processes
 api-run: env ## Run the API server directly in the development environment.
 	set -a; source .env; set +a; cd backend && go run ./cmd/api
 
@@ -123,6 +169,9 @@ frontend-run: env ## Run the frontend development server directly.
 
 app-run: env webui-assets ## Build and embed the frontend, then run the app directly.
 	set -a; source .env; set +a; cd backend && go run -tags=embed_webui ./cmd/api
+
+# Service images and containers
+image: api-image worker-image scheduler-image frontend-image app-image ## Build all service images.
 
 api-image: ## Build the API image.
 	$(call docker-image,api)
@@ -139,8 +188,6 @@ frontend-image: ## Build the standalone frontend image.
 app-image: ## Build the embedded app image.
 	$(call docker-image,app)
 
-image: api-image worker-image scheduler-image frontend-image app-image ## Build all service images.
-
 api-up: env api-image ## Start the API container.
 	$(call compose,--profile svc up -d --wait --wait-timeout 180 api)
 
@@ -156,67 +203,90 @@ frontend-up: env frontend-image ## Start the standalone frontend container.
 app-up: env app-image ## Start the embedded app container.
 	$(call compose,up -d --wait --wait-timeout 180 app)
 
-docker-mcp-test: ## Run docker-mcp unit and Docker Engine simulator tests.
-	cd backend && go test ./mcpserver/docker/... ./cmd/docker-mcp
+# Service tests
+test: backend-test frontend-test ## Run all unit tests.
 
-docker-mcp-build: ## Build the standalone Docker MCP server binary.
-	mkdir -p backend/bin
-	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opskeeper-docker-mcp ./cmd/docker-mcp
-
-docker-mcp-run: ## Run the standalone Docker MCP server.
-	set -a; source .env; set +a; cd backend && go run ./cmd/docker-mcp
-
-host-mcp-test: ## Run Host MCP unit tests.
-	cd backend && go test ./tool/host ./mcpserver/host/... ./cmd/host-mcp-agent
-
-host-mcp-build: ## Build the standalone Host MCP agent binary.
-	mkdir -p backend/bin
-	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opskeeper-host-mcp-agent ./cmd/host-mcp-agent
-
-host-mcp-run: ## Run the standalone Host MCP agent.
-	set -a; source .env; set +a; cd backend && go run ./cmd/host-mcp-agent
-
-kubernetes-mcp-test: ## Run Kubernetes MCP unit tests.
-	cd backend && go test ./mcpserver/kubernetes/... ./cmd/kubernetes-mcp
-
-kubernetes-mcp-build: ## Build the standalone Kubernetes MCP server binary.
-	mkdir -p backend/bin
-	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opskeeper-kubernetes-mcp ./cmd/kubernetes-mcp
-
-kubernetes-mcp-run: ## Run the standalone Kubernetes MCP server.
-	set -a; source .env; set +a; cd backend && go run ./cmd/kubernetes-mcp
-
-backend-test:
+backend-test: ## Run backend unit tests.
 	cd backend && go test ./...
 
-backend-embedded-test: webui-assets
+frontend-test: ## Run frontend unit tests.
+	cd frontend && npm run test
+
+backend-embedded-test: webui-assets ## Test embedded Web UI and HTTP API.
 	cd backend && go test -tags=embed_webui ./webui ./httpapi
 
 backend-integration-test: ## Run PostgreSQL-backed integration tests.
 	set -a; source .env; set +a; cd backend && go test -tags=integration ./migrations ./organization ./identity ./authorization ./resource ./discovery ./connector ./diagnosis ./inspection ./operation ./e2e
 
-llm-provider-test: ## Test the configured external LLM through the ADK Runner.
-	set -a; source .env; set +a; cd backend && go test -tags=integration ./llm -run TestSiliconFlowThroughADKRunner -v
+# MCP artifacts
+mcp-build: docker-mcp-build host-mcp-build kubernetes-mcp-build ## Build all MCP binaries.
 
-frontend-test:
-	cd frontend && npm run test
+docker-mcp-build: ## Build the standalone Docker MCP server binary.
+	mkdir -p backend/bin
+	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opskeeper-docker-mcp ./cmd/docker-mcp
 
-test: backend-test frontend-test ## Run all unit tests.
+host-mcp-build: ## Build the standalone Host MCP agent binary.
+	mkdir -p backend/bin
+	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opskeeper-host-mcp-agent ./cmd/host-mcp-agent
 
-backend-lint:
+kubernetes-mcp-build: ## Build the standalone Kubernetes MCP server binary.
+	mkdir -p backend/bin
+	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opskeeper-kubernetes-mcp ./cmd/kubernetes-mcp
+
+# MCP processes
+mcp-run: docker-mcp-run host-mcp-run kubernetes-mcp-run ## Run the MCP services.
+
+docker-mcp-run: ## Run the standalone Docker MCP server.
+	set -a; source .env; set +a; cd backend && go run ./cmd/docker-mcp
+
+host-mcp-run: ## Run the standalone Host MCP agent.
+	set -a; source .env; set +a; cd backend && go run ./cmd/host-mcp-agent
+
+kubernetes-mcp-run: ## Run the standalone Kubernetes MCP server.
+	set -a; source .env; set +a; cd backend && go run ./cmd/kubernetes-mcp
+
+# MCP images
+mcp-image: docker-mcp-image host-mcp-image kubernetes-mcp-image ## Build all MCP images.
+
+docker-mcp-image: ## Build the Docker MCP image.
+	$(call docker-image,docker-mcp)
+
+host-mcp-image: ## Build the Host MCP image.
+	$(call docker-image,host-mcp)
+
+kubernetes-mcp-image: ## Build the Kubernetes MCP image.
+	$(call docker-image,kubernetes-mcp)
+
+# MCP tests
+mcp-test: docker-mcp-test host-mcp-test kubernetes-mcp-test ## Run all MCP tests.
+
+docker-mcp-test: ## Run docker-mcp unit and Docker Engine simulator tests.
+	cd backend && go test ./mcpserver/docker/... ./cmd/docker-mcp
+
+host-mcp-test: ## Run Host MCP unit tests.
+	cd backend && go test ./tool/host ./mcpserver/host/... ./cmd/host-mcp-agent
+
+kubernetes-mcp-test: ## Run Kubernetes MCP unit tests.
+	cd backend && go test ./mcpserver/kubernetes/... ./cmd/kubernetes-mcp
+
+# Lint
+backend-lint: ## Run backend static checks.
 	cd backend && go vet ./...
 
-frontend-lint:
+frontend-lint: ## Run frontend static checks.
 	cd frontend && npm run check
 
-deploy-lint:
+deploy-lint: ## Validate deployment shell scripts.
 	sh -n deploy/compose/postgres/check-ready.sh deploy/compose/postgres/init/001-create-opskeeper.sh
 
 helm-lint: ## Validate and render the production Helm chart.
 	helm lint deploy/helm/opskeeper
 	helm template opskeeper deploy/helm/opskeeper >/dev/null
 
-lint: backend-lint frontend-lint deploy-lint helm-lint ## Run backend, frontend, and deployment static checks.
+lint: backend-lint frontend-lint deploy-lint helm-lint ## Run all static checks.
+
+# Other commands
+quality: format-check lint test backend-embedded-test build ## Run the complete local quality gate.
 
 format: ## Format source files.
 	cd backend && gofmt -w .
@@ -226,24 +296,5 @@ format-check: ## Check source formatting without modifying files.
 	@files=$$(cd backend && gofmt -l .); test -z "$$files" || (echo "Unformatted Go files:"; echo "$$files"; exit 1)
 	cd frontend && npm run format:check
 
-frontend-build:
-	cd frontend && npm run build
-
-webui-assets: frontend-build
-	mkdir -p $(WEBUI_DIST)
-	find $(WEBUI_DIST) -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-	cp -R frontend/dist/. $(WEBUI_DIST)/
-
-backend-build:
-	mkdir -p backend/bin
-	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opskeeper-api ./cmd/api
-	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -tags=embed_webui -o bin/opskeeper-app ./cmd/api
-	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opskeeper-worker ./cmd/worker
-	cd backend && CGO_ENABLED=$(CGO_ENABLED) go build -buildvcs=false -ldflags "$(GO_LDFLAGS)" -o bin/opskeeper-scheduler ./cmd/scheduler
-
-build: webui-assets ## Build production binaries with the embedded frontend and MCP servers.
-	$(MAKE) backend-build
-	$(MAKE) docker-mcp-build
-	$(MAKE) kubernetes-mcp-build
-
-quality: format-check lint test backend-embedded-test build ## Run the complete local quality gate.
+llm-provider-test: ## Test the configured external LLM through the ADK Runner.
+	set -a; source .env; set +a; cd backend && go test -tags=integration ./llm -run TestSiliconFlowThroughADKRunner -v

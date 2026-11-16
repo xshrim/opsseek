@@ -5,6 +5,7 @@
   export let subtype = 'Git';
   export let url = '';
   export let defaultBranch = 'main';
+  export let commitID = '';
   export let credentialConfigured = false;
   export let scopeSummary = '';
   export let labelsConfigured = false;
@@ -35,9 +36,13 @@
   <div>
     <span>接入方式</span><strong>{subtype}</strong>
     {#if subtype === 'Git'}<small
-        >{url || '未设置仓库地址'} · 默认分支 {defaultBranch || 'main'}</small
+        >{url || '未设置仓库地址'} · {defaultBranch || 'main'}{commitID
+          ? `:${commitID}`
+          : ''}</small
       >
-    {:else}<small>由平台启动配置指定存储后端</small>{/if}
+    {:else}<small
+        >{defaultBranch || '未选择分支'}{commitID ? `:${commitID}` : ''} · 由平台启动配置指定存储后端</small
+      >{/if}
   </div>
   {#if subtype === 'Git'}
     <div>

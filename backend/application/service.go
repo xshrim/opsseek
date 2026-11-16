@@ -63,8 +63,12 @@ type diagnosticCandidateStore interface {
 type diagnosticScopeQueryStore interface {
 	DiagnosticScopeTeams(context.Context, string) ([]DiagnosticScopeTeam, error)
 	DiagnosticScopeProjects(context.Context, string, string) ([]DiagnosticScopeProject, error)
-	DiagnosticScopeApplications(context.Context, string, string, string, int, int) (DiagnosticScopeApplicationPage, error)
+	DiagnosticScopeApplications(context.Context, string, string, string, string, int, int) (DiagnosticScopeApplicationPage, error)
 	DiagnosticApplicationContextByLocator(context.Context, string, string, string) (DiagnosticContext, error)
+}
+
+type diagnosticScopeContextStore interface {
+	DiagnosticScopeContext(context.Context, string) (DiagnosticScopeContext, error)
 }
 
 func NewService(store Store) *Service { return &Service{store: store} }
@@ -467,6 +471,17 @@ func normalizeDependencyBinding(kind string, binding map[string]any) (map[string
 			result[key] = text
 			continue
 		}
+		if kind == "repository" && oneOf(key, "revision", "branch", "commit_id") {
+			text, ok := value.(string)
+			if !ok {
+				return nil, ErrInvalid
+			}
+			text = strings.TrimSpace(text)
+			if text != "" {
+				result[key] = text
+			}
+			continue
+		}
 		switch value.(type) {
 		case string, bool, float64, int, int64:
 		default:
@@ -507,7 +522,7 @@ func allowedDependencyBindingField(kind, key string) bool {
 	case "storage":
 		return oneOf(key, "bucket", "prefix")
 	case "repository":
-		return oneOf(key, "directory", "path", "revision", "branch")
+		return oneOf(key, "directory", "path", "revision", "branch", "commit_id")
 	case "observability":
 		return oneOf(key, "target", "metric", "namespace")
 	case "other":
@@ -620,12 +635,20 @@ func (s *Service) DiagnosticScopeProjects(ctx context.Context, scopeID, teamName
 	return reader.DiagnosticScopeProjects(ctx, strings.TrimSpace(scopeID), strings.TrimSpace(teamName))
 }
 
-func (s *Service) DiagnosticScopeApplications(ctx context.Context, scopeID, teamName, projectCode string, offset, limit int) (DiagnosticScopeApplicationPage, error) {
+func (s *Service) DiagnosticScopeContext(ctx context.Context, scopeID string) (DiagnosticScopeContext, error) {
+	reader, ok := s.store.(diagnosticScopeContextStore)
+	if !ok {
+		return DiagnosticScopeContext{}, ErrInvalid
+	}
+	return reader.DiagnosticScopeContext(ctx, strings.TrimSpace(scopeID))
+}
+
+func (s *Service) DiagnosticScopeApplications(ctx context.Context, scopeID, teamName, projectName, projectCode string, offset, limit int) (DiagnosticScopeApplicationPage, error) {
 	reader, ok := s.store.(diagnosticScopeQueryStore)
 	if !ok {
 		return DiagnosticScopeApplicationPage{}, ErrInvalid
 	}
-	return reader.DiagnosticScopeApplications(ctx, strings.TrimSpace(scopeID), strings.TrimSpace(teamName), strings.TrimSpace(projectCode), offset, limit)
+	return reader.DiagnosticScopeApplications(ctx, strings.TrimSpace(scopeID), strings.TrimSpace(teamName), strings.TrimSpace(projectName), strings.TrimSpace(projectCode), offset, limit)
 }
 
 // DiagnosticApplicationContextByLocator resolves an application by its

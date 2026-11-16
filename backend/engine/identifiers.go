@@ -7,7 +7,7 @@ import (
 
 var locatorArgumentFields = map[string]struct{}{
 	"container_id": {}, "container_name": {}, "namespace": {}, "workload_kind": {},
-	"workload_name": {}, "pod": {}, "process_command_line": {},
+	"workload_name": {}, "pod": {}, "process_command_line": {}, "command_line": {},
 }
 
 func isPlaceholderLocator(field, value string) bool {
@@ -31,6 +31,9 @@ func ApplyLocatorHints(arguments map[string]any, hints map[string]any) map[strin
 		result[key] = value
 	}
 	for key, hint := range hints {
+		if key == "process_command_line" {
+			key = "command_line"
+		}
 		if hint == nil || strings.TrimSpace(fmt.Sprint(hint)) == "" {
 			continue
 		}

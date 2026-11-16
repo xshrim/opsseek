@@ -23,7 +23,6 @@
   } from 'lucide-svelte';
   import { onMount } from 'svelte';
   import DeleteConfirmationDialog from '../../components/DeleteConfirmationDialog.svelte';
-  import EntityBrandIcon from '../../components/EntityBrandIcon.svelte';
   import ResourceBrandIcon from '../../components/ResourceBrandIcon.svelte';
   import ScopeLevelBadge from '../../components/ScopeLevelBadge.svelte';
   import type {
@@ -33,6 +32,7 @@
     Resource
   } from '../../lib/api';
   import { api } from '../../lib/api';
+  import { matchesSearchFields } from './projectTypes';
   import {
     resourceCategoryFor,
     resourceCategoryIcon,
@@ -44,6 +44,8 @@
   export let applications: Application[] = [];
   export let resources: Resource[] = [];
   export let resourceScopeTypes: Record<string, string> = {};
+  export let searchQuery = '';
+  export let searchFields: Record<string, string> = {};
   export let loading = false;
   export let mode: 'browse' | 'edit' = 'browse';
   export let configurationOpen = false;
@@ -70,7 +72,7 @@
   type Node = ProjectTopology['nodes'][number];
   type Edge = ProjectTopology['edges'][number];
   type AnchorSide = 'top' | 'right' | 'bottom' | 'left';
-  const NODE_WIDTH = 158;
+  const NODE_WIDTH = 180;
   const NODE_HEIGHT = 60;
   const resourceKinds = Object.keys(resourceCategoryOptions).filter(
     (kind) =>
@@ -124,6 +126,60 @@
   $: nodes = topology?.nodes ?? [];
   $: edges = topology?.edges ?? [];
   $: displayNodes = nodes.filter((node) => node.kind !== 'project');
+  $: normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase();
+  $: hasSearch = Boolean(
+    normalizedSearchQuery || Object.values(searchFields).some(Boolean)
+  );
+  $: matchingApplicationIDs = new Set(
+    hasSearch
+      ? displayNodes
+          .filter(
+              (node) => {
+              if (node.kind !== 'application') return false;
+              const application = applications.find(
+                (item) => item.id === node.id
+              );
+              const labels = Object.entries(
+                (application?.labels ??
+                  node.metadata?.labels ?? {}) as Record<string, string>
+              )
+                .map(([key, value]) => `${key}=${value}`)
+                .join(' ');
+              const searchable = {
+                name: node.name,
+                code: application?.code ?? String(node.metadata?.code ?? ''),
+                runtime:
+                  application?.runtime_kind ??
+                  String(node.metadata?.runtime_kind ?? ''),
+                status: application?.status ?? String(node.metadata?.status ?? ''),
+                label: labels
+              };
+              return (
+                matchesSearchFields(
+                  searchable,
+                  normalizedSearchQuery,
+                  searchFields
+                )
+              );
+            }
+          )
+          .map((node) => node.id)
+      : []
+  );
+  $: searchRelatedNodeIDs = new Set(
+    hasSearch
+      ? edges.reduce((related, edge) => {
+          if (
+            matchingApplicationIDs.has(edge.source_id) ||
+            matchingApplicationIDs.has(edge.target_id)
+          ) {
+            related.add(edge.source_id);
+            related.add(edge.target_id);
+          }
+          return related;
+        }, new Set(matchingApplicationIDs))
+      : []
+  );
   $: if (topology !== topologySnapshot) {
     topologySnapshot = topology;
     positions = layoutPositions(displayNodes);
@@ -264,10 +320,17 @@
     return letters.length === 2 ? [letters[0], '', letters[1]] : letters;
   }
   function nodeSubtitle(node: Node) {
-    if (node.kind === 'application')
-      return `${String(node.metadata?.instance_count ?? 0)} 个实例`;
+    if (node.kind === 'application') {
+      return `${String(node.metadata?.instance_count ?? 0)} 实例`;
+    }
     if (node.kind === 'resource') return node.resource_kind ?? '资源';
-    return '';
+    return String(node.metadata?.description ?? '').trim();
+  }
+  function nodeScopeObjectName(node: Node) {
+    if (node.kind === 'application') return node.project_name || project.name;
+    return String(
+      node.metadata?.scope_name ?? node.metadata?.project_name ?? ''
+    ).trim();
   }
   function dependencyKindForResourceKind(kind: string | undefined) {
     if (
@@ -287,6 +350,7 @@
         'Loki',
         'Tempo',
         'Jaeger',
+        'Skywalking',
         'Elastic',
         'Datadog',
         'Alertmanager'
@@ -590,6 +654,18 @@
     selectedEdgeID = '';
     edgeDetailOffset = null;
     onSelectionChange({ node: null, edge: null });
+  }
+  function dismissDetailOnOutside(event: PointerEvent) {
+    const target = event.target;
+    if (
+      !(target instanceof Element) ||
+      target.closest(
+        '.topology-detail-float,.topology-node-card,.topology-edges path'
+      )
+    )
+      return;
+    if (selectedNodeID) closeNodeDetail();
+    if (selectedEdgeID) closeEdgeDetail();
   }
   function beginDetailDrag(event: PointerEvent, kind: DetailFloatKind) {
     if (
@@ -1025,6 +1101,7 @@
 </script>
 
 <svelte:window
+  on:pointerdown={dismissDetailOnOutside}
   on:pointermove={(event) => {
     moveNode(event);
     movePan(event);
@@ -1110,9 +1187,8 @@
                       runtimeKind: runtime.kind
                     })}
                   ><span class="topology-palette-icon"
-                    ><EntityBrandIcon
-                      kind="Application"
-                      fallback={application.icon || 'lucide:AppWindow'}
+                    ><AppWindow
+                      class="project-application-node-icon"
                       size={16}
                     /></span
                   ><span
@@ -1144,7 +1220,9 @@
                     kind: 'resource',
                     resourceKind: kind
                   })}
-                ><span class="topology-palette-category-icon resource-tone"
+                ><span
+                  class="topology-palette-category-icon resource-tone"
+                  class:runtime-tone={['Host', 'Docker', 'Kubernetes'].includes(kind)}
                   ><ResourceBrandIcon
                     resource={{ kind }}
                     fallback={resourceCategoryIcon(kind)}
@@ -1170,6 +1248,7 @@
                         : ''}
                 <button
                   class="topology-palette-item resource"
+                  class:runtime-tone={['Host', 'Docker', 'Kubernetes'].includes(resource.kind)}
                   disabled={added}
                   draggable={!added}
                   on:dragstart={(event) =>
@@ -1260,12 +1339,18 @@
                 id="topology-arrow"
                 markerWidth="8"
                 markerHeight="8"
-                refX="7"
+                refX="0"
                 refY="4"
                 orient="auto"
                 markerUnits="userSpaceOnUse"
               >
-                <path d="M0,0 L8,4 L0,8 z" fill="context-stroke" />
+                <path
+                  d="M0,0 L8,4 L0,8 z"
+                  fill="context-stroke"
+                  stroke="context-stroke"
+                  stroke-width="0.4"
+                  stroke-linejoin="round"
+                />
               </marker>
             </defs>
             {#each displayEdges as edge (edge.id)}
@@ -1273,7 +1358,10 @@
                 (selectedNode &&
                   !highlightedNodeIDs.has(edge.source_id) &&
                   !highlightedNodeIDs.has(edge.target_id)) ||
-                (selectedEdge && selectedEdge.id !== edge.id)}
+                (selectedEdge && selectedEdge.id !== edge.id) ||
+                (hasSearch &&
+                  !searchRelatedNodeIDs.has(edge.source_id) &&
+                  !searchRelatedNodeIDs.has(edge.target_id))}
               <path
                 role="button"
                 tabindex="0"
@@ -1307,7 +1395,8 @@
               (selectedNode && !highlightedNodeIDs.has(node.id)) ||
               (selectedEdge &&
                 selectedEdge.source_id !== node.id &&
-                selectedEdge.target_id !== node.id)}
+                selectedEdge.target_id !== node.id) ||
+              (hasSearch && !searchRelatedNodeIDs.has(node.id))}
             <article
               data-topology-node={node.id}
               class="topology-node-card"
@@ -1316,7 +1405,7 @@
               class:runtime-node={isRuntime(node)}
               class:entity-node={node.kind === 'annotation'}
               class:dimmed={faded}
-              class:selected={activeNodeID === node.id}
+              class:selected={activeNodeID === node.id || matchingApplicationIDs.has(node.id)}
               class:dragging={nodeDrag?.id === node.id}
               style={`left:${point.x}px;top:${point.y}px;`}
               on:pointerenter={() => hoverNode(node)}
@@ -1333,32 +1422,38 @@
                         >{letter || '　'}</span
                       >{/each}</span
                   ></span
-                ><span class="topology-node-icon"
-                  >{#if node.kind === 'application'}<EntityBrandIcon
-                      kind="Application"
-                      fallback={String(
-                        node.metadata?.icon ?? 'lucide:AppWindow'
-                      )}
-                      size={15}
-                    />{:else if node.kind === 'resource'}<ResourceBrandIcon
-                      resource={{ kind: node.resource_kind ?? 'Host' }}
-                      size={15}
-                    />{:else}<Icon size={15} />{/if}</span
                 ><span class="topology-node-copy"
-                  ><strong>{node.name}</strong>{#if nodeSubtitle(node)}<small
-                      >{nodeSubtitle(node)}</small
-                    >{/if}</span
-                >{#if scopeLabel(node)}<ScopeLevelBadge
-                    className="topology-scope-badge"
-                    type={scopeBadgeType(node)}
-                    label={scopeLabel(node)}
-                  />{/if}{#if node.kind === 'application' && applicationAlertCounts[node.id]}<span
-                    class="topology-alert-indicator"
-                    data-tooltip={`${applicationAlertCounts[node.id]} 条关联告警`}
-                    ><AlertTriangle size={12} />{applicationAlertCounts[
-                      node.id
-                    ]}</span
-                  >{/if}</button
+                  ><span class="topology-node-row topology-node-primary"
+                    ><span class="topology-node-title"
+                      ><span class="topology-node-icon"
+                        >{#if node.kind === 'application'}<AppWindow
+                            size={15}
+                          />{:else if node.kind === 'resource'}<ResourceBrandIcon
+                            resource={{ kind: node.resource_kind ?? 'Host' }}
+                            size={15}
+                          />{:else}<Icon size={15} />{/if}</span
+                      ><strong>{node.name}</strong></span
+                    ><span class="topology-node-meta"
+                      >{#if scopeLabel(node)}<ScopeLevelBadge
+                          className="topology-scope-badge"
+                          type={scopeBadgeType(node)}
+                          label={scopeLabel(node)}
+                        />{/if}{#if node.kind === 'application' && applicationAlertCounts[node.id]}<span
+                          class="topology-alert-indicator"
+                          data-tooltip={`${applicationAlertCounts[node.id]} 条关联告警`}
+                          ><AlertTriangle size={12} />{applicationAlertCounts[
+                            node.id
+                          ]}</span
+                        >{/if}</span
+                    ></span
+                  ><span class="topology-node-divider" aria-hidden="true"></span
+                  ><span class="topology-node-row topology-node-secondary"
+                    ><small>{nodeSubtitle(node)}</small><small
+                      class="topology-node-object"
+                      >{nodeScopeObjectName(node)}</small
+                    ></span
+                  ></span
+                ></button
               >
               {#if mode === 'edit'}
                 {#each ['top', 'right', 'bottom', 'left'] as side}
@@ -1397,10 +1492,16 @@
                         >{letter || '　'}</span
                       >{/each}</span
                   ></span
-                ><span class="topology-node-icon"
-                  ><PendingIcon size={15} /></span
                 ><span class="topology-node-copy"
-                  ><strong>{pendingTitle}</strong></span
+                  ><span class="topology-node-row topology-node-primary"
+                    ><span class="topology-node-title"
+                      ><span class="topology-node-icon"
+                        ><PendingIcon size={15} /></span
+                      ><strong>{pendingTitle}</strong></span
+                    ></span
+                  ><span class="topology-node-divider" aria-hidden="true"></span
+                  ><span class="topology-node-row topology-node-secondary"></span
+                  ></span
                 >
               </div>
             </article>
@@ -1483,16 +1584,20 @@
                 on:pointerdown={(event) => beginDetailDrag(event, 'node')}
               >
                 <span><CircleHelp size={15} /><strong>节点详情</strong></span
-                >{#if !hoverDetailActive}<button
-                    class="icon-button"
-                    type="button"
-                    aria-label="关闭详情"
-                    on:click={closeNodeDetail}><X size={14} /></button
-                  >{/if}
+                ><button
+                  class="icon-button topology-detail-close"
+                  class:hidden={hoverDetailActive}
+                  type="button"
+                  aria-label="关闭详情"
+                  disabled={hoverDetailActive}
+                  on:click={closeNodeDetail}><X size={14} /></button
+                >
               </header>
               <strong class="topology-detail-name">{selectedNode.name}</strong
               ><small>{nodeType(selectedNode)}</small
               >{#if selectedNode.kind === 'annotation'}<dl>
+                  <dt>项目</dt>
+                  <dd>{String(selectedNode.metadata?.project_name ?? '—')}</dd>
                   <dt>说明</dt>
                   <dd>{String(selectedNode.metadata?.description ?? '—')}</dd>
                 </dl>{:else if selectedNode.kind === 'application'}<dl>
@@ -1538,12 +1643,14 @@
                 on:pointerdown={(event) => beginDetailDrag(event, 'edge')}
               >
                 <span><Link2 size={15} /><strong>关系详情</strong></span
-                >{#if !hoverDetailActive}<button
-                    class="icon-button"
-                    type="button"
-                    aria-label="关闭详情"
-                    on:click={closeEdgeDetail}><X size={14} /></button
-                  >{/if}
+                ><button
+                  class="icon-button topology-detail-close"
+                  class:hidden={hoverDetailActive}
+                  type="button"
+                  aria-label="关闭详情"
+                  disabled={hoverDetailActive}
+                  on:click={closeEdgeDetail}><X size={14} /></button
+                >
               </header>
               <strong class="topology-detail-name"
                 >{nodes.find((node) => node.id === selectedEdge?.source_id)
@@ -1705,11 +1812,15 @@
   }
   .topology-palette-category-icon.application-tone,
   .topology-palette-item.application {
-    --topology-tone: var(--theme-application);
+    --topology-tone: var(--theme-action);
   }
   .topology-palette-category-icon.resource-tone,
   .topology-palette-item.resource {
     --topology-tone: var(--theme-resource);
+  }
+  .topology-palette-category-icon.runtime-tone,
+  .topology-palette-item.runtime-tone {
+    --topology-tone: var(--theme-runtime);
   }
   .topology-palette-category-icon.entity-tone,
   .topology-palette-item.entity {
@@ -1755,10 +1866,13 @@
     cursor: not-allowed;
   }
   .topology-palette-item.application {
-    --topology-tone: var(--theme-application);
+    --topology-tone: var(--theme-action);
   }
   .topology-palette-item.resource {
     --topology-tone: var(--theme-resource);
+  }
+  .topology-palette-item.runtime-tone {
+    --topology-tone: var(--theme-runtime);
   }
   .topology-palette-item.entity {
     --topology-tone: var(--theme-warning);
@@ -1846,10 +1960,10 @@
     pointer-events: none;
   }
   .topology-edges path {
-    --topology-edge-color: var(--theme-border-strong);
+    --topology-edge-color: var(--theme-topology-edge);
     fill: none;
     stroke: var(--topology-edge-color);
-    stroke-width: 1.8;
+    stroke-width: 2;
     pointer-events: stroke;
     cursor: pointer;
     outline: none;
@@ -1857,17 +1971,7 @@
       opacity 0.16s,
       filter 0.16s;
   }
-  .topology-edges path.edge-runs_on {
-    --topology-edge-color: var(--theme-success);
-  }
-  .topology-edges path.edge-uses {
-    --topology-edge-color: var(--theme-info);
-  }
-  .topology-edges path.edge-depends_on {
-    --topology-edge-color: var(--theme-accent);
-  }
   .topology-edges path.edge-external_dependency {
-    --topology-edge-color: var(--theme-warning);
     stroke-dasharray: 5 4;
   }
   .topology-edges path:focus {
@@ -1894,7 +1998,7 @@
     z-index: 1;
     display: flex;
     align-items: center;
-    width: 158px;
+    width: 180px;
     height: 60px;
     overflow: hidden;
     border: 1px solid
@@ -1915,7 +2019,7 @@
     cursor: grabbing;
   }
   .topology-node-card.application-node {
-    --topology-tone: var(--theme-application);
+    --topology-tone: var(--theme-action);
     --topology-soft: color-mix(
       in srgb,
       var(--theme-application) 14%,
@@ -1950,7 +2054,6 @@
     pointer-events: none;
   }
   .topology-node-card.selected {
-    border-color: var(--theme-border-focus);
     box-shadow:
       0 0 0 2px color-mix(in srgb, var(--topology-tone) 22%, transparent),
       var(--theme-shadow-soft);
@@ -1969,7 +2072,7 @@
   .topology-node-main {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     width: 100%;
     min-width: 0;
     height: 100%;
@@ -2015,8 +2118,40 @@
   }
   .topology-node-copy {
     display: grid;
+    grid-template-rows: minmax(0, 1fr) 1px minmax(0, 1fr);
+    align-self: stretch;
     min-width: 0;
-    gap: 3px;
+    flex: 1;
+    padding: 4px 0;
+  }
+  .topology-node-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 5px;
+    min-width: 0;
+  }
+  .topology-node-primary,
+  .topology-node-secondary {
+    min-height: 0;
+  }
+  .topology-node-divider {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--topology-tone) 22%, var(--theme-border)),
+      transparent
+    );
+  }
+  .topology-node-title {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+  }
+  .topology-node-title strong {
+    min-width: 0;
     flex: 1;
   }
   .topology-node-copy strong,
@@ -2026,11 +2161,31 @@
     white-space: nowrap;
   }
   .topology-node-copy strong {
-    font-size: 11px;
+    font-size: 10px;
   }
   .topology-node-copy small {
     color: var(--theme-fg-muted);
     font-size: 9px;
+  }
+  .topology-node-secondary > small:first-child {
+    flex: 0 1 auto;
+    max-width: 46%;
+  }
+  .topology-node-copy .topology-node-object {
+    flex: 1 1 0;
+    text-align: right;
+  }
+  .topology-node-meta {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 3px;
+    max-width: 48%;
+  }
+  :global(.topology-scope-badge) {
+    min-height: 16px;
+    padding: 1px 4px;
+    font-size: 8px;
   }
   .topology-alert-indicator {
     display: inline-flex;
@@ -2118,8 +2273,21 @@
     gap: 8px;
   }
   .topology-detail-float header {
+    position: relative;
+    min-height: 22px;
+    padding-right: 24px;
     cursor: move;
     user-select: none;
+  }
+  .topology-detail-close {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 24px;
+    height: 24px;
+  }
+  .topology-detail-close.hidden {
+    visibility: hidden;
   }
   .topology-detail-float header span {
     justify-content: flex-start;

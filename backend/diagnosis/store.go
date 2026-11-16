@@ -33,6 +33,7 @@ type Store interface {
 	EventsAfter(context.Context, string, int64, int) ([]Event, error)
 	SaveEvidence(context.Context, string, CreateEvidenceInput) (Evidence, error)
 	Evidence(context.Context, string) ([]Evidence, error)
+	RecentEvidence(context.Context, string, int) ([]Evidence, error)
 	EvidenceForRun(context.Context, string, string) ([]Evidence, error)
 	CreateRun(context.Context, string, string, int) (Run, error)
 	FinishRun(context.Context, string, string) (Run, error)
@@ -325,6 +326,29 @@ func (s *store) Evidence(ctx context.Context, sessionID string) ([]Evidence, err
 	return s.listEvidence(ctx, `session_id = $1::uuid`, sessionID)
 }
 
+func (s *store) RecentEvidence(ctx context.Context, sessionID string, limit int) ([]Evidence, error) {
+	if limit <= 0 || limit > 8 {
+		limit = 8
+	}
+	rows, err := s.pool.Query(ctx, `SELECT id::text, session_id::text, COALESCE(run_id::text, ''), target_resource_id::text, source_resource_id::text, capability, collected_at, window_start, window_end, content_hash, summary, content, partial, untrusted, created_at FROM diagnosis_evidence WHERE session_id = $1::uuid ORDER BY collected_at DESC, id DESC LIMIT $2`, sessionID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list recent diagnosis evidence: %w", err)
+	}
+	defer rows.Close()
+	items := make([]Evidence, 0, limit)
+	for rows.Next() {
+		var item Evidence
+		if err := rows.Scan(&item.ID, &item.SessionID, &item.RunID, &item.TargetResourceID, &item.SourceResourceID, &item.Capability, &item.CollectedAt, &item.WindowStart, &item.WindowEnd, &item.ContentHash, &item.Summary, &item.Content, &item.Partial, &item.Untrusted, &item.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan recent diagnosis evidence: %w", err)
+		}
+		items = append(items, item)
+	}
+	for left, right := 0, len(items)-1; left < right; left, right = left+1, right-1 {
+		items[left], items[right] = items[right], items[left]
+	}
+	return items, rows.Err()
+}
+
 func (s *store) EvidenceForRun(ctx context.Context, sessionID, runID string) ([]Evidence, error) {
 	return s.listEvidence(ctx, `session_id = $1::uuid AND run_id = $2::uuid`, sessionID, runID)
 }
@@ -544,7 +568,8 @@ func (s *store) ClaimRunLease(ctx context.Context, sessionID, owner string, leas
 		RETURNING `+sessionFields, sessionID, owner, lease.String()).Scan(
 		&item.ID, &item.ScopeID, &item.ApplicationID, &item.ApplicationIDs, &item.ActorUserID, &item.ScopeShared,
 		&item.ProviderID, &item.ModelName, &item.ApplicationContext, &item.Status, &item.Title, &item.ErrorCode,
-		&item.ErrorMessage, &item.StartedAt, &item.CompletedAt, &item.CreatedAt, &item.UpdatedAt)
+		&item.ErrorMessage, &item.StartedAt, &item.CompletedAt, &item.CreatedAt, &item.UpdatedAt,
+		&item.Collaboration)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Session{}, false, nil
 	}

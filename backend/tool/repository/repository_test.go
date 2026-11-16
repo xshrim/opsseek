@@ -326,6 +326,73 @@ func TestPreparePinsOneRepositorySnapshot(t *testing.T) {
 	}
 }
 
+func TestRepositoryRevisionsMarksDefaultAndResolvesCommitOnBranch(t *testing.T) {
+	d := t.TempDir()
+	run := func(args ...string) []byte {
+		cmd := exec.Command("git", append([]string{"-C", d}, args...)...)
+		cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com", "GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v %s", args, err, out)
+		}
+		return bytes.TrimSpace(out)
+	}
+	run("init", "-b", "main")
+	if err := os.WriteFile(filepath.Join(d, "README.md"), []byte("one"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	run("add", ".")
+	run("commit", "-m", "one")
+	first := string(run("rev-parse", "HEAD"))
+	if err := os.WriteFile(filepath.Join(d, "README.md"), []byte("two"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	run("commit", "-am", "two")
+	latest := string(run("rev-parse", "HEAD"))
+	revisions, err := RepositoryRevisions(context.Background(), ConnectionInput{Path: d}, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(revisions) != 1 || revisions[0].Branch != "main" || !revisions[0].IsDefault || len(revisions[0].Commits) != 2 || revisions[0].Commits[0] != latest {
+		t.Fatalf("RepositoryRevisions() = %#v", revisions)
+	}
+	resolved, err := ResolveBranchCommit(context.Background(), ConnectionInput{Path: d}, "main", first)
+	if err != nil || resolved != first {
+		t.Fatalf("ResolveBranchCommit() = %q, %v; want %q", resolved, err, first)
+	}
+	if _, err := ResolveBranchCommit(context.Background(), ConnectionInput{Path: d}, "main", "not-a-commit"); err == nil {
+		t.Fatal("ResolveBranchCommit accepted invalid commit id")
+	}
+	// A newer commit date on another branch must outrank alphabetical branch order.
+	run("checkout", "-b", "z-recent")
+	t.Setenv("GIT_COMMITTER_DATE", "2030-01-01T00:00:00Z")
+	run("commit", "--allow-empty", "-m", "newest")
+	revisions, err = RepositoryRevisions(context.Background(), ConnectionInput{Path: d}, 20)
+	if err != nil || len(revisions) != 2 || revisions[0].Branch != "z-recent" {
+		t.Fatalf("time order = %+v, %v", revisions, err)
+	}
+	for _, revision := range revisions {
+		for i := 1; i < len(revision.Commits); i++ {
+			if revision.CommitTimes[revision.Commits[i-1]] < revision.CommitTimes[revision.Commits[i]] {
+				t.Fatal("commits are not newest first")
+			}
+		}
+	}
+}
+
+func TestParseEndpointSelectionSupportsRevisionEndpointFormats(t *testing.T) {
+	commit := "aabbccdd00112233445566778899aabbccddeeff"
+	if branch, id := ParseEndpointSelection("Git", "https://git.example/repo.git", "https://git.example/repo.git [release·"+commit+"]"); branch != "release" || id != commit {
+		t.Fatalf("Git revision = %q %q", branch, id)
+	}
+	if branch, id := ParseEndpointSelection("Bundle", "", "bundle-id [release·"+commit+"]"); branch != "release" || id != commit {
+		t.Fatalf("Bundle revision = %q %q", branch, id)
+	}
+	if branch, id := ParseEndpointSelection("Git", "https://git.example/repo.git", "https://git.example/repo.git (release:"+commit+")"); branch != "release" || id != commit {
+		t.Fatalf("legacy Git revision = %q %q", branch, id)
+	}
+}
+
 func TestConfiguredBundleStorageUsesProcessEnvironment(t *testing.T) {
 	t.Setenv("OPSK_STORAGE_BACKEND", "local")
 	t.Setenv("OPSK_REPOSITORY_LOCAL_ROOT", t.TempDir())

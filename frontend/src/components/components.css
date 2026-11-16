@@ -228,7 +228,7 @@
   top: 50%;
   left: 50%;
   z-index: 2;
-  width: min(420px, calc(100% - 160px));
+  width: min(680px, calc(100% - 160px));
   transform: translate(-50%, -50%);
 }
 .dialog-heading h2 {
@@ -461,7 +461,7 @@
   flex: 0 0 auto;
   color: var(--theme-fg-muted);
   background: var(--theme-bg-surface);
-  border: 1px solid var(--theme-border);
+  border: 0;
   border-radius: 7px;
   font-weight: 700;
 }
@@ -469,6 +469,11 @@
   width: 32px;
   height: 32px;
   font-size: 17px;
+}
+.project-entity-tone {
+  color: var(--theme-warning);
+  background: transparent;
+  border: 0;
 }
 .resource-brand-monogram {
   display: inline-grid;
@@ -660,7 +665,6 @@
 .icon-button:hover {
   color: var(--theme-accent);
   background: var(--theme-bg-hover);
-  border-color: var(--theme-border-focus);
 }
 .icon-button:focus-visible {
   color: var(--theme-accent);
@@ -669,36 +673,91 @@
 }
 
 .message-banner {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+  display: block;
+  width: fit-content;
   min-height: 26px;
   max-width: 100%;
-  padding: 4px 8px;
-  color: var(--theme-fg-muted);
-  background: var(--theme-bg-subtle);
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
-  box-shadow: none;
-  font-size: 11px;
+  padding: 6px 10px;
+  color: var(--theme-fg);
+  background: var(--theme-bg-info-soft);
+  border: 1px solid color-mix(in srgb, var(--theme-info) 22%, transparent);
+  border-radius: 5px;
+  font-size: 12px;
   font-weight: 400;
-  line-height: 1.35;
-  text-align: center;
-}
-.message-banner span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
+  line-height: 1.6;
+  text-align: left;
 }
 .message-banner.success {
   background: var(--theme-bg-success-soft);
+  border-color: color-mix(in srgb, var(--theme-success) 22%, transparent);
 }
 .message-banner.error {
   background: var(--theme-bg-danger-soft);
+  border-color: color-mix(in srgb, var(--theme-danger) 22%, transparent);
 }
 .message-banner.warning {
   background: var(--theme-bg-warning-soft);
+  border-color: color-mix(in srgb, var(--theme-warning) 22%, transparent);
+}
+.message-content {
+  display: block;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.message-codes {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.message-code {
+  --message-code-color: var(--theme-fg-muted);
+  display: inline-flex;
+  min-height: 20px;
+  align-items: center;
+  padding: 1px 6px;
+  color: var(--message-code-color);
+  background: color-mix(in srgb, var(--message-code-color) 8%, transparent);
+  border: 0;
+  border-radius: 4px;
+  font-family: var(--theme-font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+.message-code.kind-e {
+  --message-code-color: var(--theme-danger);
+}
+.message-code.kind-m,
+.message-code.kind-w {
+  --message-code-color: var(--theme-warning);
+}
+.message-code.kind-s {
+  --message-code-color: var(--theme-success);
+}
+.message-code.kind-i {
+  --message-code-color: var(--theme-info);
+}
+.message-type {
+  padding: 0 2px;
+  color: var(--theme-fg-muted);
+  background: transparent;
+  border: 0;
+  font-family: var(--theme-font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+.message-content > svg {
+  display: inline-block;
+  margin-right: 5px;
+  vertical-align: -2px;
+}
+.message-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .message-banner.success svg {
   color: var(--theme-success);
@@ -743,7 +802,7 @@
   top: 50%;
   left: 50%;
   z-index: 1;
-  width: min(360px, calc(100% - 24px));
+  width: min(520px, calc(100% - 24px));
   transform: translate(-50%, -50%);
 }
 .button-spinner {
@@ -955,19 +1014,16 @@
 :root[data-theme='dark'] .created-credentials-inline .icon-button {
   color: var(--theme-fg-muted);
   background: var(--theme-bg-surface);
-  border-color: var(--theme-border);
 }
 :root[data-theme='dark'] .dialog .secondary:hover,
 :root[data-theme='dark'] .created-credentials-inline .icon-button:hover {
   color: var(--theme-teal);
   background: var(--theme-bg-hover);
-  border-color: var(--color-primary);
 }
 :root[data-theme='dark'] .entity-icon,
 :root[data-theme='dark'] .type-icon {
   color: var(--theme-fg-muted);
   background: var(--theme-bg-selected);
-  border-color: var(--theme-border);
 }
 :root[data-theme='dark'] .table-row,
 :root[data-theme='dark'] .table-header,

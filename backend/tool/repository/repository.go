@@ -48,6 +48,13 @@ type ConnectionInput struct {
 	// supplied revisions cannot move a source-level diagnosis to another commit.
 	PinnedRevision string `json:"-"`
 }
+
+type BranchRevisions struct {
+	Branch      string           `json:"branch"`
+	Commits     []string         `json:"commits"`
+	CommitTimes map[string]int64 `json:"commit_times"`
+	IsDefault   bool             `json:"is_default"`
+}
 type ToolInfo struct{ Name, Description string }
 
 // Snapshot lazily materializes one repository for one Engine execution. The
@@ -161,9 +168,9 @@ func (s *Snapshot) Metadata(ctx context.Context) (map[string]any, error) {
 var tools = []ToolInfo{
 	{"repository_branches", "List repository branches."},
 	{"repository_status", "Read the resolved repository revision and worktree status when applicable."},
-	{"repository_tree", "Inventory repository files; defaults to 1000 entries per call. Continue from next_offset until done is true."},
-	{"repository_file", "Read a text file in byte ranges; continue from next_offset until done is true."},
-	{"repository_search", "Search tracked source files with fixed text or grep-style extended regular expressions; supports case-insensitive search and paginated results."},
+	{"repository_tree", "List tracked files at the execution-pinned revision, optionally under a repository-relative directory. Results are paginated; follow next_offset until done=true before treating the listing as complete."},
+	{"repository_file", "Read a tracked text file at the execution-pinned revision by byte range. Follow next_offset until done=true before treating the file as fully read; a truncated range is not the whole file."},
+	{"repository_search", "Search tracked text files at the execution-pinned revision using literal text by default or grep-style extended regular expressions when requested. Results may be paginated or truncated; use next_offset to continue until done=true and complete=true before treating the search as complete."},
 	{"repository_metadata", "Read repository remotes and recent commits at the resolved revision."},
 }
 
@@ -288,7 +295,7 @@ func openRepository(ctx context.Context, in ConnectionInput, revision string) (s
 		}
 		cleanup = func() { _ = os.RemoveAll(d) }
 		branch := strings.TrimSpace(in.Branch)
-		clone := []string{"clone", "--no-tags", "--depth=1"}
+		clone := []string{"clone", "--no-tags", "--no-single-branch"}
 		if branch != "" {
 			clone = append(clone, "--branch", branch)
 		}
@@ -509,6 +516,167 @@ func Branches(ctx context.Context, in ConnectionInput) ([]string, error) {
 	sort.Strings(r)
 	return r, nil
 }
+
+func RepositoryRevisions(ctx context.Context, in ConnectionInput, limit int) ([]BranchRevisions, error) {
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	in = configuredBundleStorage(in)
+	ctx, cancel := repositoryContext(ctx, in)
+	defer cancel()
+	root, cleanup, _, err := openRepository(ctx, in, "")
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+	refs, err := runGit(ctx, in, root, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes")
+	if err != nil {
+		return nil, err
+	}
+	byBranch := make(map[string]string)
+	for _, ref := range strings.Fields(string(refs)) {
+		branch := strings.TrimPrefix(ref, "refs/heads/")
+		if strings.HasPrefix(ref, "refs/remotes/origin/") {
+			branch = strings.TrimPrefix(ref, "refs/remotes/origin/")
+		}
+		if strings.HasPrefix(ref, "refs/remotes/") && !strings.HasPrefix(ref, "refs/remotes/origin/") {
+			continue
+		}
+		if branch == ref || branch == "HEAD" || strings.HasSuffix(branch, "/HEAD") {
+			continue
+		}
+		if _, exists := byBranch[branch]; !exists || strings.HasPrefix(ref, "refs/heads/") {
+			byBranch[branch] = ref
+		}
+	}
+	branches := make([]string, 0, len(byBranch))
+	for branch := range byBranch {
+		branches = append(branches, branch)
+	}
+	sort.Strings(branches)
+	defaultRef, _ := runGit(ctx, in, root, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD")
+	defaultBranch := strings.TrimPrefix(strings.TrimSpace(string(defaultRef)), "refs/remotes/origin/")
+	if defaultBranch == "" {
+		defaultRef, _ = runGit(ctx, in, root, "symbolic-ref", "--quiet", "HEAD")
+		defaultBranch = strings.TrimPrefix(strings.TrimSpace(string(defaultRef)), "refs/heads/")
+	}
+	result := make([]BranchRevisions, 0, len(branches))
+	for _, branch := range branches {
+		out, err := runGit(ctx, in, root, "log", fmt.Sprintf("-%d", limit), "--format=%H %ct", byBranch[branch])
+		if err != nil {
+			continue
+		}
+		commits := []string{}
+		times := map[string]int64{}
+		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			fields := strings.Fields(line)
+			if len(fields) != 2 {
+				continue
+			}
+			timestamp, err := strconv.ParseInt(fields[1], 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			commits = append(commits, fields[0])
+			times[fields[0]] = timestamp
+		}
+		sort.SliceStable(commits, func(i, j int) bool { return times[commits[i]] > times[commits[j]] })
+		if len(commits) > 0 {
+			result = append(result, BranchRevisions{Branch: branch, Commits: commits, CommitTimes: times, IsDefault: branch == defaultBranch})
+		}
+	}
+	sort.SliceStable(result, func(i, j int) bool {
+		return result[i].CommitTimes[result[i].Commits[0]] > result[j].CommitTimes[result[j].Commits[0]]
+	})
+	return result, nil
+}
+
+func ResolveBranchCommit(ctx context.Context, in ConnectionInput, branch, commitID string) (string, error) {
+	branch = strings.TrimSpace(branch)
+	commitID = strings.TrimSpace(commitID)
+	if branch == "" || strings.ContainsAny(branch, "\x00\r\n") {
+		return "", errors.New("invalid repository branch")
+	}
+	if len(commitID) != 40 && len(commitID) != 64 {
+		return "", errors.New("invalid commit ID")
+	}
+	for _, r := range commitID {
+		if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'f' || r >= 'A' && r <= 'F') {
+			return "", errors.New("invalid commit ID")
+		}
+	}
+	in = configuredBundleStorage(in)
+	ctx, cancel := repositoryContext(ctx, in)
+	defer cancel()
+	root, cleanup, _, err := openRepository(ctx, in, "")
+	if err != nil {
+		return "", err
+	}
+	defer cleanup()
+	if _, err := runGit(ctx, in, root, "check-ref-format", "--branch", branch); err != nil {
+		return "", errors.New("invalid repository branch")
+	}
+	ref := "refs/heads/" + branch
+	if _, err := runGit(ctx, in, root, "rev-parse", "--verify", "--end-of-options", ref+"^{commit}"); err != nil {
+		ref = "refs/remotes/origin/" + branch
+		if _, err := runGit(ctx, in, root, "rev-parse", "--verify", "--end-of-options", ref+"^{commit}"); err != nil {
+			return "", errors.New("repository branch not found")
+		}
+	}
+	if _, err := runGit(ctx, in, root, "merge-base", "--is-ancestor", commitID, ref); err != nil {
+		return "", errors.New("commit is not available on the selected branch")
+	}
+	out, err := runGit(ctx, in, root, "rev-parse", "--verify", "--end-of-options", commitID+"^{commit}")
+	if err != nil {
+		return "", errors.New("repository commit not found")
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+func ParseEndpointSelection(subtype, remote, endpoint string) (string, string) {
+	selection := strings.TrimSpace(endpoint)
+	if strings.EqualFold(subtype, "Git") {
+		prefix := strings.TrimSpace(remote) + " ["
+		if strings.HasPrefix(selection, prefix) && strings.HasSuffix(selection, "]") {
+			selection = strings.TrimSuffix(strings.TrimPrefix(selection, prefix), "]")
+			branch, commitID, ok := strings.Cut(selection, "·")
+			if ok && validCommitID(commitID) {
+				return branch, commitID
+			}
+			return "", ""
+		}
+		// Accept the pre-0094 representation while reading resources during rollout.
+		legacy := strings.TrimSpace(remote) + " ("
+		if strings.HasPrefix(selection, legacy) && strings.HasSuffix(selection, ")") {
+			selection = strings.TrimSuffix(strings.TrimPrefix(selection, legacy), ")")
+		}
+	} else if open := strings.LastIndex(selection, " ["); open >= 0 && strings.HasSuffix(selection, "]") {
+		selection = strings.TrimSuffix(selection[open+2:], "]")
+		branch, commitID, ok := strings.Cut(selection, "·")
+		if ok && validCommitID(commitID) {
+			return branch, commitID
+		}
+		return "", ""
+	}
+	branch, commitID, ok := strings.Cut(selection, ":")
+	if !ok || branch == "" || !validCommitID(commitID) {
+		return "", ""
+	}
+	return branch, commitID
+}
+
+func validCommitID(commitID string) bool {
+	if len(commitID) != 40 && len(commitID) != 64 {
+		return false
+	}
+	for _, char := range commitID {
+		if !strings.ContainsRune("0123456789abcdefABCDEF", char) {
+			return false
+		}
+	}
+	return true
+}
+
 func Checkout(ctx context.Context, in ConnectionInput, branch string) (map[string]any, error) {
 	branch = strings.TrimSpace(branch)
 	if branch == "" || strings.ContainsAny(branch, "\x00\n\r") || strings.Contains(branch, "..") {

@@ -51,7 +51,7 @@ func TestAuthorizationMiddlewareRejectsEmptyScopeFilter(t *testing.T) {
 
 	newAuthorizedTestRouter(authorization.ScopeFilter{Permission: authorization.OrganizationRead}).ServeHTTP(response, request)
 
-	if response.Code != http.StatusForbidden || !strings.Contains(response.Body.String(), `"code":"forbidden"`) {
+	if response.Code != http.StatusForbidden || !strings.Contains(response.Body.String(), `"code":"E0017"`) {
 		t.Fatalf("authorization response = %d %s", response.Code, response.Body.String())
 	}
 }
@@ -67,7 +67,7 @@ func TestAuthenticatedRoutesFailClosedWithoutAuthorizationService(t *testing.T) 
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
 
-	if response.Code != http.StatusServiceUnavailable || !strings.Contains(response.Body.String(), `"code":"authorization_unavailable"`) {
+	if response.Code != http.StatusServiceUnavailable || !strings.Contains(response.Body.String(), `"code":"E0003"`) {
 		t.Fatalf("authorization-misconfigured response = %d %s", response.Code, response.Body.String())
 	}
 }

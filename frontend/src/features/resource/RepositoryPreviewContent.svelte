@@ -1,24 +1,60 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
   import {
     ChevronDown,
     ChevronRight,
-    File,
+    File as FileIcon,
     Folder,
     List,
-    ListTree
+    ListTree,
+    RefreshCw
   } from 'lucide-svelte';
+  import GroupedSelect from '../../components/GroupedSelect.svelte';
+  import { formatFileSize } from '../../lib/format';
   import {
     buildRepositoryPreviewTree,
+    repositoryRevisionGroups,
     visibleRepositoryPreviewNodes,
+    type RepositoryBranchRevision,
     type RepositoryPreviewEntry
   } from './repositoryPreview';
 
+  export let title = '仓库预览';
+  export let subtitle = '';
   export let entries: RepositoryPreviewEntry[] = [];
+  export let branches: RepositoryBranchRevision[] = [];
+  export let selectedBranch = '';
+  export let selectedCommit = '';
+  export let revisionEditable = false;
+  export let showRevisionSelector = true;
+  export let showRefresh = false;
+  export let refreshLabel = '刷新';
+  export let showPreviewArea = true;
   export let busy = false;
   export let failed = false;
+  export let failureReason = '';
 
-  let mode: 'list' | 'tree' = 'list';
+  const dispatch = createEventDispatcher<{
+    refresh: void;
+    revisionchange: { branch: string; commitID: string };
+  }>();
+  let mode: 'list' | 'tree' = 'tree';
   let expandedPaths = new Set<string>();
+  $: selectedBranchOption = branches.find(
+    (option) => option.branch === selectedBranch
+  );
+  $: if (branches.length && !selectedBranch) {
+    selectedBranch =
+      branches.find((option) => option.is_default)?.branch ??
+      branches[0].branch;
+  }
+  $: if (selectedBranchOption && !selectedCommit)
+    selectedCommit = selectedBranchOption.commits[0] ?? '';
+  $: revisionGroups = repositoryRevisionGroups(
+    branches,
+    selectedBranch,
+    selectedCommit
+  );
   $: tree = buildRepositoryPreviewTree(entries);
   $: flattenedTree = visibleRepositoryPreviewNodes(tree, expandedPaths);
 
@@ -28,82 +64,188 @@
     else next.add(path);
     expandedPaths = next;
   }
+
+  function changeRevision(
+    event: CustomEvent<{ group: string; value: string }>
+  ) {
+    selectedBranch = event.detail.group;
+    selectedCommit = event.detail.value;
+    dispatch('revisionchange', {
+      branch: selectedBranch,
+      commitID: selectedCommit
+    });
+  }
 </script>
 
-<div class="repository-preview-content">
-  <div class="preview-panel">
-    <div
-      class="preview-mode segmented-control"
-      role="group"
-      aria-label="仓库预览模式"
-    >
-      <button
-        class:active={mode === 'list'}
-        type="button"
-        aria-pressed={mode === 'list'}
-        on:click={() => (mode = 'list')}
-        ><List size={14} aria-hidden="true" />列表</button
-      >
-      <button
-        class:active={mode === 'tree'}
-        type="button"
-        aria-pressed={mode === 'tree'}
-        on:click={() => (mode = 'tree')}
-        ><ListTree size={14} aria-hidden="true" />目录树</button
-      >
+<section class="repository-preview">
+  <header class="preview-heading">
+    <div class="preview-title">
+      <strong>{title}</strong>
+      {#if subtitle}<small>{subtitle}</small>{/if}
     </div>
-    {#if entries.length}
-      {#if mode === 'list'}
-        <ul class="repository-file-list" aria-label="仓库文件列表">
-          {#each entries as entry (entry.path)}<li>
-              <code>{entry.path}</code>{#if entry.size !== undefined}<small
-                  >{entry.size} B</small
-                >{/if}
-            </li>{/each}
-        </ul>
-      {:else}
-        <ul class="repository-file-tree" aria-label="仓库目录树">
-          {#each flattenedTree as node (node.path)}
-            <li style:--depth={node.depth}>
-              {#if node.children.length}
-                <button
-                  class="tree-toggle"
-                  type="button"
-                  aria-expanded={expandedPaths.has(node.path)}
-                  aria-label={`${expandedPaths.has(node.path) ? '折叠' : '展开'} ${node.name}`}
-                  on:click={() => toggle(node.path)}
-                >
-                  {#if expandedPaths.has(node.path)}<ChevronDown
-                      size={14}
-                      aria-hidden="true"
-                    />{:else}<ChevronRight size={14} aria-hidden="true" />{/if}
-                  <Folder size={14} aria-hidden="true" /><span>{node.name}</span
-                  >
-                </button>
-              {:else}
-                <span class="tree-file"
-                  ><File size={14} aria-hidden="true" /><code>{node.name}</code
-                  ></span
-                >
-              {/if}
-              {#if node.size !== undefined}<small>{node.size} B</small>{/if}
-            </li>
-          {/each}
-        </ul>
+    <div class="preview-actions">
+      {#if showPreviewArea && showRevisionSelector && branches.length}
+        <GroupedSelect
+          groups={revisionGroups}
+          group={selectedBranch}
+          value={selectedCommit}
+          groupLabel="分支"
+          optionLabel="Commit ID"
+          ariaLabel="选择分支和 Commit ID"
+          disabled={!revisionEditable || busy}
+          on:change={changeRevision}
+        />
       {/if}
-    {:else if busy}
-      <p class="preview-empty muted">正在读取仓库内容…</p>
-    {:else if failed}
-      <p class="preview-empty muted">读取失败，请根据标题栏提示处理后重试。</p>
-    {:else}
-      <p class="preview-empty muted">仓库没有可显示的文件，或默认分支为空。</p>
-    {/if}
-  </div>
-</div>
+      {#if showRefresh}
+        <button
+          class="secondary refresh-button"
+          type="button"
+          disabled={busy}
+          on:click={() => dispatch('refresh')}
+        >
+          <RefreshCw size={14} aria-hidden="true" />
+          {busy
+            ? refreshLabel === '预览'
+              ? '预览中…'
+              : '刷新中…'
+            : refreshLabel}
+        </button>
+      {/if}
+    </div>
+  </header>
+
+  {#if showPreviewArea}
+    <div class="preview-panel">
+      <div
+        class="preview-mode segmented-control"
+        role="group"
+        aria-label="仓库预览模式"
+      >
+        <button
+          class:active={mode === 'list'}
+          type="button"
+          aria-pressed={mode === 'list'}
+          on:click={() => (mode = 'list')}
+          ><List size={14} aria-hidden="true" />列表</button
+        >
+        <button
+          class:active={mode === 'tree'}
+          type="button"
+          aria-pressed={mode === 'tree'}
+          on:click={() => (mode = 'tree')}
+          ><ListTree size={14} aria-hidden="true" />目录树</button
+        >
+      </div>
+      {#if entries.length}
+        {#if mode === 'list'}
+          <ul class="repository-file-list" aria-label="仓库文件列表">
+            {#each entries as entry (entry.path)}
+              <li>
+                <code>{entry.path}</code>{#if entry.size !== undefined}<small
+                    >{formatFileSize(entry.size)}</small
+                  >{/if}
+              </li>
+            {/each}
+          </ul>
+        {:else}
+          <ul class="repository-file-tree" aria-label="仓库目录树">
+            {#each flattenedTree as node (node.path)}
+              <li style:--depth={node.depth}>
+                {#if node.children.length}
+                  <button
+                    class="tree-toggle"
+                    type="button"
+                    aria-expanded={expandedPaths.has(node.path)}
+                    aria-label={(expandedPaths.has(node.path)
+                      ? '折叠'
+                      : '展开') +
+                      ' ' +
+                      node.name}
+                    on:click={() => toggle(node.path)}
+                  >
+                    {#if expandedPaths.has(node.path)}<ChevronDown
+                        size={14}
+                        aria-hidden="true"
+                      />{:else}<ChevronRight
+                        size={14}
+                        aria-hidden="true"
+                      />{/if}
+                    <Folder size={14} aria-hidden="true" /><span
+                      >{node.name}</span
+                    >
+                  </button>
+                {:else}
+                  <span class="tree-file"
+                    ><FileIcon size={14} aria-hidden="true" /><code
+                      >{node.name}</code
+                    ></span
+                  >
+                {/if}
+                {#if node.size !== undefined}<small
+                    >{formatFileSize(node.size)}</small
+                  >{/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      {:else if busy}
+        <p class="preview-empty muted">正在读取仓库内容…</p>
+      {:else if failed}
+        <p class="preview-empty muted">
+          {failureReason || '读取失败，请根据标题栏提示处理后重试。'}
+        </p>
+      {:else}
+        <p class="preview-empty muted">
+          仓库没有可显示的文件，或所选分支为空。
+        </p>
+      {/if}
+    </div>
+  {/if}
+</section>
 
 <style>
-  .repository-preview-content {
+  .repository-preview {
+    display: grid;
+    gap: 9px;
+    width: 100%;
     min-width: 0;
+  }
+  .preview-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+  }
+  .preview-title {
+    display: grid;
+    flex: 0 1 auto;
+    gap: 3px;
+    min-width: 0;
+  }
+  .preview-title strong {
+    color: var(--theme-fg-strong);
+    font-size: 13px;
+  }
+  .preview-title small {
+    color: var(--theme-fg-muted);
+    font-size: 11px;
+  }
+  .preview-actions {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    min-width: 0;
+  }
+  .refresh-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 34px;
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
   .preview-panel {
     position: relative;

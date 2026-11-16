@@ -42,27 +42,116 @@ type StorageConfig struct {
 	Postgres                                                      *pgxpool.Pool
 }
 type UploadResult struct {
-	ResourceID   string   `json:"resource_id"`
-	StorageKey   string   `json:"storage_key"`
-	Branches     []string `json:"branches"`
-	ArchivedRefs []string `json:"archived_refs,omitempty"`
+	ResourceID     string   `json:"resource_id"`
+	StorageKey     string   `json:"storage_key"`
+	StorageBackend string   `json:"storage_backend"`
+	CommitID       string   `json:"commit_id"`
+	DefaultBranch  string   `json:"default_branch"`
+	Branches       []string `json:"branches"`
+	ArchivedRefs   []string `json:"archived_refs,omitempty"`
 }
 
 type PreviewResult struct {
-	ResourceID string                     `json:"resource_id"`
-	Entries    []repositorytool.TreeEntry `json:"entries"`
+	ResourceID    string                           `json:"resource_id"`
+	DefaultBranch string                           `json:"default_branch,omitempty"`
+	Branches      []repositorytool.BranchRevisions `json:"branches,omitempty"`
+	CommitID      string                           `json:"commit_id,omitempty"`
+	Entries       []repositorytool.TreeEntry       `json:"entries"`
 }
 
-func (s *Service) PreviewDraft(ctx context.Context, subtype, rawURL, branch, username, password string) (PreviewResult, error) {
+func (s *Service) PreviewDraft(ctx context.Context, subtype, rawURL, branch, commitID, username, password string) (PreviewResult, error) {
 	if !strings.EqualFold(strings.TrimSpace(subtype), "Git") {
 		return PreviewResult{}, errors.New("draft preview only supports Git Repository")
 	}
 	in := repositorytool.ConnectionInput{URL: strings.TrimSpace(rawURL), Branch: strings.TrimSpace(branch), Username: strings.TrimSpace(username), Password: password, TimeoutSeconds: 30}
+	revisions, err := repositorytool.RepositoryRevisions(ctx, in, 20)
+	if err != nil {
+		return PreviewResult{}, err
+	}
+	branch, commitID = chooseRevision(revisions, branch, commitID)
+	if branch == "" || commitID == "" {
+		return PreviewResult{}, errors.New("repository has no selectable branch commit")
+	}
+	commitID, err = repositorytool.ResolveBranchCommit(ctx, in, branch, commitID)
+	if err != nil {
+		return PreviewResult{}, err
+	}
+	in.Branch, in.PinnedRevision = branch, commitID
 	entries, err := repositorytool.TreeAll(ctx, in, "")
 	if err != nil {
 		return PreviewResult{}, err
 	}
-	return PreviewResult{Entries: entries}, nil
+	return PreviewResult{DefaultBranch: branch, Branches: revisions, CommitID: commitID, Entries: entries}, nil
+}
+
+func (s *Service) RevisionsDraft(ctx context.Context, subtype, rawURL, username, password string) ([]repositorytool.BranchRevisions, error) {
+	if !strings.EqualFold(strings.TrimSpace(subtype), "Git") {
+		return nil, errors.New("draft revision lookup only supports Git Repository")
+	}
+	in := repositorytool.ConnectionInput{URL: strings.TrimSpace(rawURL), Username: strings.TrimSpace(username), Password: password, TimeoutSeconds: 30}
+	return repositorytool.RepositoryRevisions(ctx, in, 20)
+}
+
+func (s *Service) Revisions(ctx context.Context, id string) ([]repositorytool.BranchRevisions, error) {
+	item, err := s.resources.Get(ctx, id)
+	if err != nil { return nil, err }
+	if item.Kind != "Repository" || (!strings.EqualFold(item.Subtype, "Git") && !strings.EqualFold(item.Subtype, "Bundle")) {
+		return nil, errors.New("resource must be a Git or Bundle Repository")
+	}
+	in, err := s.repositoryInput(ctx, item)
+	if err != nil { return nil, err }
+	return repositorytool.RepositoryRevisions(ctx, in, 20)
+}
+
+func chooseRevision(revisions []repositorytool.BranchRevisions, branch, commitID string) (string, string) {
+	if commitID != "" && branch == "" {
+		return "", ""
+	}
+	for _, option := range revisions {
+		if option.Branch != branch {
+			continue
+		}
+		if commitID != "" {
+			return branch, commitID
+		}
+		for _, available := range option.Commits {
+			return branch, available
+		}
+	}
+	for _, option := range revisions {
+		if option.IsDefault && len(option.Commits) > 0 {
+			return option.Branch, option.Commits[0]
+		}
+	}
+	if len(revisions) > 0 && len(revisions[0].Commits) > 0 {
+		return revisions[0].Branch, revisions[0].Commits[0]
+	}
+	return "", ""
+}
+
+func repositoryEndpoint(item resource.Resource, branch, commitID string) string {
+	if strings.EqualFold(item.Subtype, "Git") {
+		return stringConfig(item.Config, "url") + " [" + branch + "·" + commitID + "]"
+	}
+	return item.ID + " [" + branch + "·" + commitID + "]"
+}
+
+func (s *Service) repositoryInput(ctx context.Context, item resource.Resource) (repositorytool.ConnectionInput, error) {
+	if strings.EqualFold(item.Subtype, "Bundle") {
+		return s.bundleInput(item), nil
+	}
+	in := repositorytool.ConnectionInput{URL: stringConfig(item.Config, "url"), TimeoutSeconds: 30}
+	if reader, ok := s.resources.(interface {
+		RevealSecret(context.Context, string) ([]byte, error)
+	}); ok {
+		if raw, err := reader.RevealSecret(ctx, item.ID); err == nil && len(raw) > 0 {
+			var credential struct{ Username, Password string }
+			if json.Unmarshal(raw, &credential) == nil {
+				in.Username, in.Password = credential.Username, credential.Password
+			}
+		}
+	}
+	return in, nil
 }
 
 func NewService(root string, maxBytes int64, resources interface {
@@ -153,15 +242,24 @@ func (s *Service) UploadBundle(ctx context.Context, id string, r io.Reader, size
 	if e != nil {
 		return UploadResult{}, e
 	}
-	if err := s.updateStorageConfig(ctx, id, item, "local", id); err != nil {
+	branch, commitID, e := latestCommitID(ctx, repoDir, item, branches)
+	if e != nil {
+		return UploadResult{}, e
+	}
+	if err := s.updateStorageConfig(ctx, id, item, "local", id, branch, commitID); err != nil {
 		return UploadResult{}, err
 	}
-	return UploadResult{ResourceID: id, StorageKey: id, Branches: branches, ArchivedRefs: archived}, nil
+	return UploadResult{ResourceID: id, StorageKey: id, StorageBackend: "local", CommitID: commitID, DefaultBranch: branch, Branches: branches, ArchivedRefs: archived}, nil
 }
 
 // Preview returns every file in a persisted Git or Bundle repository.
 // Credentials are read server-side and are never returned.
 func (s *Service) Preview(ctx context.Context, id string) (PreviewResult, error) {
+	return s.PreviewRevision(ctx, id, "", "")
+}
+
+// PreviewRevision reads a temporary selection without changing resource metadata.
+func (s *Service) PreviewRevision(ctx context.Context, id, selectedBranch, selectedCommit string) (PreviewResult, error) {
 	if s == nil || s.resources == nil {
 		return PreviewResult{}, errors.New("repository service unavailable")
 	}
@@ -172,29 +270,71 @@ func (s *Service) Preview(ctx context.Context, id string) (PreviewResult, error)
 	if item.Kind != "Repository" {
 		return PreviewResult{}, errors.New("resource must be a Repository")
 	}
-	in := repositorytool.ConnectionInput{TimeoutSeconds: 30}
-	if strings.EqualFold(item.Subtype, "Bundle") {
-		in.StorageBackend, in.StorageKey = s.storage.Backend, stringConfig(item.Config, "storage_key")
-		in.Path, in.S3Endpoint, in.S3Bucket, in.S3Prefix = s.storage.Root, s.storage.Endpoint, s.storage.Bucket, s.storage.Prefix
-		in.S3AccessKey, in.S3SecretKey, in.S3UseSSL, in.Postgres = s.storage.AccessKey, s.storage.SecretKey, s.storage.UseSSL, s.storage.Postgres
-	} else {
-		in.URL, in.Branch = stringConfig(item.Config, "url"), stringConfig(item.Config, "default_branch")
-		if reader, ok := s.resources.(interface {
-			RevealSecret(context.Context, string) ([]byte, error)
-		}); ok {
-			if raw, secretErr := reader.RevealSecret(ctx, item.ID); secretErr == nil && len(raw) > 0 {
-				var credential struct{ Username, Password string }
-				if json.Unmarshal(raw, &credential) == nil {
-					in.Username, in.Password = credential.Username, credential.Password
-				}
-			}
+	if !strings.EqualFold(item.Subtype, "Git") && !strings.EqualFold(item.Subtype, "Bundle") {
+		return PreviewResult{}, errors.New("unsupported Repository subtype")
+	}
+	in, err := s.repositoryInput(ctx, item)
+	if err != nil {
+		return PreviewResult{}, err
+	}
+	if selectedBranch == "" && selectedCommit == "" {
+		endpoint := stringConfig(item.Config, "endpoint")
+		selectedBranch, selectedCommit = repositorytool.ParseEndpointSelection(item.Subtype, stringConfig(item.Config, "url"), endpoint)
+		if endpoint != "" && selectedBranch == "" {
+			return PreviewResult{}, errors.New("invalid Repository branch and commit selection")
+		}
+		if selectedBranch == "" {
+			selectedBranch = stringConfig(item.Config, "default_branch")
 		}
 	}
+	revisions, err := repositorytool.RepositoryRevisions(ctx, in, 20)
+	if err != nil {
+		return PreviewResult{}, err
+	}
+	if selectedBranch != "" {
+		found := false
+		for _, revision := range revisions {
+			if revision.Branch == selectedBranch {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return PreviewResult{}, errors.New("repository branch not found")
+		}
+	}
+	selectedBranch, selectedCommit = chooseRevision(revisions, selectedBranch, selectedCommit)
+	if selectedBranch == "" || selectedCommit == "" {
+		return PreviewResult{}, errors.New("repository has no selectable branch commit")
+	}
+	selectedCommit, err = repositorytool.ResolveBranchCommit(ctx, in, selectedBranch, selectedCommit)
+	if err != nil {
+		return PreviewResult{}, err
+	}
+	in.Branch, in.PinnedRevision = selectedBranch, selectedCommit
 	entries, err := repositorytool.TreeAll(ctx, in, "")
 	if err != nil {
 		return PreviewResult{}, err
 	}
-	return PreviewResult{ResourceID: item.ID, Entries: entries}, nil
+	return PreviewResult{ResourceID: item.ID, DefaultBranch: selectedBranch, Branches: revisions, CommitID: selectedCommit, Entries: entries}, nil
+}
+
+func (s *Service) bundleInput(item resource.Resource) repositorytool.ConnectionInput {
+	backend := strings.TrimSpace(s.storage.Backend)
+	if backend == "" {
+		backend = "postgres"
+	}
+	branch, commitID := repositorytool.ParseEndpointSelection("Bundle", "", stringConfig(item.Config, "endpoint"))
+	if branch == "" {
+		branch = stringConfig(item.Config, "default_branch")
+	}
+	return repositorytool.ConnectionInput{
+		Branch: branch, PinnedRevision: commitID,
+		StorageBackend: backend, StorageKey: stringConfig(item.Config, "storage_key"),
+		Path: s.storage.Root, S3Endpoint: s.storage.Endpoint, S3Bucket: s.storage.Bucket, S3Prefix: s.storage.Prefix,
+		S3AccessKey: s.storage.AccessKey, S3SecretKey: s.storage.SecretKey, S3UseSSL: s.storage.UseSSL, Postgres: s.storage.Postgres,
+		TimeoutSeconds: 30,
+	}
 }
 
 func (s *Service) uploadPostgres(ctx context.Context, id string, r io.Reader, size int64, item resource.Resource) (UploadResult, error) {
@@ -253,6 +393,14 @@ func (s *Service) uploadPostgres(ctx context.Context, id string, r io.Reader, si
 	if err := run(ctx, "--git-dir", repoDir, "fetch", upload, "+refs/heads/*:refs/heads/*"); err != nil {
 		return UploadResult{}, err
 	}
+	branches, err := repoBranches(ctx, repoDir)
+	if err != nil {
+		return UploadResult{}, err
+	}
+	branch, commitID, err := latestCommitID(ctx, repoDir, item, branches)
+	if err != nil {
+		return UploadResult{}, err
+	}
 	full := filepath.Join(dir, "full.bundle")
 	if err := run(ctx, "--git-dir", repoDir, "bundle", "create", full, "--all"); err != nil {
 		return UploadResult{}, err
@@ -264,21 +412,13 @@ func (s *Service) uploadPostgres(ctx context.Context, id string, r io.Reader, si
 	if _, err := s.storage.Postgres.Exec(ctx, `INSERT INTO repository_bundles(resource_id,bundle) VALUES($1::uuid,$2) ON CONFLICT(resource_id) DO UPDATE SET bundle=EXCLUDED.bundle,updated_at=now()`, id, bundle); err != nil {
 		return UploadResult{}, err
 	}
-	return s.finishUpload(ctx, id, item, "postgres", id, repoDir, archived)
-}
-
-func (s *Service) finishUpload(ctx context.Context, id string, item resource.Resource, backend, key, repoDir string, archived []string) (UploadResult, error) {
-	branches, err := repoBranches(ctx, repoDir)
-	if err != nil {
+	if err := s.updateStorageConfig(ctx, id, item, "postgres", id, branch, commitID); err != nil {
 		return UploadResult{}, err
 	}
-	if err := s.updateStorageConfig(ctx, id, item, backend, key); err != nil {
-		return UploadResult{}, err
-	}
-	return UploadResult{ResourceID: id, StorageKey: key, Branches: branches, ArchivedRefs: archived}, nil
+	return UploadResult{ResourceID: id, StorageKey: id, StorageBackend: "postgres", CommitID: commitID, DefaultBranch: branch, Branches: branches, ArchivedRefs: archived}, nil
 }
 
-func (s *Service) updateStorageConfig(ctx context.Context, id string, item resource.Resource, backend, key string) error {
+func (s *Service) updateStorageConfig(ctx context.Context, id string, item resource.Resource, backend, key, branch, commitID string) error {
 	updater, ok := s.resources.(interface {
 		Update(context.Context, string, resource.UpdateInput) (resource.Resource, error)
 	})
@@ -295,6 +435,8 @@ func (s *Service) updateStorageConfig(ctx context.Context, id string, item resou
 	delete(cfg, "s3_prefix")
 	cfg["storage_backend"] = backend
 	cfg["storage_key"] = key
+	cfg["default_branch"] = branch
+	cfg["endpoint"] = repositoryEndpoint(item, branch, commitID)
 	if _, err := updater.Update(ctx, id, resource.UpdateInput{Config: &cfg}); err != nil {
 		return fmt.Errorf("update repository storage metadata: %w", err)
 	}
@@ -383,6 +525,14 @@ func (s *Service) uploadS3(ctx context.Context, id string, r io.Reader, size int
 	if e = run(ctx, "--git-dir", repoDir, "fetch", upload, "+refs/heads/*:refs/heads/*"); e != nil {
 		return UploadResult{}, e
 	}
+	branches, e := repoBranches(ctx, repoDir)
+	if e != nil {
+		return UploadResult{}, e
+	}
+	branch, commitID, e := latestCommitID(ctx, repoDir, item, branches)
+	if e != nil {
+		return UploadResult{}, e
+	}
 	full := filepath.Join(dir, "full.bundle")
 	if e = run(ctx, "--git-dir", repoDir, "bundle", "create", full, "--all"); e != nil {
 		return UploadResult{}, e
@@ -400,14 +550,41 @@ func (s *Service) uploadS3(ctx context.Context, id string, r io.Reader, size int
 	if e != nil {
 		return UploadResult{}, e
 	}
-	branches, e := repoBranches(ctx, repoDir)
-	if e != nil {
-		return UploadResult{}, e
-	}
-	if err := s.updateStorageConfig(ctx, id, item, "s3", key); err != nil {
+	if err := s.updateStorageConfig(ctx, id, item, "s3", key, branch, commitID); err != nil {
 		return UploadResult{}, err
 	}
-	return UploadResult{ResourceID: id, StorageKey: key, Branches: branches, ArchivedRefs: archived}, nil
+	return UploadResult{ResourceID: id, StorageKey: key, StorageBackend: "s3", CommitID: commitID, DefaultBranch: branch, Branches: branches, ArchivedRefs: archived}, nil
+}
+
+func latestCommitID(ctx context.Context, dir string, item resource.Resource, branches []string) (string, string, error) {
+	if len(branches) == 0 {
+		return "", "", errors.New("bundle contains no branches")
+	}
+	branch := stringConfig(item.Config, "default_branch")
+	if !containsBranch(branches, branch) {
+		out, err := exec.CommandContext(ctx, "git", "--git-dir", dir, "for-each-ref", "--sort=-committerdate", "--format=%(refname:short)", "refs/heads").Output()
+		if err != nil {
+			return "", "", err
+		}
+		branch = strings.TrimSpace(strings.SplitN(string(out), "\n", 2)[0])
+	}
+	if branch == "" {
+		return "", "", errors.New("bundle contains no branch commit")
+	}
+	out, err := exec.CommandContext(ctx, "git", "--git-dir", dir, "rev-parse", "--verify", "--end-of-options", "refs/heads/"+branch+"^{commit}").Output()
+	if err != nil {
+		return "", "", err
+	}
+	return branch, strings.TrimSpace(string(out)), nil
+}
+
+func containsBranch(branches []string, candidate string) bool {
+	for _, branch := range branches {
+		if branch == candidate {
+			return true
+		}
+	}
+	return false
 }
 func objectKey(prefix, id string) string {
 	return strings.Trim(prefix, "/") + "/" + id + "/repository.bundle"

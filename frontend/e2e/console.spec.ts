@@ -148,6 +148,15 @@ function pageData(page: Page, requireLogin = false, platformAdmin = false) {
             labels: {},
             source: 'manual',
             source_config: {},
+            summary: {
+              applications: 0,
+              applications_healthy: 0,
+              instances: 0,
+              instances_healthy: 0,
+              resources: 0,
+              alerts: 0,
+              dependencies: 0
+            },
             status: 'active',
             created_at: user.created_at,
             updated_at: user.updated_at
@@ -420,6 +429,180 @@ function pageData(page: Page, requireLogin = false, platformAdmin = false) {
 }
 
 test.describe('T07 console', () => {
+  test('toggles the sidebar with floating boundary chevrons', async ({
+    page
+  }) => {
+    await pageData(page);
+    await page.goto('./');
+
+    const sidebar = page.locator('.sidebar');
+    const toggle = page.getByRole('button', { name: '折叠导航栏' });
+    const username = page.locator('.user-menu-name');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    const expanded = await page.evaluate(() => {
+      const edge = document
+        .querySelector('.sidebar')!
+        .getBoundingClientRect().right;
+      const control = document
+        .querySelector('.sidebar-toggle')!
+        .getBoundingClientRect();
+      const name = document
+        .querySelector('.user-menu-name')!
+        .getBoundingClientRect();
+      const footer = document
+        .querySelector('.sidebar-footer')!
+        .getBoundingClientRect();
+      const workspace = document
+        .querySelector('.workspace-label')!
+        .getBoundingClientRect();
+      const titlebar = document
+        .querySelector('.topbar')!
+        .getBoundingClientRect();
+      const firstItem = document
+        .querySelector('.nav-item')!
+        .getBoundingClientRect();
+      const firstIcon = document
+        .querySelector('.nav-item svg')!
+        .getBoundingClientRect();
+      const styles = window.getComputedStyle(
+        document.querySelector('.sidebar-toggle')!
+      );
+      const sidebarStyles = window.getComputedStyle(
+        document.querySelector('.sidebar')!
+      );
+      const footerStyles = window.getComputedStyle(
+        document.querySelector('.sidebar-footer')!
+      );
+      const icon = document.querySelector('.sidebar-toggle svg')!;
+      const iconRect = icon.getBoundingClientRect();
+      return {
+        edge,
+        center: control.left + control.width / 2,
+        upperTipX: iconRect.left + (15 / 24) * iconRect.width,
+        lowerTipX: iconRect.left + (15 / 24) * iconRect.width,
+        pointX: iconRect.left + (9 / 24) * iconRect.width,
+        workspaceCenter: workspace.left + workspace.width / 2,
+        sidebarCenter:
+          document.querySelector('.sidebar')!.getBoundingClientRect().left +
+          document.querySelector('.sidebar')!.getBoundingClientRect().width / 2,
+        workspaceBottom: workspace.bottom,
+        titlebarBottom: titlebar.bottom,
+        firstItemTop: firstItem.top,
+        firstIconTop: firstIcon.top,
+        toggleColor: styles.color,
+        dividerColor: sidebarStyles.borderRightColor,
+        strokeWidth: icon.getAttribute('stroke-width'),
+        nameRight: name.right,
+        footerRight: footer.right,
+        background: styles.backgroundColor,
+        footerPaddingRight: footerStyles.paddingRight,
+        path: icon.querySelector('path')?.getAttribute('d')
+      };
+    });
+    expect(Math.abs(expanded.center - expanded.edge)).toBeLessThan(1);
+    expect(Math.abs(expanded.upperTipX - expanded.edge)).toBeLessThan(1);
+    expect(Math.abs(expanded.lowerTipX - expanded.edge)).toBeLessThan(1);
+    expect(expanded.pointX).toBeLessThan(expanded.edge);
+    expect(
+      Math.abs(expanded.workspaceCenter - expanded.sidebarCenter)
+    ).toBeLessThan(1);
+    expect(
+      Math.abs(expanded.workspaceBottom - expanded.titlebarBottom)
+    ).toBeLessThan(1);
+    expect(expanded.firstItemTop - expanded.workspaceBottom).toBe(9);
+    expect(expanded.toggleColor).toBe(expanded.dividerColor);
+    expect(expanded.strokeWidth).toBe('1');
+    expect(expanded.path).toBe('m15 18-6-6 6-6');
+    expect(expanded.nameRight).toBeLessThanOrEqual(expanded.footerRight);
+    expect(expanded.background).toBe('rgba(0, 0, 0, 0)');
+    expect(expanded.footerPaddingRight).toBe('0px');
+
+    await toggle.focus();
+    await page.keyboard.press('Enter');
+    const expand = page.getByRole('button', { name: '展开导航栏' });
+    await expect(expand).toHaveAttribute('aria-expanded', 'false');
+    await expect(sidebar).toHaveClass(/sidebar-compact/);
+    const collapsed = await page.evaluate(() => {
+      const edge = document
+        .querySelector('.sidebar')!
+        .getBoundingClientRect().right;
+      const icon = document.querySelector('.sidebar-toggle svg')!;
+      const rect = icon.getBoundingClientRect();
+      const firstIcon = document
+        .querySelector('.nav-item svg')!
+        .getBoundingClientRect();
+      return {
+        edge,
+        upperTipX: rect.left + (9 / 24) * rect.width,
+        lowerTipX: rect.left + (9 / 24) * rect.width,
+        pointX: rect.left + (15 / 24) * rect.width,
+        firstIconTop: firstIcon.top,
+        workspaceVisibility: window.getComputedStyle(
+          document.querySelector('.workspace-label')!
+        ).visibility,
+        path: icon.querySelector('path')?.getAttribute('d')
+      };
+    });
+    expect(Math.abs(collapsed.upperTipX - collapsed.edge)).toBeLessThan(1);
+    expect(Math.abs(collapsed.lowerTipX - collapsed.edge)).toBeLessThan(1);
+    expect(collapsed.pointX).toBeGreaterThan(collapsed.edge);
+    expect(collapsed.path).toBe('m9 18 6-6-6-6');
+    expect(collapsed.firstIconTop).toBe(expanded.firstIconTop);
+    expect(collapsed.workspaceVisibility).toBe('hidden');
+    await expand.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('shows a simulated fault in the main title bar without refreshing the session', async ({
+    page
+  }) => {
+    await pageData(page);
+    let mockRequests = 0;
+    let refreshRequests = 0;
+    await page.route('**/api/v1/mock/errors', (route) => {
+      mockRequests += 1;
+      return route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: {
+            code: 'M0002',
+            type: 'mock_1002',
+            message: '模拟故障：访问凭据已过期，身份认证失败'
+          }
+        })
+      });
+    });
+    await page.route('**/api/v1/auth/refresh', (route) => {
+      refreshRequests += 1;
+      return route.fulfill({ status: 204 });
+    });
+    await page.goto('./');
+    const trigger = page.getByRole('button', {
+      name: 'WORKSPACE',
+      exact: true
+    });
+    await trigger.click();
+    const message = page.locator('.topbar .topbar-message-slot');
+    await expect(message.locator('.message-code')).toHaveText(['401', 'M0002']);
+    await expect(message.locator('.message-type')).toHaveText('mock_1002');
+    await expect(message).toContainText('访问凭据已过期，身份认证失败');
+    expect(mockRequests).toBe(1);
+    expect(refreshRequests).toBe(0);
+    await expect(page.getByRole('heading', { name: '平台总览' })).toBeVisible();
+    await page.getByRole('button', { name: '资源', exact: true }).click();
+    await page.getByRole('button', { name: '新增资源', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: '基础配置', exact: true })
+    ).toBeVisible();
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    await expect(message.locator('.message-code')).toHaveText(['401', 'M0002']);
+    expect(mockRequests).toBe(2);
+    expect(refreshRequests).toBe(0);
+    await expect(message).toBeHidden({ timeout: 7_000 });
+  });
+
   test('logs in and restores the workspace session', async ({ page }) => {
     let healthRequests = 0;
     await page.route('**/health/ready', (route) => {

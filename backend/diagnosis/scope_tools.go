@@ -15,7 +15,7 @@ import (
 type scopeQueryReader interface {
 	DiagnosticScopeTeams(context.Context, string) ([]application.DiagnosticScopeTeam, error)
 	DiagnosticScopeProjects(context.Context, string, string) ([]application.DiagnosticScopeProject, error)
-	DiagnosticScopeApplications(context.Context, string, string, string, int, int) (application.DiagnosticScopeApplicationPage, error)
+	DiagnosticScopeApplications(context.Context, string, string, string, string, int, int) (application.DiagnosticScopeApplicationPage, error)
 	DiagnosticApplicationContextByLocator(context.Context, string, string, string) (application.DiagnosticContext, error)
 }
 
@@ -40,8 +40,8 @@ func (s *Service) diagnosticScopeTools(authorizationContext context.Context, sco
 		}},
 		engine.ToolFunc{Def: engine.ToolDefinition{
 			Name: "diagnosis_scope_projects", Source: scopeToolSource, ReadOnly: true,
-			Description: "列出当前诊断范围内可见的项目及应用数量。可用 team_name 缩小到一个团队；不要传内部 ID。",
-			InputSchema: json.RawMessage(`{"type":"object","properties":{"team_name":{"type":"string","maxLength":200,"description":"团队名称，用于缩小项目范围；不是数据库内部 ID。"}},"additionalProperties":false}`),
+			Description: "列出当前诊断范围内可见的项目及应用数量。team_name 只能填写团队名称，不能填写项目名称；不要传内部 ID。",
+			InputSchema: json.RawMessage(`{"type":"object","properties":{"team_name":{"type":"string","maxLength":200,"description":"团队名称（不是项目名称），用于缩小项目范围；不是数据库内部 ID。"}},"additionalProperties":false}`),
 		}, Fn: func(ctx context.Context, args map[string]any) (engine.ToolResult, error) {
 			items, err := reader.DiagnosticScopeProjects(withAuthorizationContext(ctx, authorizationContext), scopeID, scopeToolString(args, "team_name"))
 			if err != nil {
@@ -51,10 +51,10 @@ func (s *Service) diagnosticScopeTools(authorizationContext context.Context, sco
 		}},
 		engine.ToolFunc{Def: engine.ToolDefinition{
 			Name: "diagnosis_scope_applications", Source: scopeToolSource, ReadOnly: true,
-			Description: "按需分页列出当前范围内的应用摘要。可用 team_name 和 project_code 过滤；limit 最大 100，返回 total 以便继续分页。",
-			InputSchema: json.RawMessage(`{"type":"object","properties":{"team_name":{"type":"string","maxLength":200,"description":"团队名称，用于缩小应用范围；不是数据库内部 ID。"},"project_code":{"type":"string","maxLength":100,"description":"项目编码，用于缩小应用范围；不是数据库内部 ID。"},"offset":{"type":"integer","minimum":0,"maximum":1000000,"description":"从零开始的分页偏移量；使用上一页返回的 next_offset 继续。"},"limit":{"type":"integer","minimum":1,"maximum":100,"description":"本页最多返回的应用数量，最大为 100。"}},"additionalProperties":false}`),
+			Description: "列出团队或项目中的应用摘要（不是单个应用详情）。用户问‘某团队/当前团队有哪些应用’时必须调用本工具并填写 team_name；问‘某项目/当前项目有哪些应用’时调用本工具并填写 project_name。team_name 只能是实际团队名称，project_name 只能是实际项目名称。不要用 diagnosis_application_context 查询团队或项目的应用清单。结果支持分页，limit 最大 100。",
+			InputSchema: json.RawMessage(`{"type":"object","properties":{"team_name":{"type":"string","maxLength":200,"description":"团队名称。列出某团队有哪些应用时填写团队名；绝不能填写项目名。"},"project_name":{"type":"string","maxLength":200,"description":"项目名称。列出某项目有哪些应用时填写项目名；绝不能填写团队名。"},"project_code":{"type":"string","maxLength":100,"description":"项目编码，可与 project_name 组合过滤；不是数据库内部 ID。"},"offset":{"type":"integer","minimum":0,"maximum":1000000,"description":"从零开始的分页偏移量；使用上一页返回的 next_offset 继续。"},"limit":{"type":"integer","minimum":1,"maximum":100,"description":"本页最多返回的应用数量，最大为 100。"}},"additionalProperties":false}`),
 		}, Fn: func(ctx context.Context, args map[string]any) (engine.ToolResult, error) {
-			page, err := reader.DiagnosticScopeApplications(withAuthorizationContext(ctx, authorizationContext), scopeID, scopeToolString(args, "team_name"), scopeToolString(args, "project_code"), scopeToolInt(args, "offset", 0), scopeToolInt(args, "limit", 100))
+			page, err := reader.DiagnosticScopeApplications(withAuthorizationContext(ctx, authorizationContext), scopeID, scopeToolString(args, "team_name"), scopeToolString(args, "project_name"), scopeToolString(args, "project_code"), scopeToolInt(args, "offset", 0), scopeToolInt(args, "limit", 100))
 			if err != nil {
 				return engine.ToolResult{}, err
 			}
@@ -62,7 +62,7 @@ func (s *Service) diagnosticScopeTools(authorizationContext context.Context, sco
 		}},
 		engine.ToolFunc{Def: engine.ToolDefinition{
 			Name: "diagnosis_application_context", Source: scopeToolSource, ReadOnly: true,
-			Description: "仅在用户明确询问一个应用，且 application_context 未包含该应用时，按应用名称或编码读取其配置拓扑。参数只能是应用名称/编码，绝不能把 selected_resources 中的资源名称（例如代码仓库、数据库或 Docker 资源）作为应用名称查询。未找到应用只表示该应用候选不存在；应继续检查 selected_resources 中类型匹配的对象和可用工具，不要据此结束诊断。",
+			Description: "仅用于读取一个已知具体应用的配置和拓扑，且 application_context 尚未包含该应用时才调用。绝不能用于列出团队/项目中的应用、统计应用或查找应用清单；这些问题必须调用 diagnosis_scope_applications。参数只能是一个明确的应用名称或编码，绝不能把团队名、项目名或 selected_resources 中的资源名称作为应用名称查询。未找到应用只表示该应用候选不存在；应继续按用户问题使用其他匹配工具。",
 			InputSchema: json.RawMessage(`{"type":"object","properties":{"application_name":{"type":"string","maxLength":200,"description":"应用名称；仅用于查应用，不能填资源名称"},"application_code":{"type":"string","maxLength":100,"description":"应用编码；仅用于查应用"}},"anyOf":[{"required":["application_name"]},{"required":["application_code"]}],"additionalProperties":false}`),
 		}, Fn: func(ctx context.Context, args map[string]any) (engine.ToolResult, error) {
 			name, code := scopeToolString(args, "application_name"), scopeToolString(args, "application_code")

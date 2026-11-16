@@ -85,6 +85,11 @@ func TestResourceSubtypeDirectAgentKinds(t *testing.T) {
 		if err := validateResourceSubtype("Host", subtype); err != nil {
 			t.Fatalf("validateResourceSubtype(Host, %q) error = %v", subtype, err)
 		}
+		for _, kind := range []string{"Prometheus", "Loki", "Tempo", "Jaeger", "Skywalking", "Alertmanager"} {
+			if err := validateResourceSubtype(kind, subtype); err != nil {
+				t.Errorf("validateResourceSubtype(%s, %q) error = %v", kind, subtype, err)
+			}
+		}
 	}
 	if err := validateResourceSubtype("PostgreSQL", "API"); err == nil {
 		t.Fatal("validateResourceSubtype(PostgreSQL, API) error = nil")

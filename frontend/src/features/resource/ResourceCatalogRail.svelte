@@ -8,10 +8,12 @@
     resourceCategoryFor,
     resourceCategoryIcon,
     resourceCategoryOptions,
+    resourceCatalogDomainOrder,
     resourceSubtypeFor,
     resourceCatalogTagOptions,
     resourceCatalogTagsFor,
-    resourceCatalogTagClass
+    resourceCatalogTagClass,
+    resourceDomainFor
   } from './resourceCatalog';
 
   export let resources: Resource[] = [];
@@ -24,6 +26,7 @@
   export let onToggleCatalogTag: (tag: string) => void = () => {};
 
   let expandedCategory = '';
+  let expandedDomain = resourceCatalogDomainOrder[0] ?? '';
   let filterOpen = false;
   let filterRoot: HTMLDivElement;
 
@@ -45,7 +48,7 @@
       const query = catalogQuery.trim().toLowerCase();
       const hasQuery = Boolean(query);
       const hasTags = selectedCatalogTags.length > 0;
-      const matchesQuery = [categoryName, ...tags]
+      const matchesQuery = [categoryName, resourceDomainFor(categoryName), ...tags]
         .join(' ')
         .toLowerCase()
         .includes(query);
@@ -54,6 +57,14 @@
       return (hasQuery && matchesQuery) || (hasTags && matchesTags);
     }
   );
+  $: groupedCategories = resourceCatalogDomainOrder
+    .map((domain) => ({
+      domain,
+      categories: filteredCategories.filter(
+        ([categoryName]) => resourceDomainFor(categoryName) === domain
+      )
+    }))
+    .filter((group) => group.categories.length > 0);
 
   function select(categoryName: string, subtypeName = '全部') {
     expandedCategory =
@@ -130,8 +141,20 @@
         </div>
       {/if}
     </div>
-    {#each filteredCategories as [categoryName, subtypes]}
-      <div class="catalog-category">
+    {#each groupedCategories as group}
+      <section class="catalog-domain-group" aria-label={group.domain}>
+        <button
+          class="catalog-domain-heading"
+          type="button"
+          aria-expanded={expandedDomain === group.domain}
+          on:click={() =>
+            (expandedDomain = expandedDomain === group.domain ? '' : group.domain)}
+        >
+          <strong>{group.domain}</strong>
+        </button>
+        {#if expandedDomain === group.domain}
+        {#each group.categories as [categoryName, subtypes]}
+        <div class="catalog-category">
         <button
           class:active={category === categoryName && subtype === '全部'}
           class="catalog-category-button"
@@ -185,7 +208,10 @@
             {/each}
           </div>
         {/if}
-      </div>
+        </div>
+        {/each}
+        {/if}
+      </section>
     {/each}
   </div>
 </section>

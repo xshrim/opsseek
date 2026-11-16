@@ -5,9 +5,11 @@
     ArrowLeft,
     ArrowRight,
     CheckCircle2,
+    ClipboardCheck,
     ChevronDown,
     ChevronUp,
     Clock3,
+    Link2,
     Map,
     Network,
     Pencil,
@@ -17,13 +19,17 @@
     Server,
     Sparkles,
     StickyNote,
-    Trash2
+    Trash2,
+    X
   } from 'lucide-svelte';
   import {
     api,
     type Application,
     type Project,
+    type ProjectTopology,
     type ProjectWorkspace,
+    type InspectionPolicy,
+    type InspectionRun,
     type Resource,
     type Team,
     type User
@@ -36,6 +42,7 @@
   import ReadonlyTable from '../../components/ReadonlyTable.svelte';
   import type { ReadonlyTableColumn } from '../../components/ReadonlyTable.svelte';
   import SearchInput from '../../components/SearchInput.svelte';
+  import Combobox from '../../components/Combobox.svelte';
   import ScopeChip from '../../components/ScopeChip.svelte';
   import ScopeLevelBadge from '../../components/ScopeLevelBadge.svelte';
   import DeleteConfirmationDialog from '../../components/DeleteConfirmationDialog.svelte';
@@ -51,6 +58,7 @@
   import ProjectCreateForm from './ProjectCreateForm.svelte';
   import {
     runtimeLabel,
+    matchesSearchFields,
     type ApplicationDraft,
     type ApplicationRuntimeKind,
     type ApplicationResourceCreationRequest,
@@ -85,6 +93,11 @@
     project: Project,
     application: Application
   ) => void = () => {};
+  export let onOpenResource: (resource: Resource) => void = () => {};
+  export let onNavigateToProjectApplication: (
+    project: Project,
+    applicationId: string
+  ) => void = () => {};
   export let onResourceCreated: (resource: Resource) => void = () => {};
   export let onRequestResourceCreate: (
     request: ApplicationResourceCreationRequest
@@ -93,9 +106,15 @@
     null;
   export let resourceCreationCancelledId = '';
   export let projectAreaTab: 'applications' | 'topology' = 'applications';
+  export let focusApplicationId = '';
 
   let workspace: ProjectWorkspace | null = null;
-  let projectTopology: import('../../lib/api').ProjectTopology | null = null;
+  let projectTopology: ProjectTopology | null = null;
+  let inspectionPolicies: InspectionPolicy[] = [];
+  let inspectionRuns: InspectionRun[] = [];
+  let inspectionLoading = false;
+  let inspectionReadFailed = false;
+  let latestInspectionRuns = new globalThis.Map<string, InspectionRun>();
   let loadingTopology = false;
   let topologyMode: 'browse' | 'edit' = 'browse';
   let topologyResourceRequestId = '';
@@ -106,11 +125,19 @@
     runtimeKind?: string;
     position?: { x: number; y: number };
   };
+  type RelationshipApplicationRow = {
+    application: Application;
+    relation: Application['relations'][number] | null;
+    annotation: ProjectTopology['nodes'][number] | null;
+    projectName: string;
+    applicationName: string;
+  };
   let topologyComponentIntent: TopologyComponentIntent | null = null;
   let topologyApplicationId = '';
   let topologyResourceId = '';
   let topologyAnnotationName = '';
   let topologyAnnotationDescription = '';
+  let topologyAnnotationProjectName = '';
   let topologyConfigBusy = false;
   let workspaceProjectId = '';
   let loadingWorkspace = false;
@@ -123,6 +150,11 @@
   let teamFilterHasOverflow = false;
   let measuredTeamFilterKey = '';
   let projectSearch = '';
+  let workspaceSearch = '';
+  let workspaceSearchFields: Record<string, string> = {};
+  let relationTab: 'resources' | 'applications' = 'resources';
+  let alertPanelTab: 'alerts' | 'inspections' = 'alerts';
+  let applicationWizardTab: 'basic' | 'bindings' | 'applications' = 'basic';
   let projectCreateOpen = false;
   let editingProject: Project | null = null;
   let applicationWizardOpen = false;
@@ -134,6 +166,8 @@
   let selectedApplicationIds: string[] = [];
   let inspectedApplicationID = '';
   let inspectedResourceIDs: string[] | null = null;
+  let relationshipApplicationRows: RelationshipApplicationRow[] = [];
+  let handledFocusApplicationId = '';
   let users: User[] = [];
 
   const applicationColumns: ReadonlyTableColumn[] = [
@@ -156,6 +190,13 @@
     { key: 'resource', label: '运行资源', width: '24%' },
     { key: 'selector', label: '定位条件', width: '28%' },
     { key: 'status', label: '状态', width: '12%' }
+  ];
+  const workspaceSearchOptions = [
+    { key: 'name', label: '应用名称', placeholder: '输入应用名称' },
+    { key: 'code', label: '应用标识', placeholder: '输入应用标识' },
+    { key: 'runtime', label: '运行时', placeholder: '输入运行时类型' },
+    { key: 'status', label: '状态', placeholder: '输入应用状态' },
+    { key: 'label', label: '标签', placeholder: '输入标签或 key=value' }
   ];
 
   onMount(() => {
@@ -183,6 +224,56 @@
     workspace?.applications.filter((application) =>
       selectedApplicationIds.includes(application.id)
     ) ?? [];
+  $: if (
+    focusApplicationId &&
+    focusApplicationId !== handledFocusApplicationId &&
+    workspace?.applications.some((item) => item.id === focusApplicationId)
+  ) {
+    handledFocusApplicationId = focusApplicationId;
+    const application = workspace!.applications.find(
+      (item) => item.id === focusApplicationId
+    )!;
+    workspaceSearch = application.name;
+    selectedApplicationIds = [focusApplicationId];
+    inspectedApplicationID = focusApplicationId;
+    inspectedResourceIDs = null;
+  }
+  $: relationshipApplication =
+    selectedApplicationIds.length === 1
+      ? selectedApplications[0] ?? null
+      : selectedApplicationIds.length > 1
+        ? null
+        : workspace?.applications.find(
+            (application) => application.id === inspectedApplicationID
+          ) ?? null;
+  $: workspaceSearchPattern = workspaceSearchOptions
+    .map((field) => field.key)
+    .join('|');
+  $: workspaceFreeSearch = workspaceSearch
+    .replace(
+      new RegExp(`(?:^|\\s)(?:${workspaceSearchPattern}):(?:"[^"]*"|'[^']*'|\\S*)`, 'g'),
+      ' '
+    )
+    .trim()
+    .toLocaleLowerCase();
+  $: visibleWorkspaceApplications = (workspace?.applications ?? []).filter(
+    (application) => {
+      const searchable = {
+        name: application.name,
+        code: application.code,
+        runtime: `${application.runtime_kind} ${runtimeLabel(application.runtime_kind as ApplicationRuntimeKind)}`,
+        status: statusLabel(application.status),
+        label: Object.entries(application.labels ?? {})
+          .map(([key, value]) => `${key}=${value}`)
+          .join(' ')
+      };
+      return matchesSearchFields(
+        searchable,
+        workspaceFreeSearch,
+        workspaceSearchFields
+      );
+    }
+  );
   $: inspectedResourceIDSet = inspectedResourceIDs
     ? new Set(inspectedResourceIDs)
     : null;
@@ -190,11 +281,88 @@
     (resource) =>
       !inspectedResourceIDSet || inspectedResourceIDSet.has(resource.id)
   );
+  $: relationshipResourceRows = (() => {
+    const applications = relationshipApplication
+      ? [relationshipApplication]
+      : workspace?.applications ?? [];
+    const rows = applications.flatMap((application) =>
+      applicationResourceIDs(application).flatMap((resourceId) => {
+        const resource = (workspace?.resources ?? []).find(
+          (item) => item.id === resourceId
+        );
+        return resource ? [{ application, resource }] : [];
+      })
+    );
+    if (relationshipApplication) return rows;
+    const linkedIDs = new Set(rows.map((row) => row.resource.id));
+    return [
+      ...rows,
+      ...(workspace?.resources ?? [])
+        .filter((resource) => !linkedIDs.has(resource.id))
+        .map((resource) => ({ application: null, resource }))
+    ];
+  })();
+  $: relationshipApplicationRows = (() => {
+    const applications = relationshipApplication
+      ? [relationshipApplication]
+      : workspace?.applications ?? [];
+    return applications.flatMap((application) => [
+      ...(application.relations ?? []).map((relation) => {
+        const targetNode = projectTopology?.nodes.find(
+          (node) => node.id === relation.target_application_id
+        );
+        return {
+          application,
+          relation,
+          annotation: null,
+          projectName:
+            targetNode?.project_name ??
+            allProjects.find((project) => project.id === targetNode?.project_id)
+              ?.name ??
+            (targetNode?.project_id === selectedProjectId
+              ? selectedProject?.name ?? ''
+              : ''),
+          applicationName:
+            relation.target_application_name ?? relation.target_application_id
+        };
+      }),
+      ...(projectTopology?.edges ?? []).flatMap((edge) => {
+        if (edge.source_id !== application.id || edge.relation !== 'depends_on')
+          return [];
+        const annotation = projectTopology?.nodes.find(
+          (node) =>
+            node.id === edge.target_id &&
+            node.kind === 'annotation' &&
+            node.metadata?.dependency_source_application_id === application.id
+        );
+        if (!annotation) return [];
+        return [{
+          application,
+          relation: null,
+          annotation,
+          projectName: String(annotation.metadata?.dependency_project_name ?? ''),
+          applicationName: String(annotation.metadata?.description ?? annotation.name)
+        }];
+      })
+    ]);
+  })();
   $: visibleWorkspaceAlerts = (workspace?.alerts ?? []).filter(
     (alert) =>
       !inspectedResourceIDSet ||
       inspectedResourceIDSet.has(alert.target_resource_id)
   );
+  $: {
+    const latest = new globalThis.Map<string, InspectionRun>();
+    for (const run of inspectionRuns) {
+      const current = latest.get(run.policy_id);
+      if (
+        !current ||
+        Date.parse(run.window_start) > Date.parse(current.window_start)
+      )
+        latest.set(run.policy_id, run);
+    }
+    latestInspectionRuns = latest;
+  }
   $: topologyResourceOptions =
     topologyComponentIntent?.kind === 'resource'
       ? availableResources.filter(
@@ -207,6 +375,19 @@
     (workspace?.resources ?? []).map((resource) => [
       resource.id,
       resource.scope_type
+    ])
+  );
+  $: applicationResourceScopeTypes = Object.fromEntries(
+    availableResources.map((resource) => [
+      resource.scope_id,
+      topologyResourceScopeTypes[resource.id] ??
+        (allProjects.some((project) => project.scope.id === resource.scope_id)
+          ? 'project'
+          : teams.some((team) => team.scope.id === resource.scope_id)
+            ? 'team'
+            : teams.some((team) => team.scope.parent_id === resource.scope_id)
+              ? 'platform'
+              : 'scope')
     ])
   );
   $: applicationAlertCounts = Object.fromEntries(
@@ -253,6 +434,10 @@
     workspace = null;
     projectTopology = null;
     workspaceProjectId = '';
+    inspectionPolicies = [];
+    inspectionRuns = [];
+    inspectionLoading = false;
+    inspectionReadFailed = false;
     selectedApplicationIds = [];
   }
   $: if (topologyMode === 'browse' || projectAreaTab !== 'topology')
@@ -320,6 +505,24 @@
         : status === 'warning'
           ? '需关注'
           : '未知';
+  }
+  function inspectionRunLabel(status: string) {
+    return status === 'succeeded'
+      ? '成功'
+      : status === 'failed'
+        ? '失败'
+        : status === 'running'
+          ? '执行中'
+          : status === 'queued'
+            ? '排队中'
+            : status === 'degraded'
+              ? '部分成功'
+              : '未知';
+  }
+  function inspectionRunTime(value: string) {
+    return Number.isNaN(Date.parse(value))
+      ? '时间未知'
+      : new Date(value).toLocaleString();
   }
   function projectStatus(project: Project) {
     return project.status === 'active' && project.summary.alerts === 0
@@ -479,6 +682,10 @@
   async function loadWorkspace(id: string) {
     loadingWorkspace = true;
     loadingTopology = true;
+    inspectionPolicies = [];
+    inspectionRuns = [];
+    inspectionLoading = true;
+    inspectionReadFailed = false;
     try {
       const [nextWorkspace, nextTopology] = await Promise.all([
         api.projectWorkspace(id),
@@ -487,11 +694,29 @@
       workspace = nextWorkspace;
       projectTopology = nextTopology;
       workspaceProjectId = id;
+      const scopeId = selectedProject?.scope.id ?? selectedScopeId;
+      const inspectionResults = await Promise.allSettled([
+        api.inspectionPolicies(scopeId),
+        api.inspectionRuns(scopeId)
+      ]);
+      if (selectedProjectId !== id) return;
+      inspectionPolicies =
+        inspectionResults[0].status === 'fulfilled'
+          ? inspectionResults[0].value
+          : [];
+      inspectionRuns =
+        inspectionResults[1].status === 'fulfilled'
+          ? inspectionResults[1].value
+          : [];
+      inspectionReadFailed = inspectionResults.some(
+        (result) => result.status === 'rejected'
+      );
     } catch (error) {
       onError(describeError(error, '项目驾驶舱加载失败'));
     } finally {
       loadingWorkspace = false;
       loadingTopology = false;
+      inspectionLoading = false;
     }
   }
   async function loadTopology() {
@@ -609,6 +834,7 @@
           )?.id ?? '');
     topologyAnnotationName = '';
     topologyAnnotationDescription = '';
+    topologyAnnotationProjectName = '';
   }
   function cancelTopologyComponent() {
     if (topologyConfigBusy) return;
@@ -655,7 +881,10 @@
           selectedProjectId,
           {
             name,
-            metadata: { description: topologyAnnotationDescription.trim() }
+            metadata: {
+              description: topologyAnnotationDescription.trim(),
+              project_name: topologyAnnotationProjectName.trim()
+            }
           }
         );
         if (intent.position)
@@ -749,6 +978,14 @@
       selectedProjectId,
       drafts.map(applicationPayload)
     );
+    await Promise.all(
+      result.items.map((application, index) =>
+        syncApplicationExternalDependencies(
+          application.id,
+          drafts[index]?.externalDependencies ?? []
+        )
+      )
+    );
     applicationWizardOpen = false;
     await loadWorkspace(selectedProjectId);
     if (addedFromTopology) {
@@ -774,6 +1011,10 @@
     const application = await api.createApplication(
       selectedProjectId,
       applicationPayload(draft)
+    );
+    await syncApplicationExternalDependencies(
+      application.id,
+      draft.externalDependencies ?? []
     );
     topologyApplicationCreateOpen = false;
     if (dropPosition)
@@ -810,11 +1051,164 @@
         relations: draft.relations ?? [],
         instances: applicationPayload(draft).instances
       });
+      await syncApplicationExternalDependencies(
+        app.id,
+        draft.externalDependencies ?? []
+      );
       editingApplication = null;
       await loadWorkspace(selectedProjectId);
       onNotice('应用已更新');
     } catch (error) {
       throw new Error(describeError(error, '更新应用失败'));
+    }
+  }
+
+  async function syncApplicationExternalDependencies(
+    applicationId: string,
+    dependencies: Array<{ projectName: string; description: string }>
+  ) {
+    const existing = (projectTopology?.nodes ?? []).filter(
+      (node) =>
+        node.kind === 'annotation' &&
+        node.metadata?.dependency_source_application_id === applicationId
+    );
+    const retained = new Set<string>();
+    for (const dependency of dependencies) {
+      const projectName = dependency.projectName.trim();
+      const description = dependency.description.trim();
+      const prior = existing.find(
+        (node) =>
+          !retained.has(node.id) &&
+          node.name === description &&
+          String(node.metadata?.dependency_project_name ?? '') === projectName
+      );
+      if (prior) {
+        retained.add(prior.id);
+        continue;
+      }
+      const node = await api.createProjectTopologyAnnotation(selectedProjectId, {
+        name: description,
+        metadata: {
+          description,
+          dependency_project_name: projectName,
+          dependency_source_application_id: applicationId
+        }
+      });
+      await api.createProjectTopologyEdge(selectedProjectId, {
+        source_id: applicationId,
+        target_id: node.id,
+        relation: 'depends_on',
+        metadata: { kind: 'external_dependency' }
+      });
+      retained.add(node.id);
+    }
+    await Promise.all(
+      existing
+        .filter((node) => !retained.has(node.id))
+        .map((node) => api.deleteProjectTopologyAnnotation(selectedProjectId, node.id))
+    );
+  }
+
+  function applicationUpdateBody(
+    application: Application,
+    relations = application.relations,
+    dependencies = application.dependencies,
+    instances = application.instances
+  ) {
+    return {
+      name: application.name,
+      code: application.code,
+      description: application.description,
+      icon: application.icon,
+      runtime_kind: application.runtime_kind,
+      external_uid: application.external_uid ?? '',
+      labels: application.labels,
+      critical: application.critical,
+      technical_owner_ids: application.technical_owner_ids,
+      operations_owner_ids: application.operations_owner_ids,
+      dependencies: dependencies.map((dependency) => ({
+        dependency_kind: dependency.dependency_kind,
+        target_resource_id: dependency.target_resource_id,
+        binding: dependency.binding,
+        required: dependency.required
+      })),
+      relations: relations.map((relation) => ({
+        target_application_id: relation.target_application_id,
+        relation_kind: relation.relation_kind,
+        status: relation.status
+      })),
+      instances: instances.map((instance) => ({
+        name: instance.name,
+        runtime_kind: instance.runtime_kind,
+        target_resource_id: instance.target_resource_id,
+        selector: instance.selector,
+        log_binding: instance.log_binding,
+        status: instance.status
+      }))
+    };
+  }
+
+  async function removeResourceAssociation(application: Application, resourceId: string) {
+    const current = await api.application(application.project_id, application.id);
+    await api.updateApplication(
+      current.project_id,
+      current.id,
+      applicationUpdateBody(
+        current,
+        current.relations,
+        current.dependencies.filter((dependency) => dependency.target_resource_id !== resourceId),
+        current.instances.filter((instance) => instance.target_resource_id !== resourceId)
+      )
+    );
+    await loadWorkspace(selectedProjectId);
+  }
+
+  async function removeApplicationAssociation(
+    application: Application,
+    relationId: string,
+    annotationId = ''
+  ) {
+    if (annotationId) {
+      await api.deleteProjectTopologyAnnotation(selectedProjectId, annotationId);
+    } else {
+      const current = await api.application(application.project_id, application.id);
+      await api.updateApplication(
+        current.project_id,
+        current.id,
+        applicationUpdateBody(
+          current,
+          current.relations.filter((relation) => relation.id !== relationId)
+        )
+      );
+    }
+    await loadWorkspace(selectedProjectId);
+  }
+
+  async function openApplicationEditor(
+    application: Application,
+    tab: 'basic' | 'bindings' | 'applications' = 'basic'
+  ) {
+    const projectId = selectedProjectId || application.project_id;
+    applicationWizardTab = tab;
+    try {
+      editingApplication = await api.application(projectId, application.id);
+      applicationWizardTab = tab;
+    } catch (error) {
+      onError(describeError(error, '读取应用详情失败'));
+      // Keep the row data available as a fallback so the editor can still open.
+      editingApplication = application;
+    }
+  }
+
+  async function openTopologyApplicationEditor(application: Application) {
+    const projectId = selectedProjectId || application.project_id;
+    try {
+      topologyEditApplication = await api.application(projectId, application.id);
+    } catch (error) {
+      onError(describeError(error, '读取应用详情失败'));
+      topologyEditApplication =
+        workspace?.applications.find((item) => item.id === application.id) ??
+        application;
     }
   }
   async function confirmProjectDelete() {
@@ -835,6 +1229,19 @@
   async function confirmApplicationDelete() {
     if (!deletingApplications.length || !selectedProjectId) return;
     try {
+      const externalDependencyNodes = (projectTopology?.nodes ?? []).filter(
+        (node) =>
+          node.kind === 'annotation' &&
+          deletingApplications.some(
+            (application) =>
+              node.metadata?.dependency_source_application_id === application.id
+          )
+      );
+      await Promise.all(
+        externalDependencyNodes.map((node) =>
+          api.deleteProjectTopologyAnnotation(selectedProjectId, node.id)
+        )
+      );
       await Promise.all(
         deletingApplications.map((application) =>
           api.deleteApplication(selectedProjectId, application.id)
@@ -1148,7 +1555,7 @@
       </div>
     </header>
     <div class="workspace-stats">
-      {#each [['应用', workspace?.summary.applications ?? 0, '应用和服务'], ['实例', workspace?.summary.instances ?? 0, '运行中的实例'], ['资源', workspace?.summary.resources ?? 0, '当前项目可见范围'], ['关联', workspace?.summary.dependencies ?? 0, '暂未配置'], ['告警', workspace?.summary.alerts ?? 0, '待处理信号']] as stat}<div
+            {#each [['应用', workspace?.summary.applications ?? 0, '应用和服务'], ['实例', workspace?.summary.instances ?? 0, '运行中的实例'], ['资源', workspace?.summary.resources ?? 0, '当前项目可见范围'], ['关联', workspace?.summary.dependencies ?? 0, '暂未配置'], ['告警', workspace?.summary.alerts ?? 0, '待处理信号']] as stat}<div
           class="workspace-stat"
         >
           <span>{stat[0]}</span><strong>{stat[1]}</strong><small
@@ -1177,9 +1584,20 @@
               <Network size={16} />拓扑
             </button>
           </div>
+          <div class="project-area-search-wrap">
+            <SearchInput
+              bind:value={workspaceSearch}
+              fieldSearchable
+              fieldOptions={workspaceSearchOptions}
+              width="100%"
+              height="34px"
+              ariaLabel="搜索应用"
+              placeholder="搜索应用或输入 name:、code:"
+              on:fields={(event) => (workspaceSearchFields = event.detail)}
+            />
+          </div>
           <div class="section-heading-actions project-area-actions">
-            <span class="muted"
-              >{workspace?.applications.length ?? 0} 个应用</span
+            <span class="muted">{visibleWorkspaceApplications.length} 个应用</span
             >
             {#if projectAreaTab === 'applications'}
               <button
@@ -1240,10 +1658,10 @@
             {#if loadingWorkspace}<div class="map-loading">
                 正在加载项目驾驶舱...
               </div>
-            {:else if workspace?.applications.length}
+            {:else if visibleWorkspaceApplications.length}
               <ExpandableTable
                 columns={applicationColumns}
-                rows={workspace.applications}
+                rows={visibleWorkspaceApplications}
                 rowKey={(application) => application.id}
                 expandable
                 selectable
@@ -1254,14 +1672,13 @@
                   row.id === inspectedApplicationID
                     ? 'inspected-application-row'
                     : ''}
-                emptyText="当前项目暂无应用"
+                emptyText="当前项目暂无匹配应用"
               >
                 <svelte:fragment slot="cell" let:row let:column>
                   {#if column.key === 'application'}
                     <span class="application-table-name"
-                      ><EntityBrandIcon
-                        kind="Application"
-                        fallback={row.icon || 'lucide:AppWindow'}
+                      ><AppWindow
+                        class="project-application-node-icon"
                         size={17}
                       /><span
                         ><strong>{row.name}</strong><small>{row.code}</small
@@ -1329,7 +1746,7 @@
                         data-tooltip="编辑应用"
                         aria-label="编辑应用"
                         on:click|stopPropagation={() =>
-                          (editingApplication = row)}
+                          void openApplicationEditor(row)}
                         ><Pencil size={15} /></button
                       >
                       <button
@@ -1426,6 +1843,8 @@
               applications={workspace?.applications ?? []}
               resources={availableResources}
               resourceScopeTypes={topologyResourceScopeTypes}
+              searchQuery={workspaceFreeSearch}
+              searchFields={workspaceSearchFields}
               loading={loadingTopology}
               mode={topologyMode}
               configurationOpen={Boolean(topologyComponentIntent)}
@@ -1435,10 +1854,7 @@
               onRefresh={loadTopology}
               onConfigureNode={configureTopologyComponent}
               onEditApplication={(application) =>
-                (topologyEditApplication =
-                  workspace?.applications.find(
-                    (item) => item.id === application.id
-                  ) ?? null)}
+                void openTopologyApplicationEditor(application)}
               {onNotice}
               {onError}
             />
@@ -1474,65 +1890,255 @@
             />
           </div>
         {:else}
-          <section class="panel map-side-panel">
-            <div class="panel-heading">
-              <div class="side-panel-heading-copy">
-                <Server size={17} />
-                <h2>资源</h2>
-                <p>
-                  {inspectedApplicationID
-                    ? '当前应用关联的资源'
-                    : '本项目可见资源及应用已关联资源'}
-                </p>
-              </div>
-            </div>
-            {#each visibleWorkspaceResources as resource}<div
-                class="resource-map-row"
-              >
-                <span class="resource-kind">{resource.kind}</span><span
-                  class="resource-map-copy"
-                  ><strong>{resource.name}</strong></span
-                ><span class="resource-map-meta"
-                  ><span class="resource-reference-count"
-                    >被 {resource.application_reference_count} 个应用依赖</span
-                  ><ScopeLevelBadge
-                    type={resource.scope_type as
-                      'platform' | 'team' | 'project'}
-                    label={scopeLevelLabel(resource.scope_type)}
-                  /></span
+          <section class="panel map-side-panel relationship-panel">
+            <div class="relationship-heading">
+              <div class="project-area-tabs relationship-tabs" role="tablist" aria-label="关联依赖类型">
+                <button
+                  class:active={relationTab === 'resources'}
+                  type="button"
+                  role="tab"
+                  aria-selected={relationTab === 'resources'}
+                  on:click={() => (relationTab = 'resources')}
+                  ><Server size={16} />资源</button
+                ><button
+                  class:active={relationTab === 'applications'}
+                  type="button"
+                  role="tab"
+                  aria-selected={relationTab === 'applications'}
+                  on:click={() => (relationTab = 'applications')}
+                  ><Link2 size={16} />依赖</button
                 >
-              </div>{:else}<div class="detail-empty">暂无可见资源</div>{/each}
+              </div>
+              <span class="relationship-selected-name">
+                {relationshipApplication?.name ?? ''}
+              </span>
+              <button
+                class="icon-button"
+                type="button"
+                aria-label={relationTab === 'resources' ? '添加资源关联' : '添加应用依赖'}
+                data-tooltip={relationTab === 'resources' ? '添加资源关联' : '添加应用依赖'}
+                disabled={!relationshipApplication}
+                on:click={() =>
+                  relationshipApplication &&
+                  void openApplicationEditor(
+                    relationshipApplication,
+                    relationTab === 'resources' ? 'bindings' : 'applications'
+                  )}
+                ><Plus size={15} /></button
+              >
+            </div>
+            {#if relationTab === 'resources'}
+              {#each relationshipResourceRows as row, index (`${row.application?.id ?? 'unlinked'}:${row.resource.id}:${index}`)}
+                <div class="relationship-row resource-association-row">
+                  <div class="relationship-row-app">
+                    {#if row.application}<AppWindow
+                        class="project-application-node-icon"
+                        size={15}
+                      /><button
+                        class="text-link"
+                        type="button"
+                        on:click={() =>
+                          onNavigateToProjectApplication(
+                            selectedProject!,
+                            row.application!.id
+                          )}>{row.application.name}</button
+                      >{:else}<span class="muted">—</span>{/if}
+                  </div>
+                  <span class="relationship-resource-name">
+                    <button
+                      class="text-link"
+                      class:runtime-resource-link={['Host', 'Docker', 'Kubernetes'].includes(row.resource.kind)}
+                      class:regular-resource-link={!['Host', 'Docker', 'Kubernetes'].includes(row.resource.kind)}
+                      type="button"
+                      on:click={() => {
+                        const resource = availableResources.find(
+                          (item) => item.id === row.resource.id
+                        );
+                        if (resource) onOpenResource(resource);
+                      }}>{row.resource.name}</button
+                    ><ScopeLevelBadge
+                      type={row.resource.scope_type as 'platform' | 'team' | 'project'}
+                      label={scopeLevelLabel(row.resource.scope_type)}
+                    />
+                  </span>
+                  <span class="relationship-resource-type">
+                    <ResourceBrandIcon
+                      resource={{ kind: row.resource.kind }}
+                      size={15}
+                    />
+                    <span>{row.resource.kind}</span>
+                  </span>
+                  <span class="relationship-row-actions">
+                    {#if row.application}<button
+                        class="icon-button"
+                        type="button"
+                        aria-label="编辑资源关联"
+                        data-tooltip="编辑资源关联"
+                        on:click={() =>
+                          void openApplicationEditor(row.application!, 'bindings')}
+                        ><Pencil size={13} /></button
+                      ><button
+                        class="icon-button danger-action"
+                        type="button"
+                        aria-label="删除资源关联"
+                        data-tooltip="删除资源关联"
+                        on:click={() =>
+                          void removeResourceAssociation(
+                            row.application!,
+                            row.resource.id
+                          ).catch((error) =>
+                            onError(describeError(error, '删除资源关联失败'))
+                          )}
+                        ><Trash2 size={13} /></button
+                      >{/if}
+                  </span>
+                </div>
+              {:else}<div class="detail-empty">暂无资源关联</div>{/each}
+            {:else}
+              {#each relationshipApplicationRows as row, index (`${row.application.id}:${row.relation?.id ?? row.annotation?.id ?? index}`)}
+                <div class="relationship-row application-dependency-row">
+                  <div class="relationship-row-app">
+                    <AppWindow
+                      class="project-application-node-icon"
+                      size={15}
+                    /><button
+                      class="text-link"
+                      type="button"
+                      on:click={() =>
+                        onNavigateToProjectApplication(
+                          selectedProject!,
+                          row.application.id
+                        )}>{row.application.name}</button
+                    >
+                  </div>
+                  <span class="relationship-row-target">
+                    {#if row.projectName}<button
+                        class="text-link dependency-target-link"
+                        type="button"
+                        on:click={() => {
+                          const project = allProjects.find(
+                            (item) => item.name === row.projectName
+                          );
+                          if (project) onSelectProject(project);
+                        }}><EntityBrandIcon
+                          kind="Project"
+                          fallback="lucide:FolderKanban"
+                          className="relationship-icon project-tone"
+                          size={15}
+                        />{row.projectName}</button
+                      >{:else}<span class="muted">未指定项目</span>{/if}
+                    <button
+                      class="text-link dependency-target-link"
+                      type="button"
+                      on:click={() => {
+                        const targetProject = allProjects.find(
+                          (item) => item.name === row.projectName
+                        ) ?? selectedProject;
+                        if (targetProject)
+                          onNavigateToProjectApplication(
+                            targetProject,
+                            row.relation?.target_application_id ?? row.applicationName
+                          );
+                      }}><AppWindow
+                        class="project-application-node-icon"
+                        size={15}
+                      />{row.applicationName}</button
+                    >
+                  </span>
+                  <span class="relationship-row-actions">
+                    <button
+                      class="icon-button"
+                      type="button"
+                      aria-label="编辑应用依赖"
+                      data-tooltip="编辑应用依赖"
+                      on:click={() =>
+                        void openApplicationEditor(row.application, 'applications')}
+                      ><Pencil size={13} /></button
+                    ><button
+                      class="icon-button danger-action"
+                      type="button"
+                      aria-label="删除应用依赖"
+                      data-tooltip="删除应用依赖"
+                      on:click={() =>
+                        void removeApplicationAssociation(
+                          row.application,
+                          row.relation?.id ?? '',
+                          row.annotation?.id ?? ''
+                        ).catch((error) =>
+                          onError(describeError(error, '删除应用依赖失败'))
+                        )}
+                      ><Trash2 size={13} /></button
+                    >
+                  </span>
+                </div>
+              {:else}<div class="detail-empty">暂无应用依赖</div>{/each}
+            {/if}
           </section>
           <section class="panel map-side-panel alerts-panel">
-            <div class="panel-heading">
-              <div class="side-panel-heading-copy">
-                <AlertTriangle size={17} />
-                <h2>告警</h2>
-                <p>
-                  {inspectedApplicationID
-                    ? '当前应用关联的告警'
-                    : '本项目待处理告警'}
-                </p>
+            <div class="relationship-heading alert-inspection-heading">
+              <div class="project-area-tabs relationship-tabs" role="tablist" aria-label="告警与巡检">
+                <button
+                  class:active={alertPanelTab === 'alerts'}
+                  type="button"
+                  role="tab"
+                  aria-selected={alertPanelTab === 'alerts'}
+                  on:click={() => (alertPanelTab = 'alerts')}
+                  ><AlertTriangle size={16} />告警</button
+                ><button
+                  class:active={alertPanelTab === 'inspections'}
+                  type="button"
+                  role="tab"
+                  aria-selected={alertPanelTab === 'inspections'}
+                  on:click={() => (alertPanelTab = 'inspections')}
+                  ><ClipboardCheck size={16} />巡检</button
+                >
               </div>
             </div>
-            {#each visibleWorkspaceAlerts as alert}<div class="alert-map-row">
-                <span class="severity {alert.severity}"></span><span
-                  ><strong>{alert.title}</strong><small
-                    >{statusLabel(alert.status)}</small
-                  ></span
-                >
-              </div>{:else}<div class="detail-empty success-empty">
-                <CheckCircle2 size={15} />当前没有项目告警
-              </div>{/each}
+            {#if alertPanelTab === 'alerts'}
+              {#each visibleWorkspaceAlerts as alert}<div class="alert-map-row">
+                  <span class="severity {alert.severity}"></span><span
+                    ><strong>{alert.title}</strong><small
+                      >{statusLabel(alert.status)}</small
+                    ></span
+                  >
+                </div>{:else}<div class="detail-empty success-empty">
+                  <CheckCircle2 size={15} />当前没有项目告警
+                </div>{/each}
+            {:else if inspectionLoading}
+              <div class="detail-empty">正在加载巡检任务…</div>
+            {:else if inspectionReadFailed}
+              <div class="detail-empty">巡检任务暂不可用</div>
+            {:else}
+              {#each inspectionPolicies as policy (policy.id)}
+                {@const latestRun = latestInspectionRuns.get(policy.id)}
+                <article class="inspection-map-row">
+                  <div>
+                    <strong>{policy.name}</strong>
+                    <small class="inspection-map-frequency">频率：{policy.cron} · {policy.timezone}</small>
+                    <small class="inspection-map-execution">
+                      {#if latestRun}
+                        最近执行：{inspectionRunLabel(latestRun.status)} · {inspectionRunTime(latestRun.window_start)}
+                      {:else}
+                        尚无执行记录
+                      {/if}
+                    </small>
+                  </div>
+                  <span class:disabled={policy.status !== 'active'} class="inspection-policy-status">
+                    {policy.status === 'active' ? '启用' : '已停用'}
+                  </span>
+                </article>
+              {:else}
+                <div class="detail-empty">本项目尚未配置巡检任务</div>
+              {/each}
+            {/if}
           </section>
           {#if projectAreaTab === 'topology' && topologyMode === 'edit' && topologyComponentIntent && !applicationWizardOpen && !topologyApplicationCreateOpen && !topologyResourceRequestId}
             <div class="topology-config-overlay">
               <section class="topology-config-window" aria-label="配置拓扑组件">
                 <header>
                   <span class="topology-config-icon"
-                    >{#if topologyComponentIntent.kind === 'application'}<EntityBrandIcon
-                        kind="Application"
-                        fallback="lucide:AppWindow"
+                    >{#if topologyComponentIntent.kind === 'application'}<AppWindow
+                        class="project-application-node-icon"
                         size={17}
                       />{:else if topologyComponentIntent.kind === 'resource'}<ResourceBrandIcon
                         resource={{
@@ -1598,6 +2204,13 @@
                       /></label
                     >
                     <label
+                      >项目（可选）<input
+                        bind:value={topologyAnnotationProjectName}
+                        maxlength="200"
+                        placeholder="例如：订单平台"
+                      /></label
+                    >
+                    <label
                       >说明<textarea
                         bind:value={topologyAnnotationDescription}
                         rows="4"
@@ -1634,6 +2247,7 @@
 {#if projectCreateOpen || editingProject}<ProjectCreateForm
     {teams}
     resources={availableResources}
+    resourceScopeTypes={applicationResourceScopeTypes}
     {users}
     initialProject={editingProject}
     defaultTeamId={teams.find((team) => team.scope.id === selectedScopeId)
@@ -1648,12 +2262,16 @@
   />{/if}
 {#if applicationWizardOpen || editingApplication}<ApplicationWizard
     resources={availableResources}
+    resourceScopeTypes={applicationResourceScopeTypes}
     {users}
     applications={workspace?.applications ?? []}
     projects={allProjects.map((project) => ({
       id: project.id,
-      name: project.name
+      name: project.name,
+      icon: project.icon
     }))}
+    topology={projectTopology}
+    initialTab={applicationWizardTab}
     initialApplication={editingApplication}
     initialRuntimeKind={topologyComponentIntent?.kind === 'application'
       ? topologyComponentIntent.runtimeKind

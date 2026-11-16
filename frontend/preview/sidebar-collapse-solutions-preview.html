@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>侧栏折叠 · 10 种布局方案</title>
+    <link rel="stylesheet" href="../src/app.css" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-width: 320px;
+        background: var(--theme-bg-page);
+        color: var(--theme-fg);
+        font:
+          13px/1.5 system-ui,
+          sans-serif;
+      }
+      button,
+      input {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:focus-visible,
+      input:focus-visible,
+      summary:focus-visible {
+        outline: 2px solid var(--theme-accent);
+        outline-offset: 3px;
+      }
+      .page {
+        max-width: 1560px;
+        margin: auto;
+        padding: 36px 28px;
+      }
+      .eyebrow {
+        color: var(--theme-accent);
+        letter-spacing: 0.12em;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      h1 {
+        margin: 8px 0;
+        font-size: clamp(24px, 3vw, 36px);
+      }
+      .intro {
+        max-width: 850px;
+        color: var(--theme-fg-muted);
+      }
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        margin: 22px 0;
+        padding: 14px;
+        border: 1px solid var(--theme-border);
+        border-radius: 10px;
+        background: var(--theme-bg-surface);
+      }
+      .toolbar label {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .toolbar input {
+        width: 220px;
+        max-width: 100%;
+      }
+      .toolbar button {
+        padding: 7px 12px;
+        color: var(--theme-fg-muted);
+        background: var(--theme-bg-raised);
+        border: 1px solid var(--theme-border);
+        border-radius: 6px;
+      }
+      .toolbar button:hover {
+        color: var(--theme-accent);
+        background: var(--theme-bg-selected);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 370px), 1fr));
+        gap: 22px;
+      }
+      .option {
+        min-width: 0;
+        border: 1px solid var(--theme-border);
+        border-radius: 12px;
+        background: var(--theme-bg-surface);
+        overflow: hidden;
+      }
+      .option-heading {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 16px 16px 8px;
+      }
+      .number {
+        color: var(--theme-accent);
+        font:
+          700 20px ui-monospace,
+          monospace;
+      }
+      h2 {
+        margin: 0;
+        font-size: 16px;
+      }
+      .position {
+        margin-left: auto;
+        color: var(--theme-fg-muted);
+        font-size: 11px;
+      }
+      .description {
+        min-height: 44px;
+        margin: 0;
+        padding: 0 16px 12px;
+        color: var(--theme-fg-muted);
+        font-size: 12px;
+      }
+      .stage {
+        position: relative;
+        display: flex;
+        height: 360px;
+        margin: 0 16px;
+        border: 1px solid var(--theme-border);
+        border-radius: 8px;
+        overflow: hidden;
+        background: var(--theme-bg-page);
+      }
+      .side {
+        position: relative;
+        flex: 0 0 120px;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        padding: 14px 8px 10px;
+        overflow-y: auto;
+        background: var(--theme-bg-surface);
+        border-right: 1px solid var(--theme-border);
+      }
+      .brand {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        min-height: 28px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .logo,
+      .avatar {
+        flex: 0 0 24px;
+        display: grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 7px;
+        background: var(--theme-bg-selected);
+        color: var(--theme-accent);
+        font-weight: 700;
+      }
+      .avatar {
+        color: var(--theme-fg-muted);
+        background: var(--theme-bg-subtle);
+        border-radius: 50%;
+      }
+      .workspace {
+        margin: 22px 4px 8px;
+        color: var(--theme-fg-subtle);
+        font-size: 9px;
+        letter-spacing: 0.06em;
+      }
+      .nav {
+        display: grid;
+        gap: 4px;
+      }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 6px;
+        font-size: 11px;
+        white-space: nowrap;
+        color: var(--theme-fg-muted);
+        border-radius: 5px;
+      }
+      .nav-item:first-child {
+        color: var(--theme-accent);
+        background: var(--theme-bg-selected);
+      }
+      svg {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .footer {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: auto;
+        padding-top: 10px;
+        border-top: 1px solid var(--theme-border);
+      }
+      .user {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        padding: 0;
+        width: 100%;
+        border: 0;
+        background: transparent;
+        text-align: left;
+        color: var(--theme-fg);
+      }
+      .name {
+        min-width: 0;
+        overflow-wrap: anywhere;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .toggle {
+        display: flex;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-width: 28px;
+        min-height: 28px;
+        padding: 4px;
+        border: 1px solid var(--theme-border);
+        border-radius: 5px;
+        color: var(--theme-fg-muted);
+        background: var(--theme-bg-surface);
+      }
+      .toggle:hover {
+        color: var(--theme-accent);
+        background: var(--theme-bg-selected);
+      }
+      .toggle-label {
+        font-size: 10px;
+        white-space: nowrap;
+      }
+      .main {
+        flex: 1;
+        min-width: 0;
+      }
+      .main-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 48px;
+        padding: 10px;
+        border-bottom: 1px solid var(--theme-border);
+        color: var(--theme-fg-muted);
+        font-size: 11px;
+      }
+      .main-body {
+        padding: 16px 10px;
+      }
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--theme-fg-muted);
+        font-size: 11px;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--theme-accent);
+      }
+      .placeholder {
+        height: 42px;
+        margin-top: 14px;
+        border: 1px solid var(--theme-border);
+        border-radius: 5px;
+        background: var(--theme-bg-surface);
+      }
+      .state {
+        display: block;
+        margin-top: 20px;
+        color: var(--theme-fg-subtle);
+        font-size: 11px;
+      }
+      .tradeoff {
+        margin: 0;
+        min-height: 66px;
+        padding: 12px 16px;
+        color: var(--theme-fg-muted);
+        font-size: 12px;
+      }
+      .tradeoff strong {
+        color: var(--theme-fg);
+        font-weight: 500;
+      }
+      .stage[data-collapsed='true'] .side {
+        flex-basis: 56px;
+        align-items: center;
+        padding-inline: 8px;
+      }
+      .stage[data-collapsed='true'] .brand-copy,
+      .stage[data-collapsed='true'] .workspace,
+      .stage[data-collapsed='true'] .nav-label,
+      .stage[data-collapsed='true'] .name,
+      .stage[data-collapsed='true'] .toggle-label {
+        display: none;
+      }
+      .stage[data-collapsed='true'] .nav {
+        margin-top: 24px;
+      }
+      .stage[data-collapsed='true'] .user {
+        justify-content: center;
+      }
+      .stage[data-collapsed='true'] .footer {
+        width: 100%;
+      }
+      .stage[data-collapsed='true'] .toggle svg {
+        transform: rotate(180deg);
+      }
+      /* Each variation owns the control's layout; no absolute positioning over names. */
+      [data-plan='2'] .footer {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 28px;
+        align-items: center;
+        gap: 4px;
+      }
+      [data-plan='2'] .user {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      [data-plan='2'][data-collapsed='true'] .footer {
+        display: flex;
+        align-items: center;
+      }
+      [data-plan='3'] .brand {
+        flex-wrap: wrap;
+      }
+      [data-plan='3'] .brand .toggle {
+        margin-left: auto;
+      }
+      [data-plan='3'] .brand-copy {
+        flex: 1 0 100%;
+      }
+      [data-plan='4'] .edge {
+        position: absolute;
+        left: 106px;
+        top: 44%;
+        z-index: 1;
+      }
+      [data-plan='4'][data-collapsed='true'] .edge {
+        left: 42px;
+      }
+      [data-plan='4'] .main {
+        padding-left: 12px;
+      }
+      [data-plan='5'] .workspace {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      [data-plan='5'][data-collapsed='true'] .workspace {
+        display: flex;
+        margin: 20px 0 0;
+      }
+      [data-plan='5'][data-collapsed='true'] .workspace > span {
+        display: none;
+      }
+      [data-plan='5'][data-collapsed='true'] .nav {
+        margin-top: 8px;
+      }
+      [data-plan='7'] .footer {
+        padding-top: 22px;
+      }
+      [data-plan='7'] .divider-toggle {
+        position: absolute;
+        top: -14px;
+        left: 50%;
+        transform: translateX(-50%);
+        border-radius: 50%;
+      }
+      [data-plan='8'] .user .name {
+        padding-top: 3px;
+      }
+      [data-plan='8'] .avatar-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+      }
+      [data-plan='8'] .user {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+      }
+      [data-plan='8'] .user .avatar {
+        visibility: hidden;
+      }
+      [data-plan='8'] .avatar-row .avatar {
+        visibility: visible;
+      }
+      [data-plan='8'] .user > .avatar {
+        display: none;
+      }
+      [data-plan='9'] .rail {
+        display: flex;
+        flex: 0 0 34px;
+        align-items: flex-end;
+        padding: 0 3px 10px;
+        border-right: 1px solid var(--theme-border);
+        background: var(--theme-bg-subtle);
+      }
+      [data-plan='9'] .side {
+        flex-basis: 120px;
+      }
+      [data-plan='9'][data-collapsed='true'] .side {
+        flex-basis: 56px;
+      }
+      .settings {
+        font-size: 10px;
+      }
+      .settings summary {
+        cursor: pointer;
+        color: var(--theme-fg-muted);
+        padding: 3px 0;
+      }
+      .settings .toggle {
+        width: 100%;
+        margin-top: 4px;
+      }
+      [data-plan='10'][data-collapsed='true'] .settings summary {
+        font-size: 0;
+      }
+      [data-plan='10'][data-collapsed='true'] .settings summary::after {
+        content: '⚙';
+        font-size: 16px;
+      }
+      @media (max-width: 560px) {
+        .page {
+          padding: 24px 12px;
+        }
+        .grid {
+          gap: 16px;
+        }
+        .stage {
+          margin-inline: 12px;
+        }
+        .position {
+          display: none;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <div class="eyebrow">OPSKEEPER / SIDEBAR STUDY</div>
+      <h1>给用户名留出完整的位置</h1>
+      <p class="intro">
+        10 种折叠入口布局，均以当前 120px
+        展开侧栏为基准。点击每张卡片的折叠按钮即可比较；收起后使用头像及其完整用户名提示。这里不连接
+        API，也不会修改正式页面或个人设置。
+      </p>
+      <div class="toolbar" aria-label="预览设置">
+        <label
+          >测试用户名
+          <input
+            id="username"
+            value="平台管理员"
+            placeholder="输入较长用户名检查换行"
+            maxlength="40"
+        /></label>
+        <button type="button" id="expand-all">全部展开</button>
+        <button type="button" id="collapse-all">全部收起</button>
+        <button type="button" id="theme" aria-pressed="false">切换深色</button>
+      </div>
+      <section class="grid" aria-label="十种侧栏布局方案"></section>
+      <p class="intro">
+        选择时请告诉我方案编号。01 / 02 / 08 / 10 主要调整底部；03 / 05 / 06
+        将入口前移；04 / 07 / 09 使用独立边界或轨道。所有按钮均可通过 Tab
+        聚焦、Enter 或空格操作；长用户名完整换行，不使用覆盖或省略隐藏。
+      </p>
+    </main>
+    <script>
+      const plans = [
+        [
+          '底部双行',
+          '底栏',
+          '用户独占一行，折叠操作另起一行，直接消除横向争抢。',
+          '改动最小、入口直观；占用额外底部高度。'
+        ],
+        [
+          '固定按钮列',
+          '底栏',
+          '底部使用 minmax(0, 1fr) + 28px 双列，头像和用户名纵向排列。',
+          '保留底部右侧入口；长名称换行较多。'
+        ],
+        [
+          '品牌区按钮',
+          '顶部',
+          '把按钮移到品牌区，用户名恢复完整底栏宽度。',
+          '顶部便于发现；品牌文案需另起一行。'
+        ],
+        [
+          '侧栏边缘把手',
+          '中部边界',
+          '按钮固定在侧栏与内容之间的中部边界，不接触用户区域。',
+          '符合面板收放直觉；正文预留 12px 把手空间。'
+        ],
+        [
+          '导航前置操作',
+          '导航区',
+          '在 WORKSPACE 下方放置折叠操作，底部只保留账号入口。',
+          '导航与收放就近；多占一行导航高度。'
+        ],
+        [
+          '主标题栏入口',
+          '内容标题栏',
+          '将折叠按钮放在右侧标题栏最左端，侧栏底部保持纯粹。',
+          '收起后入口位置不变；需要调整主标题栏。'
+        ],
+        [
+          '分隔线按钮',
+          '底部上边界',
+          '把按钮放在底栏分隔线中点，用户行向下留出安全距离。',
+          '底部视觉均衡；需保留按钮上下安全空间。'
+        ],
+        [
+          '头像操作行',
+          '底栏',
+          '头像与折叠按钮共享第一行，完整用户名独占第二行。',
+          '适合长用户名；改变现有账号入口排列。'
+        ],
+        [
+          '独立左侧轨道',
+          '固定轨道',
+          '给折叠按钮单独分配 34px 左侧轨道，不占用户区域。',
+          '操作和身份彻底分离；整体侧栏占宽增加。'
+        ],
+        [
+          '底部导航设置',
+          '底栏二级操作',
+          '用户名下方增加原生可展开的导航设置，将折叠按钮收纳其中。',
+          '底栏干净、避免误点；折叠操作多一次点击。'
+        ]
+      ];
+      const icon = (name) =>
+        `<svg viewBox="0 0 24 24" aria-hidden="true">${name === 'toggle' ? '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16m7-12-4 4 4 4"/>' : '<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 17h6m-3-3v6"/>'}</svg>`;
+      const grid = document.querySelector('.grid');
+      plans.forEach(([name, position, description, tradeoff], index) => {
+        const number = index + 1;
+        const button = `<button type="button" class="toggle" aria-label="收起方案 ${number} 侧栏" aria-expanded="true" aria-controls="sidebar-${number}" title="收起侧栏">${icon('toggle')}<span class="toggle-label">收起导航</span></button>`;
+        const user =
+          '<button type="button" class="user" title="平台管理员" aria-label="平台管理员"><span class="avatar" aria-hidden="true">管</span><span class="name">平台管理员</span></button>';
+        const article = document.createElement('article');
+        article.className = 'option';
+        article.innerHTML = `<div class="option-heading"><span class="number">${String(number).padStart(2, '0')}</span><h2>${name}</h2><span class="position">${position}</span></div><p class="description">${description}</p>
+          <div class="stage" data-plan="${number}" data-collapsed="false">
+            ${number === 9 ? `<div class="rail">${button}</div>` : ''}
+            <aside class="side" id="sidebar-${number}" aria-label="方案 ${number} 导航">
+              <div class="brand"><span class="logo">O</span>${number === 3 ? button : ''}<span class="brand-copy">OpsKeeper</span></div>
+              <div class="workspace"><span>WORKSPACE</span>${number === 5 ? button : ''}</div>
+              <nav class="nav" aria-label="方案 ${number} 菜单">${['总览', '项目', '资源', '诊断'].map((label) => `<div class="nav-item">${icon('nav')}<span class="nav-label">${label}</span></div>`).join('')}</nav>
+              <div class="footer">
+                ${number === 7 ? button.replace('class="toggle"', 'class="toggle divider-toggle"') : ''}
+                ${number === 8 ? `<div class="avatar-row"><span class="avatar" aria-hidden="true">管</span>${button}</div>` : ''}
+                ${user}
+                ${[1, 2].includes(number) ? button : ''}
+                ${number === 10 ? `<details class="settings" open><summary aria-label="方案 10 导航设置" title="默认展开以便比较，也可点击收纳操作">导航设置</summary>${button}</details>` : ''}
+              </div>
+            </aside>
+            ${number === 4 ? button.replace('class="toggle"', 'class="toggle edge"') : ''}
+            <div class="main"><div class="main-header">${number === 6 ? button : ''}<span>工作台 / 总览</span></div><div class="main-body"><div class="status"><span class="dot"></span>平台运行正常</div><div class="placeholder"></div><div class="placeholder"></div><span class="state" aria-live="polite">已展开 · 120px</span></div></div>
+          </div><p class="tradeoff"><strong>取舍：</strong>${tradeoff}</p>`;
+        const stage = article.querySelector('.stage');
+        const toggle = article.querySelector('.toggle');
+        if (![1, 5, 10].includes(number))
+          toggle.querySelector('.toggle-label').remove();
+        toggle.addEventListener('click', () =>
+          setCollapsed(stage, stage.dataset.collapsed !== 'true')
+        );
+        grid.append(article);
+      });
+      function setCollapsed(stage, collapsed) {
+        stage.dataset.collapsed = String(collapsed);
+        const toggle = stage.querySelector('.toggle');
+        toggle.setAttribute('aria-expanded', String(!collapsed));
+        toggle.setAttribute(
+          'aria-label',
+          `${collapsed ? '展开' : '收起'}方案 ${stage.dataset.plan} 侧栏`
+        );
+        toggle.title = collapsed ? '展开侧栏' : '收起侧栏';
+        const label = toggle.querySelector('.toggle-label');
+        if (label) label.textContent = collapsed ? '展开导航' : '收起导航';
+        stage.querySelector('.state').textContent = collapsed
+          ? '已收起 · 56px'
+          : '已展开 · 120px';
+      }
+      document.querySelector('#username').addEventListener('input', (event) => {
+        const name = event.target.value.trim() || '平台管理员';
+        document.querySelectorAll('.user').forEach((user) => {
+          user.title = name;
+          user.setAttribute('aria-label', name);
+          user.querySelector('.name').textContent = name;
+        });
+      });
+      document
+        .querySelector('#expand-all')
+        .addEventListener('click', () =>
+          document
+            .querySelectorAll('.stage')
+            .forEach((stage) => setCollapsed(stage, false))
+        );
+      document
+        .querySelector('#collapse-all')
+        .addEventListener('click', () =>
+          document
+            .querySelectorAll('.stage')
+            .forEach((stage) => setCollapsed(stage, true))
+        );
+      document.querySelector('#theme').addEventListener('click', (event) => {
+        const dark = document.documentElement.dataset.theme !== 'dark';
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        event.currentTarget.setAttribute('aria-pressed', String(dark));
+        event.currentTarget.textContent = dark ? '切换浅色' : '切换深色';
+      });
+    </script>
+  </body>
+</html>

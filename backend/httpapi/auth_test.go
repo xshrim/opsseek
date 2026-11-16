@@ -234,7 +234,7 @@ func TestAuthenticationMiddlewareRestrictsOneTimePasswordSessions(t *testing.T) 
 	request.AddCookie(&http.Cookie{Name: accessCookieName, Value: "access-token"})
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
-	if response.Code != http.StatusForbidden || !strings.Contains(response.Body.String(), `"code":"password_change_required"`) {
+	if response.Code != http.StatusForbidden || !strings.Contains(response.Body.String(), `"code":"E0033"`) {
 		t.Fatalf("restricted one-time session response = %d body=%s", response.Code, response.Body.String())
 	}
 }
@@ -267,7 +267,7 @@ func TestAuthenticationMiddlewareRejectsInvalidSession(t *testing.T) {
 
 	newAuthTestRouter(service, false).ServeHTTP(response, request)
 
-	if response.Code != http.StatusUnauthorized || !strings.Contains(response.Body.String(), `"code":"invalid_session"`) {
+	if response.Code != http.StatusUnauthorized || !strings.Contains(response.Body.String(), `"code":"E0025"`) {
 		t.Fatalf("authentication response = %d %s", response.Code, response.Body.String())
 	}
 }
@@ -397,7 +397,7 @@ func TestLoginMapsInvalidCredentials(t *testing.T) {
 
 	newAuthTestRouter(service, false).ServeHTTP(response, request)
 
-	if response.Code != http.StatusUnauthorized || !strings.Contains(response.Body.String(), `"code":"invalid_credentials"`) {
+	if response.Code != http.StatusUnauthorized || !strings.Contains(response.Body.String(), `"code":"E0020"`) {
 		t.Fatalf("login response = %d %s", response.Code, response.Body.String())
 	}
 }

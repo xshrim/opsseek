@@ -627,6 +627,7 @@ var directAgentKinds = map[string]struct{}{
 	"Host": {}, "Docker": {}, "Kubernetes": {}, "Nacos": {}, "Redis": {}, "TongRDS": {},
 	"Kafka": {}, "RabbitMQ": {}, "Elasticsearch": {}, "OceanBase": {},
 	"Oracle": {}, "MySQL": {}, "PostgreSQL": {}, "Prometheus": {}, "Loki": {},
+	"Tempo": {}, "Jaeger": {}, "Skywalking": {}, "Alertmanager": {},
 	"MinIO": {},
 }
 

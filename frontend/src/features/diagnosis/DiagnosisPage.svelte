@@ -1,8 +1,8 @@
 <script lang="ts">
+  import GroupedSelect from '../../components/GroupedSelect.svelte';
   import { onDestroy, onMount, tick } from 'svelte';
   import {
     Bot,
-    ChevronDown,
     ChevronLeft,
     ChevronRight,
     Copy,
@@ -13,10 +13,15 @@
     FilePenLine,
     Plus,
     Send,
+    GitBranch,
+    Network,
     Sparkles,
     Square,
     Stethoscope,
     Trash2,
+    UserRound,
+    UsersRound,
+    Workflow,
     Wrench
   } from 'lucide-svelte';
   import type {
@@ -140,6 +145,11 @@
   let diagnosisComposerTokenStart = -1;
   let diagnosisComposerTextarea: HTMLTextAreaElement | null = null;
   let diagnosisComposerMenuElement: HTMLDivElement | null = null;
+  let diagnosisComposerMenuAnchorElement: HTMLElement | null = null;
+  let diagnosisComposerMenuPosition = '';
+  let diagnosisCollaborationMenuOpen = false;
+  let diagnosisCollaborationMenuPosition = '';
+  let diagnosisCollaborationPicker: HTMLDivElement | null = null;
   let diagnosisComposerFileInput: HTMLInputElement | null = null;
   let diagnosisComposerSkillID = '';
   let diagnosisComposerPersonaID = '';
@@ -152,6 +162,94 @@
   export let onNotice: (message: string) => void;
   export let skills: SkillCatalogItem[] = [];
   export let personas: PersonaCatalogItem[] = [];
+
+  const diagnosisCollaborationOptions = [
+    { value: 1, label: '严格串行', icon: UserRound },
+    { value: 2, label: '谨慎协同', icon: UsersRound },
+    { value: 3, label: '适度协同', icon: GitBranch },
+    { value: 4, label: '积极协同', icon: Network },
+    { value: 5, label: '并行优先', icon: Workflow }
+  ];
+
+  $: selectedCollaboration =
+    diagnosisCollaborationOptions.find(
+      (option) => option.value === diagnosisCollaboration
+    ) ?? diagnosisCollaborationOptions[1];
+
+  $: modelPickerWidth = `${Math.min(
+    360,
+    Math.max(
+      220,
+      Math.max(
+        ...modelGroups.flatMap((group) => [
+          group.label.length,
+          ...group.options.map((option) => option.label.length)
+        ]),
+        0
+      ) * 8 +
+        112
+    )
+  )}px`;
+
+  function menuPositionAbove(rect: DOMRect, width = 280) {
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+    return `left:${left}px;bottom:${Math.max(8, window.innerHeight - rect.top + 6)}px`;
+  }
+
+  function positionComposerMenuAtCaret() {
+    const textarea = diagnosisComposerTextarea;
+    if (!textarea) return;
+    const rect = textarea.getBoundingClientRect();
+    const computed = getComputedStyle(textarea);
+    const mirror = document.createElement('div');
+    Object.assign(mirror.style, {
+      position: 'fixed',
+      left: `${rect.left}px`,
+      top: `${rect.top}px`,
+      visibility: 'hidden',
+      width: `${textarea.clientWidth}px`,
+      height: 'auto',
+      boxSizing: computed.boxSizing,
+      padding: computed.padding,
+      border: computed.border,
+      font: computed.font,
+      letterSpacing: computed.letterSpacing,
+      lineHeight: computed.lineHeight,
+      textIndent: computed.textIndent,
+      whiteSpace: 'pre-wrap',
+      overflowWrap: 'break-word',
+      wordBreak: computed.wordBreak,
+      tabSize: computed.tabSize
+    });
+    const cursor = textarea.selectionStart;
+    mirror.append(document.createTextNode(textarea.value.slice(0, cursor)));
+    const marker = document.createElement('span');
+    marker.textContent = '\u200b';
+    mirror.append(marker);
+    document.body.append(mirror);
+    const caretRect = marker.getBoundingClientRect();
+    const caretTop = caretRect.top - textarea.scrollTop;
+    mirror.remove();
+    diagnosisComposerMenuPosition = menuPositionAbove(
+      new DOMRect(caretRect.left, caretTop, 0, caretRect.height)
+    );
+  }
+
+  function toggleComposerMenu(
+    kind: 'skill' | 'persona',
+    event: MouseEvent
+  ) {
+    diagnosisComposerMenu = diagnosisComposerMenu === kind ? '' : kind;
+    diagnosisComposerMenuSearch = '';
+    diagnosisComposerTokenStart =
+      diagnosisComposerTextarea?.selectionStart ?? diagnosisComposerText.length;
+    diagnosisComposerMenuAnchorElement = event.currentTarget as HTMLElement;
+    if (diagnosisComposerMenu) {
+      diagnosisComposerMenuPosition = menuPositionAbove(
+        diagnosisComposerMenuAnchorElement.getBoundingClientRect()
+      );
+    }
+  }
 
   let diagnosisContextTab: 'context' | 'evidence' = 'context';
   export let resourceIcon: (kind: string) => string;
@@ -442,8 +540,10 @@
     }
     diagnosisComposerMenu = match[1] === '/' ? 'skill' : 'persona';
     diagnosisComposerMenuSearch = match[2];
+    diagnosisComposerMenuAnchorElement = null;
     diagnosisComposerTokenStart =
       before.length - match[0].length + (match[0].startsWith(' ') ? 1 : 0);
+    requestAnimationFrame(positionComposerMenuAtCaret);
   }
 
   function chooseComposerItem(
@@ -939,13 +1039,8 @@
     }
   }
 
-  let diagnosisModelMenuOpen = false;
-  let diagnosisModelMenuProviderId = '';
-
   onMount(() => {
     const cleanupDocumentListeners = installDiagnosisDocumentListeners({
-      isModelMenuOpen: () => diagnosisModelMenuOpen,
-      closeModelMenu: () => (diagnosisModelMenuOpen = false),
       copyCode: copyDiagnosisCode
     });
     const closeComposerMenuOnOutsideClick = (event: PointerEvent) => {
@@ -954,10 +1049,18 @@
         diagnosisComposerMenu &&
         target instanceof Node &&
         !diagnosisComposerMenuElement?.contains(target) &&
-        !diagnosisComposerTextarea?.contains(target)
+        !diagnosisComposerTextarea?.contains(target) &&
+        !diagnosisComposerMenuAnchorElement?.contains(target)
       ) {
         diagnosisComposerMenu = '';
         diagnosisComposerMenuSearch = '';
+      }
+      if (
+        diagnosisCollaborationMenuOpen &&
+        target instanceof Node &&
+        !diagnosisCollaborationPicker?.contains(target)
+      ) {
+        diagnosisCollaborationMenuOpen = false;
       }
     };
     document.addEventListener('pointerdown', closeComposerMenuOnOutsideClick);
@@ -969,24 +1072,6 @@
       );
     };
   });
-
-  function toggleDiagnosisModelMenu() {
-    diagnosisModelMenuOpen = !diagnosisModelMenuOpen;
-    if (diagnosisModelMenuOpen) {
-      diagnosisModelMenuProviderId =
-        selectedProviderId || diagnosisAvailableProviders[0]?.provider_id || '';
-    }
-  }
-
-  function chooseDiagnosisModelProvider(providerID: string) {
-    diagnosisModelMenuProviderId = providerID;
-    selectDiagnosisModelProvider(providerID);
-  }
-
-  function chooseDiagnosisModel(modelName: string) {
-    selectDiagnosisModel(modelName);
-    diagnosisModelMenuOpen = false;
-  }
 
   const diagnosisResourceName = (resourceID?: string) =>
     getDiagnosisResourceName(resources, diagnosisTargets, resourceID);
@@ -1077,16 +1162,14 @@
     );
   }
 
-  $: diagnosisMenuProvider =
-    diagnosisAvailableProviders.find(
-      (item) =>
-        item.provider_id ===
-        (diagnosisModelMenuProviderId || selectedProviderId)
-    ) ??
-    diagnosisAvailableProviders.find(
-      (item) => item.provider_id === selectedProviderId
-    ) ??
-    diagnosisAvailableProviders[0];
+  $: modelGroups = diagnosisAvailableProviders.map((provider) => ({
+    value: provider.provider_id,
+    label: provider.name,
+    options: provider.models.map((model) => ({
+      value: String(model.name ?? ''),
+      label: String(model.name ?? '')
+    }))
+  }));
 </script>
 
 <section
@@ -1248,6 +1331,8 @@
       {saveDiagnosisEdit}
       {copyDiagnosisMessage}
       {copyStreamingAnswer}
+      copyDiagnosisAction={(content) =>
+        copyDiagnosisText(content, '工具内容已复制。', onNotice)}
     />
     <form
       class="diagnosis-composer-f"
@@ -1266,15 +1351,24 @@
               event.currentTarget as HTMLTextAreaElement
             )}
           on:keydown={handleDiagnosisComposerKeydown}
-          placeholder="描述问题，Enter 发送 · Shift + Enter 换行"
+          placeholder="描述问题，Enter 发送 · Shift + Enter 换行 · @选择专家 · /选择技能"
           aria-label="输入诊断问题"
           rows="3"
           maxlength="16000"
+          on:scroll={() => {
+            if (diagnosisComposerMenu && !diagnosisComposerMenuAnchorElement)
+              positionComposerMenuAtCaret();
+          }}
+          on:keyup={() => {
+            if (diagnosisComposerMenu && !diagnosisComposerMenuAnchorElement)
+              positionComposerMenuAtCaret();
+          }}
         ></textarea>
         {#if diagnosisComposerMenu}<div
             class="diagnosis-composer-token-menu"
             role="listbox"
             bind:this={diagnosisComposerMenuElement}
+            style={diagnosisComposerMenuPosition}
           >
             <SearchInput
               bind:value={diagnosisComposerMenuSearch}
@@ -1317,23 +1411,6 @@
           </div>{/if}
         <div class="diagnosis-composer-tools">
           <div>
-            <label class="diagnosis-collaboration-control"
-              >诊断协同度（下一轮生效）
-              <select
-                aria-label="诊断协同度"
-                value={diagnosisCollaboration}
-                on:change={(event) =>
-                  void diagnosisCommands.setCollaboration(
-                    Number((event.currentTarget as HTMLSelectElement).value)
-                  )}
-              >
-                <option value="1">1 · 严格串行</option>
-                <option value="2">2 · 谨慎协同</option>
-                <option value="3">3 · 适度协同</option>
-                <option value="4">4 · 积极协同</option>
-                <option value="5">5 · 并行优先</option>
-              </select>
-            </label>
             <input
               bind:this={diagnosisComposerFileInput}
               class="diagnosis-hidden-file-input"
@@ -1357,27 +1434,59 @@
               type="button"
               class="diagnosis-tool"
               data-tooltip="选择技能"
-              on:click={() => {
-                diagnosisComposerMenu =
-                  diagnosisComposerMenu === 'skill' ? '' : 'skill';
-                diagnosisComposerMenuSearch = '';
-                diagnosisComposerTokenStart =
-                  diagnosisComposerTextarea?.selectionStart ??
-                  diagnosisComposerText.length;
-              }}><Sparkles size={15} />技能</button
+              on:click={(event) => toggleComposerMenu('skill', event)}
+              ><Sparkles size={15} />技能</button
             ><button
               type="button"
               class="diagnosis-tool"
               data-tooltip="选择专家"
-              on:click={() => {
-                diagnosisComposerMenu =
-                  diagnosisComposerMenu === 'persona' ? '' : 'persona';
-                diagnosisComposerMenuSearch = '';
-                diagnosisComposerTokenStart =
-                  diagnosisComposerTextarea?.selectionStart ??
-                  diagnosisComposerText.length;
-              }}><Bot size={15} />专家</button
+              on:click={(event) => toggleComposerMenu('persona', event)}
+              ><Bot size={15} />专家</button
             >
+            <div
+              class="diagnosis-collaboration-picker"
+              bind:this={diagnosisCollaborationPicker}
+            >
+              <button
+                type="button"
+                class="diagnosis-tool"
+                aria-label="诊断协同度"
+                aria-haspopup="listbox"
+                aria-expanded={diagnosisCollaborationMenuOpen}
+                on:click={(event) => {
+                  diagnosisCollaborationMenuOpen =
+                    !diagnosisCollaborationMenuOpen;
+                  if (diagnosisCollaborationMenuOpen)
+                    diagnosisCollaborationMenuPosition = menuPositionAbove(
+                      (event.currentTarget as HTMLElement).getBoundingClientRect(),
+                      180
+                    );
+                }}
+                ><svelte:component
+                  this={selectedCollaboration.icon}
+                  size={15}
+                />{selectedCollaboration.label}</button
+              >
+              {#if diagnosisCollaborationMenuOpen}<div
+                  class="diagnosis-collaboration-menu"
+                  role="listbox"
+                  aria-label="诊断协同度"
+                  style={diagnosisCollaborationMenuPosition}
+                >
+                  {#each diagnosisCollaborationOptions as option}
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={diagnosisCollaboration === option.value}
+                      on:click={() => {
+                        diagnosisCollaborationMenuOpen = false;
+                        void diagnosisCommands.setCollaboration(option.value);
+                      }}
+                      ><svelte:component this={option.icon} size={15} />{option.label}</button
+                    >
+                  {/each}
+                </div>{/if}
+            </div>
             {#if !selectedDiagnosisId}<label class="diagnosis-share-toggle"
                 ><input
                   type="checkbox"
@@ -1412,68 +1521,24 @@
                   ></span
                 >{/each}
             </div>{/if}
-          <div class="diagnosis-model-picker">
+          <div class="diagnosis-model-picker" style={`--diagnosis-model-width:${modelPickerWidth}`}>
+            <GroupedSelect
+              groups={modelGroups}
+              group={selectedProviderId}
+              value={llmModelName}
+              groupLabel="渠道"
+              optionLabel="模型"
+              ariaLabel="选择渠道和模型"
+              placeholder="暂无可用渠道"
+              tooltip={modelCapabilityTooltip()}
+              placement="top"
+              menuWidth={modelPickerWidth}
+              on:change={(event) => {
+                selectDiagnosisModelProvider(event.detail.group);
+                selectDiagnosisModel(event.detail.value);
+              }}
+            />
             <button
-              class="diagnosis-model-trigger"
-              type="button"
-              aria-label="选择渠道和模型"
-              aria-haspopup="menu"
-              aria-expanded={diagnosisModelMenuOpen}
-              data-tooltip={modelCapabilityTooltip()}
-              disabled={diagnosisAvailableProviders.length === 0}
-              on:click={toggleDiagnosisModelMenu}
-              ><span
-                >{#if diagnosisAvailableProviders.find((item) => item.provider_id === selectedProviderId)}{diagnosisAvailableProviders.find(
-                    (item) => item.provider_id === selectedProviderId
-                  )?.name}{:else}暂无可用渠道{/if}{#if llmModelName}
-                  · {llmModelName}{/if}</span
-              ><ChevronDown size={13} aria-hidden="true" /></button
-            >{#if diagnosisModelMenuOpen}<div
-                class="diagnosis-model-menu"
-                role="menu"
-                aria-label="渠道和模型"
-              >
-                <div class="diagnosis-model-provider-list">
-                  <small class="diagnosis-model-menu-heading">渠道</small
-                  >{#each diagnosisAvailableProviders as provider}<button
-                      type="button"
-                      role="menuitem"
-                      class:active={provider.provider_id ===
-                        (diagnosisModelMenuProviderId || selectedProviderId)}
-                      aria-haspopup="menu"
-                      aria-expanded={provider.provider_id ===
-                        (diagnosisModelMenuProviderId || selectedProviderId)}
-                      on:click={() =>
-                        chooseDiagnosisModelProvider(provider.provider_id)}
-                      ><span>{provider.name}</span><ChevronRight
-                        size={12}
-                        aria-hidden="true"
-                      /></button
-                    >{/each}
-                </div>
-                <div
-                  class="diagnosis-model-option-list"
-                  role="menu"
-                  aria-label="模型"
-                >
-                  <small class="diagnosis-model-menu-heading">模型</small
-                  >{#if diagnosisMenuProvider}{#each diagnosisMenuProvider.models as model}{@const name =
-                        String(model.name ?? '')}<button
-                        type="button"
-                        role="menuitemradio"
-                        aria-checked={selectedProviderId ===
-                          diagnosisMenuProvider.provider_id &&
-                          llmModelName === name}
-                        class:active={selectedProviderId ===
-                          diagnosisMenuProvider.provider_id &&
-                          llmModelName === name}
-                        on:click={() => chooseDiagnosisModel(name)}
-                        ><span>{name}</span></button
-                      >{/each}{:else}<span class="diagnosis-model-empty"
-                      >暂无可用模型</span
-                    >{/if}
-                </div>
-              </div>{/if}<button
               class="primary diagnosis-send-button"
               type="button"
               disabled={busy ||

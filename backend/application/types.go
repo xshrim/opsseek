@@ -165,6 +165,13 @@ type DiagnosticScopeProject struct {
 	Applications     []DiagnosticScopeApplication `json:"applications,omitempty"`
 }
 
+type DiagnosticScopeContext struct {
+	ScopeType   string `json:"scope_type"`
+	TeamName    string `json:"team_name,omitempty"`
+	ProjectName string `json:"project_name,omitempty"`
+	ProjectCode string `json:"project_code,omitempty"`
+}
+
 type DiagnosticScopeApplication struct {
 	TeamName      string `json:"team_name,omitempty"`
 	ProjectName   string `json:"project_name,omitempty"`
@@ -204,6 +211,7 @@ type DiagnosticInstance struct {
 	TargetResourceName string         `json:"target_resource_name,omitempty"`
 	TargetResourceKind string         `json:"target_resource_kind,omitempty"`
 	Selector           map[string]any `json:"selector,omitempty"`
+	LogBinding         map[string]any `json:"log_binding,omitempty"`
 	Status             string         `json:"status"`
 }
 
@@ -236,6 +244,47 @@ type DiagnosticResource struct {
 	RuntimeKind string         `json:"runtime_kind,omitempty"`
 	Status      string         `json:"status"`
 	Binding     map[string]any `json:"binding,omitempty"`
+	LogBinding  map[string]any `json:"log_binding,omitempty"`
+}
+
+func diagnosticResourceType(kind, displayName string) string {
+	switch kind {
+	case "Artifact":
+		return "制品仓库"
+	case "Repository":
+		return "代码仓库"
+	case "Nacos":
+		return "注册配置"
+	case "Nginx", "TongHttpServer":
+		return "前端代理"
+	case "PostgreSQL", "Oracle", "MySQL", "OceanBase":
+		return "数据库"
+	case "TongRDS", "Redis":
+		return "缓存库"
+	case "Kafka", "RabbitMQ":
+		return "消息队列"
+	case "ElasticSearch", "Elasticsearch":
+		return "文档检索"
+	case "MinIO":
+		return "对象存储"
+	case "MCPServer":
+		return "模型工具"
+	case "Prometheus":
+		return "指标度量"
+	case "Loki":
+		return "日志检索"
+	case "Tempo", "Jaeger", "Skywalking":
+		return "链路追踪"
+	case "Alertmanager":
+		return "事件告警"
+	case "Host", "Docker", "Kubernetes":
+		return "运行时"
+	default:
+		if displayName != "" {
+			return displayName
+		}
+		return kind
+	}
 }
 
 type DiagnosticApplicationReference struct {

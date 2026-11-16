@@ -161,9 +161,9 @@ describe('resource workflow helpers', () => {
   it('uses the repository subtype for workflow step labels', () => {
     expect(resourceAddStepTitle(2, 'Repository', 'Git')).toBe('Git 配置');
     expect(resourceAddStepTitle(2, 'Repository', 'Bundle')).toBe('Bundle 上传');
-    expect(resourceAddStepTitle(3, 'Repository', 'Git')).toBe('仓库预览');
+    expect(resourceAddStepTitle(3, 'Repository', 'Git')).toBe('总结核验');
     expect(resourceAddStepDescription(2, 'Repository', 'Bundle')).toContain(
-      '上传并校验'
+      '上传 Git Bundle'
     );
   });
 

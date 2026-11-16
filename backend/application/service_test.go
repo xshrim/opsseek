@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"opskeeper/backend/authorization"
@@ -89,18 +90,59 @@ func TestCreateValidatesProjectAndCode(t *testing.T) {
 func TestDiagnosticBindingsExcludeUnauthorizedResources(t *testing.T) {
 	allowed := map[string]diagnosticResourceMetadata{"runtime-1": {Name: "host", Kind: "Host"}}
 	instances := diagnosticInstances([]Instance{
-		{ID: "instance-1", TargetResourceID: "runtime-1"},
+		{ID: "instance-1", TargetResourceID: "runtime-1", LogBinding: map[string]any{"path": "stdout", "secret": "discard"}},
 		{ID: "instance-2", TargetResourceID: "hidden-runtime"},
 	}, allowed)
-	if len(instances) != 1 || instances[0].ID != "instance-1" {
+	if len(instances) != 1 || instances[0].ID != "instance-1" || instances[0].Type != "运行时" {
 		t.Fatalf("diagnostic instances = %#v, want only authorized binding", instances)
+	}
+	if instances[0].LogBinding["path"] != "stdout" || len(instances[0].LogBinding) != 1 {
+		t.Fatalf("diagnostic log binding = %#v, want only configured path", instances[0].LogBinding)
 	}
 	dependencies := diagnosticDependencies([]Dependency{
 		{ID: "dependency-1", TargetResourceID: "runtime-1"},
 		{ID: "dependency-2", TargetResourceID: "hidden-resource"},
 	}, allowed)
-	if len(dependencies) != 1 || dependencies[0].ID != "dependency-1" {
+	if len(dependencies) != 1 || dependencies[0].ID != "dependency-1" || dependencies[0].Type != "运行时" {
 		t.Fatalf("diagnostic dependencies = %#v, want only authorized binding", dependencies)
+	}
+}
+
+func TestSanitizeInstanceLogBindingKeepsBoundedPathOnly(t *testing.T) {
+	if got := sanitizeInstanceLogBinding(map[string]any{"path": " /var/log/orders.log ", "token": "secret"}); len(got) != 1 || got["path"] != "/var/log/orders.log" {
+		t.Fatalf("sanitized log binding = %#v", got)
+	}
+	if got := sanitizeInstanceLogBinding(map[string]any{"path": "  "}); got != nil {
+		t.Fatalf("empty log binding = %#v, want nil", got)
+	}
+}
+
+func TestDiagnosticResourceTypeUsesCatalogLabel(t *testing.T) {
+	for _, test := range []struct {
+		kind, want string
+	}{
+		{kind: "Repository", want: "代码仓库"},
+		{kind: "Kafka", want: "消息队列"},
+		{kind: "Oracle", want: "数据库"},
+		{kind: "Prometheus", want: "指标度量"},
+		{kind: "MCPServer", want: "模型工具"},
+	} {
+		if got := diagnosticResourceType(test.kind, "fallback"); got != test.want {
+			t.Errorf("diagnosticResourceType(%q) = %q, want %q", test.kind, got, test.want)
+		}
+	}
+}
+
+func TestDiagnosticResourcesUseResourceAliasInVisibilityFilter(t *testing.T) {
+	ctx := authorization.WithResourceUseFilter(context.Background(), authorization.ResourceFilter{
+		ScopeIDs: []string{"scope-1"},
+	})
+	query, _ := appendResourceScopeVisibility(
+		"SELECT r.id FROM resources r WHERE r.id=ANY($1::uuid[])",
+		[]any{[]string{"resource-1"}}, ctx, "r",
+	)
+	if strings.Contains(query, "resources.") || !strings.Contains(query, "r.scope_id") {
+		t.Fatalf("resource visibility filter uses wrong table reference: %s", query)
 	}
 }
 
@@ -320,5 +362,22 @@ func TestPrepareCreateInputNormalizesRepositoryDirectory(t *testing.T) {
 		if !errors.Is(err, ErrInvalid) {
 			t.Fatalf("directory %q error = %v, want invalid", directory, err)
 		}
+	}
+}
+
+func TestPrepareCreateInputAcceptsRepositoryCommitID(t *testing.T) {
+	prepared, err := PrepareCreateInput(CreateInput{
+		ProjectID: "project-1", Name: "Orders", Code: "orders-api", RuntimeKind: RuntimeHost,
+		Instances:    []CreateInstanceInput{{Name: "primary", RuntimeKind: RuntimeHost, TargetResourceID: "host-1", Selector: map[string]any{"process_command_line": "orders"}}},
+		Dependencies: []CreateDependencyInput{{TargetResourceID: "repo-1", DependencyKind: "repository", Binding: map[string]any{"branch": " release ", "commit_id": " a1b2c3d4 "}}},
+	})
+	if err != nil {
+		t.Fatalf("PrepareCreateInput() error = %v", err)
+	}
+	if got := prepared.Dependencies[0].Binding["commit_id"]; got != "a1b2c3d4" {
+		t.Fatalf("repository commit_id = %#v, want a1b2c3d4", got)
+	}
+	if got := prepared.Dependencies[0].Binding["branch"]; got != "release" {
+		t.Fatalf("repository branch = %#v, want release", got)
 	}
 }

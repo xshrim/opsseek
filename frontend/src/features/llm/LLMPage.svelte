@@ -2043,7 +2043,6 @@
   .provider-icon {
     color: var(--theme-fg-muted);
     background: var(--theme-bg-surface);
-    border-color: var(--theme-border);
   }
   .engine-copy {
     min-width: 0;
@@ -2522,7 +2521,7 @@
     z-index: 2;
     top: 50%;
     left: 50%;
-    width: min(420px, calc(100% - 160px));
+    width: min(680px, calc(100% - 160px));
     transform: translate(-50%, -50%);
   }
   .drawer-heading-message :global(.message-banner),

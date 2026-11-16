@@ -51,6 +51,10 @@ export type ApplicationDraft = {
     relation_kind: 'depends_on';
     status?: string;
   }>;
+  externalDependencies?: Array<{
+    projectName: string;
+    description: string;
+  }>;
   instances: ApplicationInstanceDraft[];
 };
 
@@ -63,6 +67,55 @@ export const runtimeLabel = (kind: ApplicationRuntimeKind) =>
 
 export const runtimeResourceKind = (kind: ApplicationRuntimeKind) =>
   runtimeLabel(kind);
+
+export const matchesSearchFields = (
+  searchable: Record<string, string>,
+  freeQuery: string,
+  fields: Record<string, string>
+) =>
+  Object.entries(fields).every(
+    ([key, value]) =>
+      !value ||
+      String(searchable[key] ?? '')
+        .toLocaleLowerCase()
+        .includes(value.toLocaleLowerCase())
+  ) &&
+  (!freeQuery ||
+    Object.values(searchable)
+      .join(' ')
+      .toLocaleLowerCase()
+      .includes(freeQuery.toLocaleLowerCase()));
+
+export const applicationKeywordFromSelector = (
+  kind: ApplicationRuntimeKind,
+  selector: Record<string, unknown> | undefined
+) => {
+  if (kind === 'virtual_machine')
+    return String(selector?.process_command_line ?? '')
+      .trim()
+      .split(/\s+/)[0]
+      ?.slice(0, 128) ?? '';
+  if (kind === 'containerized')
+    return String(selector?.container_name ?? '');
+  return '';
+};
+
+export const preserveConfiguredValue = (current: string, fallback: string) =>
+  current.trim() ? current : fallback;
+
+export const normalizeRepositoryBinding = (
+  binding: Record<string, string>
+) => {
+  const result = { ...binding };
+  const legacyRevision = result.revision?.trim() ?? '';
+  delete result.revision;
+  if (legacyRevision && !result.branch && !result.commit_id) {
+    if (/^[\da-f]{4,64}$/i.test(legacyRevision))
+      result.commit_id = legacyRevision;
+    else result.branch = legacyRevision;
+  }
+  return result;
+};
 
 export const slugify = (value: string) => {
   const slug = value

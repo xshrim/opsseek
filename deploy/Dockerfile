@@ -11,7 +11,7 @@ RUN cd frontend && npm ci --registry="${NPM_REGISTRY}"
 COPY frontend/ frontend/
 RUN make frontend-build
 
-FROM golang:1.26-alpine AS backend-builder
+FROM golang:1.26-alpine AS backend-source
 
 ARG GOPROXY=https://goproxy.cn|https://proxy.golang.org|direct
 ARG ALPINE_MIRROR=https://mirrors.aliyun.com/alpine
@@ -28,10 +28,20 @@ COPY backend/go.mod backend/go.sum backend/
 RUN cd backend && go mod download
 COPY Makefile ./
 COPY backend/ backend/
-COPY --from=frontend-builder /src/frontend/dist backend/webui/dist/
-RUN make backend-build VERSION="${VERSION}" COMMIT="${COMMIT}" BUILD_TIME="${BUILD_TIME}"
 
-FROM gcr.io/distroless/static-debian12:nonroot AS runtime-base
+FROM backend-source AS backend-builder
+COPY --from=frontend-builder /src/frontend/dist backend/webui/dist/
+RUN make -o webui-assets backend-build VERSION="${VERSION}" COMMIT="${COMMIT}" BUILD_TIME="${BUILD_TIME}"
+
+FROM alpine:3.22 AS runtime-base
+
+# Repository previews and diagnostics use Git CLI for remote and Bundle reads.
+RUN apk add --no-cache ca-certificates git openssh-client \
+    && addgroup -g 65532 nonroot \
+    && adduser -D -u 65532 -G nonroot nonroot \
+    && git --version
+USER 65532:65532
+ENV HOME=/home/nonroot GIT_TERMINAL_PROMPT=0
 
 ARG VERSION=dev
 ARG COMMIT=unknown
@@ -39,12 +49,13 @@ ARG BUILD_TIME=unknown
 LABEL org.opencontainers.image.version=${VERSION} \
       org.opencontainers.image.revision=${COMMIT} \
       org.opencontainers.image.created=${BUILD_TIME}
-EXPOSE 8080
 FROM runtime-base AS api
+EXPOSE 8080
 COPY --from=backend-builder /src/backend/bin/opskeeper-api /app/opskeeper-api
 ENTRYPOINT ["/app/opskeeper-api"]
 
 FROM runtime-base AS app
+EXPOSE 8080
 COPY --from=backend-builder /src/backend/bin/opskeeper-app /app/opskeeper-app
 ENTRYPOINT ["/app/opskeeper-app"]
 
@@ -61,3 +72,27 @@ COPY --from=frontend-builder /src/frontend/dist /usr/share/nginx/html
 COPY deploy/nginx/frontend.conf /etc/nginx/conf.d/default.conf
 
 FROM frontend-runtime AS frontend
+
+FROM backend-source AS docker-mcp-builder
+RUN make docker-mcp-build VERSION="${VERSION}" COMMIT="${COMMIT}" BUILD_TIME="${BUILD_TIME}"
+
+FROM backend-source AS host-mcp-builder
+RUN make host-mcp-build VERSION="${VERSION}" COMMIT="${COMMIT}" BUILD_TIME="${BUILD_TIME}"
+
+FROM backend-source AS kubernetes-mcp-builder
+RUN make kubernetes-mcp-build VERSION="${VERSION}" COMMIT="${COMMIT}" BUILD_TIME="${BUILD_TIME}"
+
+FROM runtime-base AS docker-mcp
+EXPOSE 8811
+COPY --from=docker-mcp-builder /src/backend/bin/opskeeper-docker-mcp /app/opskeeper-docker-mcp
+ENTRYPOINT ["/app/opskeeper-docker-mcp"]
+
+FROM runtime-base AS host-mcp
+EXPOSE 8813
+COPY --from=host-mcp-builder /src/backend/bin/opskeeper-host-mcp-agent /app/opskeeper-host-mcp-agent
+ENTRYPOINT ["/app/opskeeper-host-mcp-agent"]
+
+FROM runtime-base AS kubernetes-mcp
+EXPOSE 8812
+COPY --from=kubernetes-mcp-builder /src/backend/bin/opskeeper-kubernetes-mcp /app/opskeeper-kubernetes-mcp
+ENTRYPOINT ["/app/opskeeper-kubernetes-mcp"]

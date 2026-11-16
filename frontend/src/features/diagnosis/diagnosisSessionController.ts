@@ -92,6 +92,7 @@ export function createDiagnosisSessionController(
   const handledEventIds = new Set<number>();
   let refreshToken = 0;
   let stopping = false;
+  let reconnecting = false;
 
   function close() {
     eventStream?.();
@@ -269,11 +270,7 @@ export function createDiagnosisSessionController(
         // The terminal event can belong to the previous run. Ask may already
         // have queued a follow-up, or the orchestrator may have claimed it by
         // the time refresh completes. Keep/reopen SSE in both cases.
-        if (
-          hasPendingQuestion(snapshot) ||
-          hasActiveLatestRun(snapshot) ||
-          hasUnconsumedExecution(snapshot)
-        ) {
+        if (hasPendingQuestion(snapshot) || hasActiveLatestRun(snapshot)) {
           options.setStreamState({
             ...options.getStreamState(),
             generating: true,
@@ -298,8 +295,29 @@ export function createDiagnosisSessionController(
       eventCursor,
       options.api.diagnosisEventsURL,
       (event) => handleEvent(sessionID, event),
-      (error) =>
-        options.onError(error, '诊断实时连接失败，请检查 API 服务和网络配置。')
+      (error) => {
+        options.onError(error, '诊断实时连接失败，请检查 API 服务和网络配置。');
+        // EventSource cannot refresh an expired access cookie. A normal API
+        // request can rotate it before the stream resumes from eventCursor.
+        if (reconnecting || sessionID !== options.getSelectedDiagnosisId()) return;
+        reconnecting = true;
+        void refreshState(sessionID)
+          .then((ok) => {
+            if (!ok || sessionID !== options.getSelectedDiagnosisId()) return;
+            const snapshot = options.getSnapshot();
+            if (
+              snapshot &&
+              (options.isDiagnosisRunning(snapshot.session.status) ||
+                hasPendingQuestion(snapshot) ||
+                hasActiveLatestRun(snapshot))
+            ) {
+              open(sessionID);
+            }
+          })
+          .finally(() => {
+            reconnecting = false;
+          });
+      }
     );
   }
 
@@ -308,8 +326,8 @@ export function createDiagnosisSessionController(
     open(sessionID);
   }
 
-  async function refresh(sessionID = options.getSelectedDiagnosisId()) {
-    if (!sessionID || sessionID !== options.getSelectedDiagnosisId()) return;
+  async function refreshState(sessionID = options.getSelectedDiagnosisId()) {
+    if (!sessionID || sessionID !== options.getSelectedDiagnosisId()) return false;
     const currentRefreshToken = ++refreshToken;
     try {
       const snapshot = await options.api.diagnosisSession(sessionID);
@@ -317,7 +335,7 @@ export function createDiagnosisSessionController(
         currentRefreshToken !== refreshToken ||
         sessionID !== options.getSelectedDiagnosisId()
       ) {
-        return;
+        return false;
       }
       const merged = mergeDiagnosisSnapshot(
         snapshot,
@@ -353,25 +371,22 @@ export function createDiagnosisSessionController(
       // that stale `analyzing` status must not reopen the thinking indicator.
       const pendingQuestion = hasPendingQuestion(merged.snapshot);
       const activeLatestRun = hasActiveLatestRun(merged.snapshot);
-      const hasExecutionStart = (merged.snapshot.events ?? []).some(
-        (event) => event.type === 'execution.started'
-      );
       const terminalSession =
         !activeLatestRun &&
+        !pendingQuestion &&
         ['succeeded', 'failed', 'cancelled'].includes(
           merged.snapshot.session.status
-        ) &&
-        (!hasExecutionStart ||
-          Boolean(terminalStatusFromEvents(merged.snapshot)));
+        );
       const activeGeneration =
         !terminalSession &&
         !state.answerCompleted &&
         (options.isDiagnosisRunning(merged.snapshot.session.status) ||
           state.generating);
       const nextGenerating =
+        !terminalSession &&
         !state.interruptedReason &&
         (pendingQuestion ||
-          hasUnconsumedExecution(merged.snapshot) ||
+          (!state.answerCompleted && hasUnconsumedExecution(merged.snapshot)) ||
           activeGeneration);
       options.setStreamState({ ...state, generating: nextGenerating });
       options.updateSession(merged.snapshot.session);
@@ -384,12 +399,26 @@ export function createDiagnosisSessionController(
         // A follow-up is stored before its queued run starts. Do not close the
         // stream on the previous run's terminal snapshot while that question
         // is still waiting to be claimed.
-        if (pendingQuestion || hasUnconsumedExecution(merged.snapshot)) return;
+        if (pendingQuestion || activeLatestRun) return;
         close();
       }
+      return true;
     } catch (error) {
       options.onError(error, '诊断状态刷新失败');
+      if (Number((error as { status?: number })?.status) === 401) {
+        close();
+        options.setStreamState({
+          ...options.getStreamState(),
+          generating: false,
+          interruptedReason: '登录状态已失效，请重新登录。'
+        });
+      }
+      return false;
     }
+  }
+
+  async function refresh(sessionID = options.getSelectedDiagnosisId()): Promise<void> {
+    await refreshState(sessionID);
   }
 
   async function stop() {

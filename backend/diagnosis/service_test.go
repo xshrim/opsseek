@@ -333,7 +333,8 @@ func (*memoryStore) EventsAfter(context.Context, string, int64, int) ([]Event, e
 func (*memoryStore) SaveEvidence(context.Context, string, CreateEvidenceInput) (Evidence, error) {
 	return Evidence{}, nil
 }
-func (*memoryStore) Evidence(context.Context, string) ([]Evidence, error) { return nil, nil }
+func (*memoryStore) Evidence(context.Context, string) ([]Evidence, error)            { return nil, nil }
+func (*memoryStore) RecentEvidence(context.Context, string, int) ([]Evidence, error) { return nil, nil }
 func (*memoryStore) EvidenceForRun(context.Context, string, string) ([]Evidence, error) {
 	return nil, nil
 }

@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { Plus, Trash2 } from 'lucide-svelte';
-  import EntityBrandIcon from '../../components/EntityBrandIcon.svelte';
+  import { AppWindow, Plus, Trash2 } from 'lucide-svelte';
   import DropdownSelect from '../../components/DropdownSelect.svelte';
   import FormField from '../../components/FormField.svelte';
   import TextInput from '../../components/TextInput.svelte';
@@ -14,6 +13,7 @@
 
   export let teams: Team[] = [];
   export let resources: Resource[] = [];
+  export let resourceScopeTypes: Record<string, string> = {};
   export let users: User[] = [];
   export let initialProject: Project | null = null;
   export let defaultTeamId = '';
@@ -240,9 +240,8 @@
             {#each applications as application, index}<article
                 class="project-draft-row"
               >
-                <EntityBrandIcon
-                  kind="Application"
-                  fallback={application.icon}
+                <AppWindow
+                  class="project-application-node-icon"
                   size={20}
                 />
                 <div>
@@ -275,6 +274,7 @@
 </ModalDialog>
 {#if applicationWizardOpen}<ApplicationWizard
     {resources}
+    {resourceScopeTypes}
     {users}
     onSave={addApplications}
     onCancel={() => (applicationWizardOpen = false)}

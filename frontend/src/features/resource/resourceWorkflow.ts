@@ -22,11 +22,9 @@ export function resourceAddStepTitle(step: number, kind: string, subtype = '') {
     return ['MinIO 配置', '总结核验'][step - 2] ?? 'MinIO 配置';
   if (kind === 'Repository')
     return (
-      [
-        subtype === 'Bundle' ? 'Bundle 上传' : 'Git 配置',
-        '仓库预览',
-        '总结核验'
-      ][step - 2] ?? (subtype === 'Bundle' ? 'Bundle 上传' : 'Git 配置')
+      [subtype === 'Bundle' ? 'Bundle 上传' : 'Git 配置', '总结核验'][
+        step - 2
+      ] ?? (subtype === 'Bundle' ? 'Bundle 上传' : 'Git 配置')
     );
   return '配置资源';
 }
@@ -55,11 +53,9 @@ export function resourceAddStepDescription(
   if (kind === 'Repository')
     return step === 2
       ? subtype === 'Bundle'
-        ? '上传并校验 Git Bundle，平台会使用启动时指定的存储后端保存。'
-        : '配置远程 Git 仓库地址、分支和访问凭据。'
-      : step === 3
-        ? '预览仓库目录，确认应用源码所在范围。'
-        : '确认代码仓库配置。';
+        ? '上传 Git Bundle 并在预览中选择分支与 commit。'
+        : '配置远程仓库并预览所选分支与 commit。'
+      : '确认代码仓库配置和连接核验结果。';
   if (kind === 'PostgreSQL')
     return step === 2
       ? '配置 PostgreSQL 数据库连接方式和凭据。'

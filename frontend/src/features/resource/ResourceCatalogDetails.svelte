@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
   import ReadonlyTable from '../../components/ReadonlyTable.svelte';
   import type {
     ApplicationReference,
@@ -35,6 +36,7 @@
   ) => boolean;
   export let mcpServerEndpointFor: (resource: Resource) => string = () => '';
   export let applicationReferences: ApplicationReference[] = [];
+  const dispatch = createEventDispatcher<{ resourceupdate: Resource }>();
 
   $: toolRows =
     resource.kind === 'MCPServer'
@@ -125,7 +127,11 @@
       mcpServerEndpoint={mcpServerEndpointFor(resource)}
     />
   {:else if resource.kind === 'Repository'}
-    <RepositoryResourceDetails {resource} />
+    <RepositoryResourceDetails
+      {resource}
+      canUpdate={resourceCanManage(resource, 'resource:update')}
+      on:resourceupdate={(event) => dispatch('resourceupdate', event.detail)}
+    />
   {:else}
     <GenericResourceDetails
       {resource}

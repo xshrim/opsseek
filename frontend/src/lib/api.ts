@@ -860,6 +860,7 @@ export interface ResourceRoleBinding {
 
 export interface ApiErrorShape {
   code: string;
+  type?: string;
   message: string;
   request_id?: string;
 }
@@ -867,6 +868,7 @@ export interface ApiErrorShape {
 export class ApiError extends Error {
   status: number;
   code: string;
+  type?: string;
   requestId?: string;
 
   constructor(status: number, detail: ApiErrorShape) {
@@ -874,6 +876,7 @@ export class ApiError extends Error {
     this.name = 'ApiError';
     this.status = status;
     this.code = detail.code;
+    this.type = detail.type;
     this.requestId = detail.request_id;
   }
 }
@@ -904,7 +907,11 @@ export async function request<T>(
   retry = true
 ): Promise<T> {
   const headers = new Headers(init.headers);
-  if (init.body && !headers.has('Content-Type')) {
+  if (
+    init.body &&
+    !(typeof FormData !== 'undefined' && init.body instanceof FormData) &&
+    !headers.has('Content-Type')
+  ) {
     headers.set('Content-Type', 'application/json');
   }
   headers.set('Accept', 'application/json');
@@ -918,7 +925,7 @@ export async function request<T>(
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') throw error;
     throw new ApiError(0, {
-      code: 'network_error',
+      code: 'E0045',
       message: API_UNAVAILABLE_MESSAGE
     });
   }
@@ -931,7 +938,7 @@ export async function request<T>(
 
   if (!response.ok) {
     let detail: ApiErrorShape = {
-      code: 'request_failed',
+      code: 'E0045',
       message: `Request failed (${response.status})`
     };
     try {
@@ -956,6 +963,14 @@ const patch = (body: unknown): RequestInit => ({
 });
 
 export const api = {
+  mockError: (number?: number) =>
+    request<never>(
+      number === undefined
+        ? 'api/v1/mock/errors'
+        : `api/v1/mock/errors?number=${encodeURIComponent(number)}`,
+      {},
+      false
+    ),
   bootstrapStatus: () =>
     request<{ required: boolean }>('api/v1/auth/bootstrap', {}, false),
   bootstrapAdmin: (password: string) =>

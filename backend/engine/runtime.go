@@ -191,7 +191,11 @@ func (r *Runtime) Execute(parent context.Context, request Request) (Result, erro
 		if strings.TrimSpace(plan.Instruction) == "" {
 			return failedRuntimeResult(request, sink, "plan_invalid", "execution plan instruction is required")
 		}
-		request.Instruction = plan.Instruction
+		if request.Purpose == PurposeDiagnosis && strings.TrimSpace(request.Instruction) != "" {
+			request.Instruction = strings.TrimSpace(request.Instruction) + "\n\n" + plan.Instruction
+		} else {
+			request.Instruction = plan.Instruction
+		}
 		request.InputSchema = plan.InputSchema
 		request.OutputSchema = plan.OutputSchema
 		request.AllowedTools = append([]string(nil), plan.AllowedTools...)

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"opskeeper/backend/application"
 	"opskeeper/backend/engine"
 )
 
@@ -22,6 +23,10 @@ type Orchestrator struct {
 	workerCtx           context.Context
 	maxSubagents        int
 	subagentConcurrency int
+}
+
+type diagnosticScopeContextReader interface {
+	DiagnosticScopeContext(context.Context, string) (application.DiagnosticScopeContext, error)
 }
 
 func (o *Orchestrator) WithSubagentLimits(maxTasks, concurrency int) *Orchestrator {
@@ -292,7 +297,7 @@ func (o *Orchestrator) run(ctx context.Context, sessionID string) {
 	}
 	scopeTools := o.diagnosticScopeTools(ctx, session.ScopeID)
 	if len(scopeTools) > 0 {
-		instruction += " 范围查询工具仅用于回答当前上下文之外的组织、项目、应用清单或关系问题；优先使用已有上下文和对象对应的资源工具。"
+		instruction += " 只有当前上下文不足以回答用户所问的范围信息时才查询；依据工具描述选择集合查询或单对象查询，并使用与目标范围类型匹配的名称。"
 	}
 	instruction = buildResponseInstructionFor(instruction, hasApplicationContext, o.hasRepositoryTarget(ctx, targets))
 	var assistantMu sync.Mutex
@@ -360,6 +365,24 @@ func (o *Orchestrator) run(ctx context.Context, sessionID string) {
 	// but are deliberately absent from the model-facing input. Exposing them
 	// invites the model to mistake database identities for external locators.
 	input := map[string]any{"question": diagnosisMessageContent(latestMessage), "conversation": conversation}
+	priorEvidence, evidenceErr := o.store.RecentEvidence(ctx, session.ID, 8)
+	if evidenceErr != nil {
+		_ = o.appendEvent(ctx, session.ID, CreateEventInput{Type: "evidence.history.unavailable", Payload: map[string]any{"code": "evidence_history_unavailable"}})
+	} else if summary := summarizePriorEvidence(priorEvidence); len(summary) > 0 {
+		input["prior_evidence"] = summary
+	}
+	if scopeReader, ok := o.applications.(diagnosticScopeContextReader); ok {
+		currentScope, scopeErr := scopeReader.DiagnosticScopeContext(ctx, session.ScopeID)
+		if scopeErr != nil {
+			_ = o.appendEvent(ctx, session.ID, CreateEventInput{Type: "scope.context.unavailable", Payload: map[string]any{"code": "scope_context_unavailable"}})
+			instruction += " 当前范围上下文不可用；不要推测范围名称。若回答依赖缺失的范围信息且用户未提供，应先澄清；不依赖该信息的问题仍可继续处理。"
+		} else {
+			input["current_scope"] = currentScope
+			if len(scopeTools) > 0 {
+				instruction += " current_scope 是服务端解析的范围标识，分别提供团队和项目字段，不包含该范围的对象清单；使用范围工具时必须按用户所问的范围类型选取对应字段。"
+			}
+		}
+	}
 	if len(session.ApplicationContext) > 0 && string(session.ApplicationContext) != "null" {
 		if applicationContext, sanitizeErr := sanitizeModelJSON(session.ApplicationContext); sanitizeErr == nil {
 			if envelope, ok := applicationContext.(map[string]any); ok {
@@ -685,6 +708,29 @@ func diagnosisMessageContent(message Message) string {
 		content.WriteString(attachment.Content)
 	}
 	return content.String()
+}
+
+func summarizePriorEvidence(items []Evidence) []PriorEvidence {
+	if len(items) > 8 {
+		items = items[len(items)-8:]
+	}
+	result := make([]PriorEvidence, 0, len(items))
+	for index, item := range items {
+		var content any
+		if json.Unmarshal(item.Content, &content) != nil {
+			continue
+		}
+		encoded, err := json.Marshal(stripInternalIDs(content))
+		if err != nil {
+			continue
+		}
+		bounded := safeText(string(encoded), 1200)
+		result = append(result, PriorEvidence{
+			Reference: fmt.Sprintf("prior_evidence_%d", index+1), Capability: item.Capability,
+			CollectedAt: item.CollectedAt, Summary: bounded, Partial: item.Partial, Untrusted: item.Untrusted,
+		})
+	}
+	return result
 }
 
 func terminalDiagnosisStatus(status Status) bool {

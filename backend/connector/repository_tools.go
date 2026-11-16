@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	a "opskeeper/backend/engine"
+	"opskeeper/backend/resource"
 	rt "opskeeper/backend/tool/repository"
 	"path/filepath"
 	"strings"
@@ -37,7 +38,62 @@ func (s *Service) testRepositoryBundle(ctx context.Context, config map[string]an
 		S3SecretKey: s.repositoryStorage.SecretKey, S3UseSSL: s.repositoryStorage.UseSSL,
 		Postgres: s.postgresPool,
 	}
-	_, err := rt.Branches(ctx, in)
+	endpoint := stringValue(config, "endpoint")
+	branch, commitID := rt.ParseEndpointSelection("Bundle", "", endpoint)
+	if endpoint != "" && branch == "" {
+		return errors.New("invalid Repository Bundle branch and commit selection")
+	}
+	if branch == "" {
+		_, err := rt.Branches(ctx, in)
+		return err
+	}
+	_, err := rt.ResolveBranchCommit(ctx, in, branch, commitID)
+	return err
+}
+
+func (s *Service) testRepositoryGit(ctx context.Context, item resource.Resource) error {
+	in := rt.ConnectionInput{URL: stringValue(item.Config, "url"), TimeoutSeconds: intValue(item.Config, "timeout_seconds")}
+	if reader, ok := s.resources.(secretReader); ok {
+		if raw, err := reader.RevealSecret(ctx, item.ID); err == nil && len(raw) > 0 {
+			var credential struct{ Username, Password string }
+			if json.Unmarshal(raw, &credential) == nil {
+				in.Username, in.Password = credential.Username, credential.Password
+			}
+		}
+	}
+	endpoint := stringValue(item.Config, "endpoint")
+	branch, commitID := rt.ParseEndpointSelection("Git", in.URL, endpoint)
+	if endpoint != "" && branch == "" {
+		return errors.New("invalid Git Repository branch and commit selection")
+	}
+	if branch == "" {
+		branch = stringValue(item.Config, "default_branch")
+	}
+	revisions, err := rt.RepositoryRevisions(ctx, in, 20)
+	if err != nil {
+		return err
+	}
+	if branch == "" {
+		for _, revision := range revisions {
+			if revision.IsDefault {
+				branch = revision.Branch
+				break
+			}
+		}
+	}
+	for _, revision := range revisions {
+		if revision.Branch == branch && commitID == "" && len(revision.Commits) > 0 {
+			commitID = revision.Commits[0]
+			break
+		}
+	}
+	if branch == "" && len(revisions) > 0 {
+		branch = revisions[0].Branch
+		if len(revisions[0].Commits) > 0 {
+			commitID = revisions[0].Commits[0]
+		}
+	}
+	_, err = rt.ResolveBranchCommit(ctx, in, branch, commitID)
 	return err
 }
 
@@ -57,9 +113,24 @@ func (s *Service) resolveRepositoryTools(ctx context.Context, item a.ContextReso
 	url, branch := "", ""
 	if strings.EqualFold(strings.TrimSpace(item.Subtype), "git") {
 		url = stringValue(item.Config, "url")
-		branch = stringValue(item.Config, "default_branch")
+		endpoint := stringValue(item.Config, "endpoint")
+		branch, _ = rt.ParseEndpointSelection("Git", url, endpoint)
+		if endpoint != "" && branch == "" {
+			return errors.New("invalid Git Repository branch and commit selection")
+		}
+		if branch == "" {
+			branch = stringValue(item.Config, "default_branch")
+		}
 	}
 	if strings.EqualFold(strings.TrimSpace(item.Subtype), "bundle") {
+		endpoint := stringValue(item.Config, "endpoint")
+		branch, _ = rt.ParseEndpointSelection("Bundle", "", endpoint)
+		if endpoint != "" && branch == "" {
+			return errors.New("invalid Repository Bundle branch and commit selection")
+		}
+		if branch == "" {
+			branch = stringValue(item.Config, "default_branch")
+		}
 		if s.repositoryStorage.Root != "" && backend == "local" && storageKey != "" {
 			path = filepath.Join(s.repositoryStorage.Root, storageKey)
 		}
@@ -79,11 +150,18 @@ func (s *Service) resolveRepositoryTools(ctx context.Context, item a.ContextReso
 		if strings.TrimSpace(in.Directory) == "" {
 			in.Directory = stringValue(item.Binding, "path")
 		}
-		if revision := stringValue(item.Binding, "revision"); revision != "" {
+		if commitID := stringValue(item.Binding, "commit_id"); commitID != "" {
+			in.PinnedRevision = commitID
+		} else if revision := stringValue(item.Binding, "revision"); revision != "" {
 			in.PinnedRevision = revision
-		} else if branch := stringValue(item.Binding, "branch"); branch != "" {
+		}
+		if branch := stringValue(item.Binding, "branch"); branch != "" {
 			in.Branch = branch
 		}
+	}
+	if item.Binding == nil || (stringValue(item.Binding, "revision") == "" && stringValue(item.Binding, "branch") == "" && stringValue(item.Binding, "commit_id") == "") {
+		_, revision := rt.ParseEndpointSelection(item.Subtype, url, stringValue(item.Config, "endpoint"))
+		in.PinnedRevision = revision
 	}
 	secret, configured, err := s.resourceSecret(ctx, item.ID)
 	if err != nil {
@@ -119,7 +197,7 @@ func (s *Service) resolveRepositoryTools(ctx context.Context, item a.ContextReso
 		case "repository_status":
 			register(t.Name, t.Description, repoSchema(nil), func(c context.Context, _ map[string]any) (any, error) { return snapshot.Status(c) })
 		case "repository_tree":
-			register(t.Name, "Inventory tracked files at the selected revision. Defaults to 1000 entries per call; continue from next_offset until done=true.", repoSchema(map[string]any{"repository_path": map[string]any{"type": "string", "description": "Directory path relative to the repository root; omit or use an empty string for the whole repository."}, "start_offset": map[string]any{"type": "integer", "minimum": 0, "description": "Zero-based index of the first file to return; use the previous page's next_offset."}, "page_size": map[string]any{"type": "integer", "minimum": 1, "maximum": 1000, "description": "Maximum files in this page; defaults to 1000."}, "revision": map[string]any{"type": "string", "description": "Resolved branch, tag, or commit to inspect; omit to use the execution-pinned revision."}}), func(c context.Context, a map[string]any) (any, error) {
+			register(t.Name, t.Description, repoSchema(map[string]any{"repository_path": map[string]any{"type": "string", "description": "Directory path relative to the repository root; omit or use an empty string for the whole repository."}, "start_offset": map[string]any{"type": "integer", "minimum": 0, "description": "Zero-based index of the first file to return; use the previous page's next_offset."}, "page_size": map[string]any{"type": "integer", "minimum": 1, "maximum": 1000, "description": "Maximum files in this page; defaults to 1000."}, "revision": map[string]any{"type": "string", "description": "Resolved branch, tag, or commit to inspect; omit to use the execution-pinned revision."}}), func(c context.Context, a map[string]any) (any, error) {
 				limit := int(int64Arg(a, "page_size"))
 				if limit <= 0 {
 					limit = 1000
@@ -127,11 +205,11 @@ func (s *Service) resolveRepositoryTools(ctx context.Context, item a.ContextReso
 				return snapshot.TreePage(c, stringArg(a, "repository_path"), int(int64Arg(a, "start_offset")), limit, stringArg(a, "revision"))
 			})
 		case "repository_file":
-			register(t.Name, "Read a tracked text file by byte range; continue from next_offset until done=true.", repoSchema(map[string]any{"file_path": map[string]any{"type": "string", "description": "File path relative to the repository root."}, "byte_offset": map[string]any{"type": "integer", "minimum": 0, "description": "Zero-based byte offset to continue reading this file; use the previous range's next_offset."}, "max_bytes": map[string]any{"type": "integer", "minimum": 1, "maximum": 1048576, "description": "Maximum UTF-8 text bytes to return, up to 1 MiB."}, "revision": map[string]any{"type": "string", "description": "Resolved branch, tag, or commit; omit to use the execution-pinned revision."}}), func(c context.Context, a map[string]any) (any, error) {
+			register(t.Name, t.Description, repoSchema(map[string]any{"file_path": map[string]any{"type": "string", "description": "File path relative to the repository root."}, "byte_offset": map[string]any{"type": "integer", "minimum": 0, "description": "Zero-based byte offset to continue reading this file; use the previous range's next_offset."}, "max_bytes": map[string]any{"type": "integer", "minimum": 1, "maximum": 1048576, "description": "Maximum UTF-8 text bytes to return, up to 1 MiB."}, "revision": map[string]any{"type": "string", "description": "Resolved branch, tag, or commit; omit to use the execution-pinned revision."}}), func(c context.Context, a map[string]any) (any, error) {
 				return snapshot.FileRange(c, stringArg(a, "file_path"), int64Arg(a, "byte_offset"), int64Arg(a, "max_bytes"), stringArg(a, "revision"))
 			})
 		case "repository_search":
-			register(t.Name, "Search tracked text files. Set regular_expression=true for grep -E syntax, or use fixed-string matching by default. Results are paginated; continue until done=true and complete=true.", repoSchema(map[string]any{"search_pattern": map[string]any{"type": "string", "description": "Text or extended regular expression to search for, such as 'foo|bar', 'func[[:space:]]+Name', or 'TODO'."}, "repository_path": map[string]any{"type": "string", "description": "Optional repository-relative directory or file path to limit the search."}, "start_offset": map[string]any{"type": "integer", "minimum": 0, "description": "Zero-based match offset; use the previous page's next_offset."}, "page_size": map[string]any{"type": "integer", "minimum": 1, "maximum": 100, "description": "Maximum matches in this page, up to 100."}, "regular_expression": map[string]any{"type": "boolean", "description": "When true, interpret search_pattern as a grep -E extended regular expression; false uses literal text."}, "ignore_case": map[string]any{"type": "boolean", "description": "When true, match letters case-insensitively."}, "revision": map[string]any{"type": "string", "description": "Resolved branch, tag, or commit; omit to use the execution-pinned revision."}}), func(c context.Context, a map[string]any) (any, error) {
+			register(t.Name, t.Description, repoSchema(map[string]any{"search_pattern": map[string]any{"type": "string", "description": "Text or extended regular expression to search for, such as 'foo|bar', 'func[[:space:]]+Name', or 'TODO'."}, "repository_path": map[string]any{"type": "string", "description": "Optional repository-relative directory or file path to limit the search."}, "start_offset": map[string]any{"type": "integer", "minimum": 0, "description": "Zero-based match offset; use the previous page's next_offset."}, "page_size": map[string]any{"type": "integer", "minimum": 1, "maximum": 100, "description": "Maximum matches in this page, up to 100."}, "regular_expression": map[string]any{"type": "boolean", "description": "When true, interpret search_pattern as a grep -E extended regular expression; false uses literal text."}, "ignore_case": map[string]any{"type": "boolean", "description": "When true, match letters case-insensitively."}, "revision": map[string]any{"type": "string", "description": "Resolved branch, tag, or commit; omit to use the execution-pinned revision."}}), func(c context.Context, a map[string]any) (any, error) {
 				return snapshot.SearchPage(c, rt.SearchOptions{Pattern: stringArg(a, "search_pattern"), Path: stringArg(a, "repository_path"), Offset: int(int64Arg(a, "start_offset")), Limit: int(int64Arg(a, "page_size")), RegularExpression: boolValueArg(a, "regular_expression"), IgnoreCase: boolValueArg(a, "ignore_case"), Revision: stringArg(a, "revision")})
 			})
 		case "repository_metadata":

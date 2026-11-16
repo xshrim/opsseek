@@ -109,6 +109,15 @@ type Evidence struct {
 	CreatedAt        time.Time       `json:"created_at"`
 }
 
+type PriorEvidence struct {
+	Reference   string    `json:"reference"`
+	Capability  string    `json:"capability"`
+	CollectedAt time.Time `json:"collected_at"`
+	Summary     string    `json:"summary"`
+	Partial     bool      `json:"partial"`
+	Untrusted   bool      `json:"untrusted"`
+}
+
 // Run is one completed answer attempt. A follow-up creates a new run so its
 // evidence and causal conclusion never overwrite an earlier diagnosis.
 type Run struct {

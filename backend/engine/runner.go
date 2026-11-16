@@ -355,12 +355,10 @@ func (r *AgentRunner) execute(parent context.Context, request Request, sink Even
 			instruction = "你是一个受控的 OpsKeeper AI 助手。只基于授权上下文回答问题，不执行未授权的写操作。"
 		}
 	}
-	// Keep the model's interaction legible without asking for private chain of
-	// thought. A short, user-safe progress sentence may precede each action;
-	// tool results must be observed before planning the next dependent action.
+	// Keep progress user-safe and make dependent tool calls observation-driven.
 	instruction = strings.TrimSpace(instruction) + `
 
-	执行约束：采用逐轮的 ReAct 方式处理任务。每轮用一句简短、可展示的自然语言说明当前判断和下一步，不要使用“阶段 1”“阶段 2”或其他机械编号，也不要逐字重复上一轮摘要；只有出现新的观察或路径变化时才补充说明。随后只调用当前阶段必需的受控工具；同一轮中彼此独立且不依赖前序结果的工具可以并行调用，有依赖关系的工具应分到后续回合。等待本轮工具结果全部返回并汇总为 Observation 后，再决定下一步。工具返回错误时，明确说明错误原因和修正动作，不要把失败包装成已完成。不得臆造工具结果，不要输出隐藏思维链、凭据或敏感 Prompt。`
+		执行约束：根据任务逐步调查；仅在有助于用户理解进展时，用自然、简短的语言说明核验目的、需要获取的信息或新观察，不播报工具名、参数名或“已确认需要调用”等执行术语，不展示隐藏推理。只调用当前所需且已授权的工具，依据工具结果决定后续步骤；互不依赖的调用可并行，存在依赖的调用应等待前序结果。错误、无结果或部分结果应如实处理，不得臆造结论，也不得暴露隐藏思维链、凭据或敏感 Prompt。`
 	prompt, err := executionPrompt(request)
 	if err != nil {
 		return Result{}, err
@@ -806,11 +804,7 @@ func (r *AgentRunner) execute(parent context.Context, request Request, sink Even
 					}
 					decisionText = safeProgressText(decisionText, 2000)
 					if decisionText == "" {
-						if len(turnToolNames) > 0 {
-							decisionText = "已确认需要调用 " + strings.Join(turnToolNames, "、") + "，准备获取环境信息"
-						} else {
-							decisionText = "已完成当前分析，准备调用受控工具"
-						}
+						decisionText = "我会先补充核实相关信息，再根据结果继续分析。"
 					}
 					if sink != nil {
 						_ = sink(Event{ExecutionID: request.ExecutionID, Type: "assistant.progress", Status: StatusRunning, Payload: map[string]any{"text": decisionText, "iteration": iterations, "kind": "tool_decision", "tool_count": len(turnToolNames), "parallel": len(turnToolNames) > 1}})

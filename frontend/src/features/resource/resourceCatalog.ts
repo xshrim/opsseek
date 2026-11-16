@@ -45,38 +45,80 @@ export const resourceCategoryOptions: Record<string, string[]> = {
   ElasticSearch: ['Direct', 'Agent'],
   MinIO: ['Direct', 'Agent'],
   MCPServer: ['StreamHTTP', 'SSE'],
-  Monitor: ['指标', '日志', '链路', '告警']
+  Prometheus: ['Direct', 'Agent'],
+  Loki: ['Direct', 'Agent'],
+  Tempo: ['Direct', 'Agent'],
+  Jaeger: ['Direct', 'Agent'],
+  Skywalking: ['Direct', 'Agent'],
+  Alertmanager: ['Direct', 'Agent']
 };
 
+export const resourceCatalogDomains: Record<string, string> = {
+  Artifact: '工程库',
+  Repository: '工程库',
+  Host: '运行时',
+  Docker: '运行时',
+  Kubernetes: '运行时',
+  Nacos: '微服务',
+  Nginx: '微服务',
+  TongHttpServer: '微服务',
+  PostgreSQL: '数据库',
+  MySQL: '数据库',
+  Oracle: '数据库',
+  OceanBase: '数据库',
+  Redis: '中间件',
+  Kafka: '中间件',
+  RabbitMQ: '中间件',
+  TongRDS: '中间件',
+  ElasticSearch: '存储库',
+  MinIO: '存储库',
+  MCPServer: '大模型',
+  Prometheus: '可观测',
+  Loki: '可观测',
+  Tempo: '可观测',
+  Jaeger: '可观测',
+  Skywalking: '可观测',
+  Alertmanager: '可观测'
+};
+
+export const resourceCatalogDomainOrder = [
+  '运行时',
+  '大模型',
+  '工程库',
+  '数据库',
+  '存储库',
+  '中间件',
+  '微服务',
+  '可观测'
+];
+
 export const resourceCatalogTags: Record<string, string[]> = {
-  Artifact: ['仓库'],
-  Repository: ['仓库'],
+  Artifact: ['制品仓库'],
+  Repository: ['代码仓库'],
   Host: ['运行时'],
   Docker: ['运行时'],
   Kubernetes: ['运行时'],
-  Nacos: ['注册', '配置'],
-  Nginx: ['网关'],
-  TongHttpServer: ['网关'],
+  Nacos: ['注册配置'],
+  Nginx: ['前端代理'],
+  TongHttpServer: ['前端代理'],
   PostgreSQL: ['数据库'],
   Oracle: ['数据库'],
   MySQL: ['数据库'],
   OceanBase: ['数据库'],
-  TongRDS: ['数据库'],
-  Redis: ['缓存'],
-  Kafka: ['消息'],
-  RabbitMQ: ['消息'],
-  ElasticSearch: ['检索'],
-  Elasticsearch: ['检索'],
-  MinIO: ['存储'],
-  MCPServer: ['AI'],
-  Monitor: ['监控'],
-  Prometheus: ['监控'],
-  Loki: ['监控'],
-  Tempo: ['监控'],
-  Jaeger: ['监控'],
-  Elastic: ['监控'],
-  Datadog: ['监控'],
-  Alertmanager: ['监控']
+  TongRDS: ['缓存库'],
+  Redis: ['缓存库'],
+  Kafka: ['消息队列'],
+  RabbitMQ: ['消息队列'],
+  ElasticSearch: ['文档检索'],
+  Elasticsearch: ['文档检索'],
+  MinIO: ['对象存储'],
+  MCPServer: ['模型工具'],
+  Prometheus: ['指标度量'],
+  Loki: ['日志检索'],
+  Tempo: ['链路追踪'],
+  Jaeger: ['链路追踪'],
+  Skywalking: ['链路追踪'],
+  Alertmanager: ['事件告警']
 };
 
 export function resourceCatalogTagsFor(resource: ResourceShape | string) {
@@ -93,18 +135,21 @@ export const resourceCatalogTagOptions = [
 
 export function resourceCatalogTagClass(tag: string) {
   const classes: Record<string, string> = {
-    仓库: 'repository',
+    制品仓库: 'artifact',
+    代码仓库: 'code',
     运行时: 'runtime',
-    注册: 'registry',
-    配置: 'configuration',
-    网关: 'gateway',
+    注册配置: 'registry',
+    前端代理: 'gateway',
     数据库: 'database',
-    缓存: 'cache',
-    消息: 'message',
-    检索: 'search',
-    存储: 'storage',
-    AI: 'ai',
-    监控: 'monitor'
+    缓存库: 'cache',
+    消息队列: 'message',
+    文档检索: 'search',
+    对象存储: 'storage',
+    模型工具: 'ai',
+    指标度量: 'metric',
+    日志检索: 'log',
+    链路追踪: 'trace',
+    事件告警: 'alarm'
   };
   return classes[tag] ?? 'default';
 }
@@ -114,6 +159,14 @@ type ResourceShape = {
   subtype?: string;
   config?: Record<string, unknown>;
 };
+
+export function resourceDomainFor(resource: ResourceShape | string) {
+  const kind = typeof resource === 'string' ? resource : resource.kind;
+  const category = resourceCategoryFor(
+    typeof resource === 'string' ? { kind: resource } : resource
+  );
+  return resourceCatalogDomains[kind] ?? resourceCatalogDomains[category] ?? '其他类';
+}
 
 export function connectorCapabilityName(capability: ConnectorCapability) {
   const names: Record<ConnectorCapability, string> = {
@@ -132,47 +185,7 @@ export function connectorCapabilityName(capability: ConnectorCapability) {
 }
 
 export function resourceCategoryFor(resource: ResourceShape) {
-  if (resource.kind === 'MCPServer') return 'MCPServer';
-  if (['Artifact', 'Repository', 'Host'].includes(resource.kind))
-    return resource.kind;
-  if (
-    [
-      'Nacos',
-      'Nginx',
-      'TongHttpServer',
-      'PostgreSQL',
-      'MySQL',
-      'Oracle',
-      'OceanBase',
-      'Redis',
-      'Kafka',
-      'Elasticsearch',
-      'ElasticSearch',
-      'RabbitMQ',
-      'MinIO',
-      'TongRDS',
-      'OceanBase',
-      'Oracle',
-      'MySQL',
-      'PostgreSQL',
-      'Docker',
-      'Kubernetes'
-    ].includes(resource.kind)
-  )
-    return resource.kind === 'Elasticsearch' ? 'ElasticSearch' : resource.kind;
-  if (
-    [
-      'Prometheus',
-      'Loki',
-      'Tempo',
-      'Jaeger',
-      'Elastic',
-      'Datadog',
-      'Alertmanager'
-    ].includes(resource.kind)
-  )
-    return 'Monitor';
-  return resource.kind;
+  return resource.kind === 'Elasticsearch' ? 'ElasticSearch' : resource.kind;
 }
 
 export function resourceSubtypeFor(resource: ResourceShape) {
@@ -197,10 +210,12 @@ export function resourceSubtypeFor(resource: ResourceShape) {
     PostgreSQL: 'Direct',
     Repository: 'Git',
     MCPServer: 'StreamHTTP',
-    Prometheus: '指标',
-    Loki: '日志',
-    Tempo: '链路',
-    Alertmanager: '告警'
+    Prometheus: 'Direct',
+    Loki: 'Direct',
+    Tempo: 'Direct',
+    Jaeger: 'Direct',
+    Skywalking: 'Direct',
+    Alertmanager: 'Direct'
   };
   const explicit = String(resource.subtype || resource.config?.subtype || '');
   if (
@@ -221,7 +236,13 @@ export function resourceSubtypeFor(resource: ResourceShape) {
       'Oracle',
       'MySQL',
       'PostgreSQL',
-      'MinIO'
+      'MinIO',
+      'Prometheus',
+      'Loki',
+      'Tempo',
+      'Jaeger',
+      'Skywalking',
+      'Alertmanager'
     ].includes(resource.kind)
   )
     return explicit || 'Direct';
@@ -258,7 +279,12 @@ export function resourceCategoryIcon(category: string) {
     PostgreSQL: 'iconify:simple-icons:postgresql',
     MinIO: 'iconify:simple-icons:minio',
     MCPServer: 'lucide:Waypoints',
-    Monitor: 'lucide:Activity'
+    Prometheus: 'lucide:ChartNoAxesCombined',
+    Loki: 'lucide:FileSearch',
+    Tempo: 'lucide:Route',
+    Jaeger: 'lucide:Route',
+    Skywalking: 'lucide:Route',
+    Alertmanager: 'lucide:Bell'
   };
   return icons[category] ?? 'lucide:Circle';
 }
@@ -281,6 +307,13 @@ export function resourceSchemaForSelection(
 }
 
 export function resourceEndpointFor(resource: ResourceShape) {
+  if (resource.kind === 'Repository') {
+    return (
+      String(resource.config?.endpoint ?? '').trim() ||
+      String(resource.config?.url ?? '').trim() ||
+      '未设置仓库地址'
+    );
+  }
   if (resource.kind === 'PostgreSQL') {
     if (String(resource.subtype ?? '').toLowerCase() === 'agent')
       return 'MCPServer 代理';

@@ -11,8 +11,8 @@
     FolderKanban,
     LayoutDashboard,
     LogOut,
-    PanelLeftClose,
-    PanelLeftOpen,
+    ChevronLeft,
+    ChevronRight,
     Pencil,
     PlugZap,
     Plus,
@@ -122,6 +122,14 @@
   let noticeTimer: number | null = null;
   let errorMessage = '';
   let errorTimer: number | null = null;
+  let describedErrorMessage = '';
+  let describedErrorType = '';
+  let mockErrorMessage = '';
+  let mockErrorHTTPStatus: number | undefined;
+  let mockErrorCode = '';
+  let mockErrorType = '';
+  let mockErrorTimer: number | null = null;
+  let mockErrorBusy = false;
   let providers: Provider[] = [];
   let skills: SkillCatalogItem[] = [];
   let personas: PersonaCatalogItem[] = [];
@@ -158,6 +166,9 @@
   let schemas: ResourceSchema[] = [];
   let selectedScopeId = '';
   let selectedResourceId = '';
+  let resourceNavigationToken = 0;
+  let resourceNavigationTarget: { id: string; name: string; token: number } | null = null;
+  let projectApplicationFocusId = '';
   let selectedApplicationId = '';
   let connectionBusy = false;
   let resourceConnectionChecks: Record<string, ConnectionCheck | null> = {};
@@ -260,6 +271,7 @@
     return () => {
       if (noticeTimer !== null) window.clearTimeout(noticeTimer);
       if (errorTimer !== null) window.clearTimeout(errorTimer);
+      if (mockErrorTimer !== null) window.clearTimeout(mockErrorTimer);
       media.removeEventListener('change', refreshTheme);
       document.removeEventListener('pointerdown', handleDocumentPointerDown);
     };
@@ -602,19 +614,56 @@
     }
   }
 
+  async function triggerMockError() {
+    if (mockErrorBusy) return;
+    mockErrorBusy = true;
+    mockErrorMessage = '';
+    mockErrorHTTPStatus = undefined;
+    mockErrorCode = '';
+    mockErrorType = '';
+    if (mockErrorTimer !== null) window.clearTimeout(mockErrorTimer);
+    try {
+      await api.mockError();
+    } catch (error) {
+      if (error instanceof ApiError) {
+        mockErrorMessage = error.message;
+        mockErrorHTTPStatus = error.status || undefined;
+        mockErrorCode = error.code;
+        mockErrorType = error.type || '';
+      } else {
+        mockErrorMessage = describeError(error, '模拟故障请求失败，请重试');
+        mockErrorCode = 'E0045';
+      }
+      mockErrorTimer = window.setTimeout(() => {
+        mockErrorMessage = '';
+        mockErrorHTTPStatus = undefined;
+        mockErrorCode = '';
+        mockErrorType = '';
+        mockErrorTimer = null;
+      }, 5_000);
+    } finally {
+      mockErrorBusy = false;
+    }
+  }
+
   function describeError(error: unknown, fallback: string) {
+    let message: string;
     if (
       error instanceof ApiError &&
       error.status === 409 &&
       error.message === 'Resource conflicts with existing data'
     ) {
-      return '当前级别下已有同名 AI 接入或凭据冲突，请更换名称后重试。';
+      message = '当前级别下已有同名 AI 接入或凭据冲突，请更换名称后重试。';
+    } else {
+      message = formatErrorMessage(error, fallback, {
+        forbidden: '当前账号没有执行此操作的权限。',
+        unauthorized: '会话已过期，请重新登录。',
+        invalidJson: '配置必须是有效的 JSON 对象。'
+      });
     }
-    return formatErrorMessage(error, fallback, {
-      forbidden: '当前账号没有执行此操作的权限。',
-      unauthorized: '会话已过期，请重新登录。',
-      invalidJson: '配置必须是有效的 JSON 对象。'
-    });
+    describedErrorMessage = message;
+    describedErrorType = error instanceof ApiError ? error.type || '' : '';
+    return message;
   }
 
   const viewTitle = (currentView: View) => getViewTitle(currentView, accessTab);
@@ -796,8 +845,16 @@
           >OpsKeeper<small>智能值守平台</small></span
         >
       </div>
-      <div class="workspace-label">WORKSPACE</div>
-      <nav aria-label="主导航">
+      <button
+        type="button"
+        class="workspace-label"
+        title="触发一次模拟故障，用于自举诊断测试"
+        disabled={mockErrorBusy}
+        aria-busy={mockErrorBusy}
+        on:click={triggerMockError}
+        >{mockErrorBusy ? '请求中…' : 'WORKSPACE'}</button
+      >
+      <nav id="main-navigation" aria-label="主导航">
         <button
           aria-label="总览"
           class:active={view === 'overview'}
@@ -815,7 +872,7 @@
           class:active={view === 'project'}
           class="nav-item"
           on:click={() => chooseView('project')}
-          data-tooltip={sidebarCompact ? '项目 / Project' : undefined}
+          data-tooltip={sidebarCompact ? '项目' : undefined}
           ><FolderKanban size={18} strokeWidth={1.8} aria-hidden="true" /><span
             class="nav-item-label">项目</span
           ></button
@@ -942,18 +999,23 @@
             </div>{/if}
         </div>
         <button
+          type="button"
           class="sidebar-toggle"
+          class:sidebar-toggle-collapsed={sidebarCompact}
+          class:sidebar-toggle-expanded={!sidebarCompact}
           aria-label={sidebarCompact ? '展开导航栏' : '折叠导航栏'}
+          aria-controls="main-navigation"
+          aria-expanded={!sidebarCompact}
           data-tooltip={sidebarCompact ? '展开导航栏' : '折叠导航栏'}
           on:click={toggleSidebar}
         >
-          {#if sidebarCompact}<PanelLeftOpen
+          {#if sidebarCompact}<ChevronRight
               size={18}
-              strokeWidth={1.8}
+              strokeWidth={1}
               aria-hidden="true"
-            />{:else}<PanelLeftClose
+            />{:else}<ChevronLeft
               size={18}
-              strokeWidth={1.8}
+              strokeWidth={1}
               aria-hidden="true"
             />{/if}
         </button>
@@ -969,9 +1031,15 @@
           ? viewBreadcrumb(view)
           : `${activeScope?.name ?? '平台'} / ${viewBreadcrumb(view)}`}
         title={viewTitle(view)}
-        {activeMessage}
-        {activeMessageTone}
-        {messageInChildSurface}
+        activeMessage={mockErrorMessage || activeMessage}
+        activeMessageTone={mockErrorMessage ? 'error' : activeMessageTone}
+        activeMessageHTTPStatus={mockErrorHTTPStatus}
+        activeMessageCode={mockErrorCode || undefined}
+        activeMessageType={mockErrorType ||
+          (errorMessage === describedErrorMessage
+            ? describedErrorType
+            : undefined)}
+        messageInChildSurface={messageInChildSurface && !mockErrorMessage}
         {hasPlatformRole}
         {selectedTeamId}
         {selectedProjectId}
@@ -1021,6 +1089,7 @@
           bind:selectedProjectId
           bind:selectedScopeId
           bind:projectAreaTab
+          focusApplicationId={projectApplicationFocusId}
           allTeamsSelected={!selectedTeamId}
           {busy}
           onSelectTeam={(team) => {
@@ -1074,6 +1143,46 @@
             selectedApplicationId = application.id;
             chooseView('diagnosis');
           }}
+          onOpenResource={(resource) => {
+            selectedResourceId = resource.id;
+            selectedScopeId = resource.scope_id;
+            const project = projects.find(
+              (item) => item.scope.id === resource.scope_id
+            );
+            const team = teams.find((item) => item.scope.id === resource.scope_id);
+            selectedTeamId = project?.team_id ?? team?.id ?? '';
+            selectedProjectId = project?.id ?? '';
+            resourceNavigationToken += 1;
+            resourceNavigationTarget = {
+              id: resource.id,
+              name: resource.name,
+              token: resourceNavigationToken
+            };
+            chooseView('resource');
+          }}
+          onNavigateToProjectApplication={async (project, applicationRef) => {
+            selectedTeamId = project.team_id;
+            selectedProjectId = project.id;
+            selectedScopeId = project.scope.id;
+            projectAreaTab = 'applications';
+            projectApplicationFocusId = '';
+            try {
+              const projectWorkspace = await api.projectWorkspace(project.id);
+              const target =
+                projectWorkspace.applications.find(
+                  (application) => application.id === applicationRef
+                ) ??
+                projectWorkspace.applications.find(
+                  (application) =>
+                    application.name === applicationRef ||
+                    application.code === applicationRef
+                );
+              if (target) projectApplicationFocusId = target.id;
+            } catch (error) {
+              errorMessage = describeError(error, '读取项目应用失败');
+            }
+            chooseView('project');
+          }}
         />
         {#if applicationResourceRequest}
           <ResourcePage
@@ -1124,6 +1233,7 @@
         <ResourcePage
           {visibleResources}
           bind:selectedResourceId
+          {resourceNavigationTarget}
           bind:resourceConnectionChecks
           bind:childSurfaceActive={resourceChildSurfaceActive}
           bind:busy
