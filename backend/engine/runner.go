@@ -981,6 +981,14 @@ func (r *AgentRunner) agentTools(ctx context.Context, request Request, calls, it
 				inputSchema = &parsed
 			}
 			item, err := functiontool.New(functiontool.Config{Name: modelToolName, Description: definition.Description, InputSchema: inputSchema}, func(toolCtx agent.Context, args map[string]any) (map[string]any, error) {
+				if request.ResolvedContext != nil {
+					for _, resource := range request.ResolvedContext.Resources {
+						if resource.ID == definition.ResourceID && IsDatabaseKind(resource.Kind) {
+							args = DatabaseToolArguments(resource.Kind, resource.Binding, definition.InputSchema, args)
+							break
+						}
+					}
+				}
 				if request.LocatorHints != nil {
 					args = ApplyLocatorHints(args, request.LocatorHints[definition.ResourceID])
 				}

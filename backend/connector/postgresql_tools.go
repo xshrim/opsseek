@@ -18,6 +18,7 @@ func (s *Service) resolvePostgreSQLTools(ctx context.Context, item engine.Contex
 	if err != nil {
 		return err
 	}
+	add = databaseScopedTools(add, map[string]any{"database": connection.Database}, item.Binding)
 	register := func(name, description string, fn func(context.Context, pt.ConnectionInput) (any, error)) {
 		add(name, description, postgreSQLDirectSchema(), func(runCtx context.Context, _ map[string]any) (engine.ToolResult, error) {
 			out, callErr := fn(runCtx, connection)
@@ -181,5 +182,10 @@ func (s *Service) postgreSQLConnection(ctx context.Context, item engine.ContextR
 	if input.TimeoutSeconds == 0 {
 		input.TimeoutSeconds = intValue(values, "timeout_seconds")
 	}
+	target, err := engine.DatabaseConnectionTarget(item.Kind, map[string]any{"database": input.Database}, item.Binding)
+	if err != nil {
+		return input, err
+	}
+	input.Database = stringValue(target, "database")
 	return input, nil
 }

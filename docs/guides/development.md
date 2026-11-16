@@ -147,7 +147,7 @@ make mcp-image                   # 集中构建三个 MCP 镜像，不启动容�
 make image IMAGE_REPOSITORY=registry.example.com/opskeeper IMAGE_TAG=v0.1.0
 ```
 
-镜像名称为 `<IMAGE_REPOSITORY>-<服务>:<IMAGE_TAG>`，默认前缀 `opskeeper`、标签 `local`。镜像构建使用 `deploy/Dockerfile`，不依赖本机预先生成的二进制。Makefile 不自动读取 `.env` 中的镜像变量，使用非默认值时须通过命令参数或导出的环境变量传入，并与 Compose 配置保持一致。
+镜像名称为 `<IMAGE_REPOSITORY>-<服务>:<IMAGE_TAG>`，默认前缀 `opskeeper`、标签 `local`。默认使用 `deploy/Dockerfile`：`*-image` 先在本机构建对应制品，再复制打包；后端自动编译为静态 Linux 二进制，本地需安装 Go、Node 及前端依赖。原容器内源码编译链路保留在 `deploy/Dockerfile.prd`，可用 `make image DOCKERFILE=deploy/Dockerfile.prd`。跨架构时需让 `GOARCH` 与 Docker 目标平台一致。Makefile 不自动读取 `.env` 中的镜像变量，使用非默认值时须通过命令参数或导出的环境变量传入，并与 Compose 配置保持一致。
 
 ## 3. 配置与日常操作
 

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"opskeeper/backend/engine"
 )
 
 // applicationResourceFocus is a compact index of the selected applications'
@@ -125,6 +127,9 @@ func buildApplicationLocatorHints(raw json.RawMessage) map[string]map[string]any
 	conflicts := make(map[string]map[string]struct{})
 	for _, selected := range snapshot.Applications {
 		for _, resource := range selected.Resources {
+			if engine.IsDatabaseKind(resource.Kind) {
+				continue
+			}
 			resourceID := strings.TrimSpace(resource.ID)
 			if resourceID == "" || len(resource.Binding) == 0 {
 				continue
@@ -162,12 +167,8 @@ func buildApplicationLocatorHints(raw json.RawMessage) map[string]map[string]any
 	return hints
 }
 
-// buildApplicationResourceBindings carries one unambiguous application
-// relationship binding into the server-side resource resolver. A repository
-// can be shared by applications at different directories; in that case no
-// implicit directory is selected, so the model must choose an explicit path
-// from the application context instead of receiving the wrong application's
-// source tree.
+// buildApplicationResourceBindings carries application targets into execution-local
+// providers. Conflicting database targets fail closed instead of using a default database.
 func buildApplicationResourceBindings(raw json.RawMessage) map[string]map[string]any {
 	var snapshot rawApplicationResourceContext
 	if len(raw) == 0 || string(raw) == "null" || json.Unmarshal(raw, &snapshot) != nil {
@@ -177,7 +178,31 @@ func buildApplicationResourceBindings(raw json.RawMessage) map[string]map[string
 	conflicts := make(map[string]struct{})
 	for _, selected := range snapshot.Applications {
 		for _, resource := range selected.Resources {
-			if !strings.EqualFold(strings.TrimSpace(resource.Kind), "Repository") || resource.Relation != "association" {
+			if resource.Relation != "association" {
+				continue
+			}
+			if engine.IsDatabaseKind(resource.Kind) {
+				binding := make(map[string]any)
+				for _, key := range []string{"database", "schema", "service_name", "service", "sid", "username"} {
+					if value, ok := resource.Binding[key].(string); ok && strings.TrimSpace(value) != "" {
+						binding[key] = strings.TrimSpace(value)
+					}
+				}
+				if current, exists := bindings[resource.ID]; exists {
+					for _, key := range []string{"database", "schema", "service_name", "service", "sid", "username"} {
+						if fmt.Sprint(current[key]) != fmt.Sprint(binding[key]) {
+							binding = map[string]any{"target_conflict": true}
+							break
+						}
+					}
+					if current["target_conflict"] == true {
+						binding = current
+					}
+				}
+				bindings[resource.ID] = binding
+				continue
+			}
+			if !strings.EqualFold(strings.TrimSpace(resource.Kind), "Repository") {
 				continue
 			}
 			directory, _ := resource.Binding["directory"].(string)

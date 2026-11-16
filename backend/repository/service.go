@@ -94,12 +94,16 @@ func (s *Service) RevisionsDraft(ctx context.Context, subtype, rawURL, username,
 
 func (s *Service) Revisions(ctx context.Context, id string) ([]repositorytool.BranchRevisions, error) {
 	item, err := s.resources.Get(ctx, id)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	if item.Kind != "Repository" || (!strings.EqualFold(item.Subtype, "Git") && !strings.EqualFold(item.Subtype, "Bundle")) {
 		return nil, errors.New("resource must be a Git or Bundle Repository")
 	}
 	in, err := s.repositoryInput(ctx, item)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return repositorytool.RepositoryRevisions(ctx, in, 20)
 }
 
@@ -219,9 +223,6 @@ func (s *Service) UploadBundle(ctx context.Context, id string, r io.Reader, size
 	if e = tmp.Close(); e != nil {
 		return UploadResult{}, e
 	}
-	if e = run(ctx, "bundle", "verify", tmpName); e != nil {
-		return UploadResult{}, e
-	}
 	repoDir := filepath.Join(s.root, id)
 	if e = os.MkdirAll(repoDir, 0700); e != nil {
 		return UploadResult{}, e
@@ -230,6 +231,9 @@ func (s *Service) UploadBundle(ctx context.Context, id string, r io.Reader, size
 		if e = run(ctx, "init", "--bare", repoDir); e != nil {
 			return UploadResult{}, e
 		}
+	}
+	if e = run(ctx, "--git-dir", repoDir, "bundle", "verify", tmpName); e != nil {
+		return UploadResult{}, e
 	}
 	archived, e := archiveHeads(ctx, repoDir)
 	if e != nil {
@@ -242,7 +246,7 @@ func (s *Service) UploadBundle(ctx context.Context, id string, r io.Reader, size
 	if e != nil {
 		return UploadResult{}, e
 	}
-	branch, commitID, e := latestCommitID(ctx, repoDir, item, branches)
+	branch, commitID, e := latestCommitID(ctx, repoDir, tmpName, item)
 	if e != nil {
 		return UploadResult{}, e
 	}
@@ -362,9 +366,6 @@ func (s *Service) uploadPostgres(ctx context.Context, id string, r io.Reader, si
 	if err = f.Close(); err != nil {
 		return UploadResult{}, err
 	}
-	if err := run(ctx, "bundle", "verify", upload); err != nil {
-		return UploadResult{}, err
-	}
 	var existing []byte
 	if err := s.storage.Postgres.QueryRow(ctx, `SELECT bundle FROM repository_bundles WHERE resource_id=$1::uuid`, id).Scan(&existing); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return UploadResult{}, err
@@ -386,6 +387,9 @@ func (s *Service) uploadPostgres(ctx context.Context, id string, r io.Reader, si
 			return UploadResult{}, err
 		}
 	}
+	if err := run(ctx, "--git-dir", repoDir, "bundle", "verify", upload); err != nil {
+		return UploadResult{}, err
+	}
 	archived, err := archiveHeads(ctx, repoDir)
 	if err != nil {
 		return UploadResult{}, err
@@ -397,7 +401,7 @@ func (s *Service) uploadPostgres(ctx context.Context, id string, r io.Reader, si
 	if err != nil {
 		return UploadResult{}, err
 	}
-	branch, commitID, err := latestCommitID(ctx, repoDir, item, branches)
+	branch, commitID, err := latestCommitID(ctx, repoDir, upload, item)
 	if err != nil {
 		return UploadResult{}, err
 	}
@@ -435,8 +439,11 @@ func (s *Service) updateStorageConfig(ctx context.Context, id string, item resou
 	delete(cfg, "s3_prefix")
 	cfg["storage_backend"] = backend
 	cfg["storage_key"] = key
-	cfg["default_branch"] = branch
-	cfg["endpoint"] = repositoryEndpoint(item, branch, commitID)
+	// Upload imports objects; an existing selection changes only when the resource is saved.
+	if stringConfig(item.Config, "endpoint") == "" {
+		cfg["default_branch"] = branch
+		cfg["endpoint"] = repositoryEndpoint(item, branch, commitID)
+	}
 	if _, err := updater.Update(ctx, id, resource.UpdateInput{Config: &cfg}); err != nil {
 		return fmt.Errorf("update repository storage metadata: %w", err)
 	}
@@ -509,14 +516,16 @@ func (s *Service) uploadS3(ctx context.Context, id string, r io.Reader, size int
 		_ = f.Close()
 		return UploadResult{}, e
 	}
-	_ = f.Close()
-	if e = run(ctx, "bundle", "verify", upload); e != nil {
+	if e = f.Close(); e != nil {
 		return UploadResult{}, e
 	}
 	if _, e = os.Stat(filepath.Join(repoDir, "HEAD")); os.IsNotExist(e) {
 		if e = run(ctx, "init", "--bare", repoDir); e != nil {
 			return UploadResult{}, e
 		}
+	}
+	if e = run(ctx, "--git-dir", repoDir, "bundle", "verify", upload); e != nil {
+		return UploadResult{}, e
 	}
 	archived, e := archiveHeads(ctx, repoDir)
 	if e != nil {
@@ -529,7 +538,7 @@ func (s *Service) uploadS3(ctx context.Context, id string, r io.Reader, size int
 	if e != nil {
 		return UploadResult{}, e
 	}
-	branch, commitID, e := latestCommitID(ctx, repoDir, item, branches)
+	branch, commitID, e := latestCommitID(ctx, repoDir, upload, item)
 	if e != nil {
 		return UploadResult{}, e
 	}
@@ -556,7 +565,18 @@ func (s *Service) uploadS3(ctx context.Context, id string, r io.Reader, size int
 	return UploadResult{ResourceID: id, StorageKey: key, StorageBackend: "s3", CommitID: commitID, DefaultBranch: branch, Branches: branches, ArchivedRefs: archived}, nil
 }
 
-func latestCommitID(ctx context.Context, dir string, item resource.Resource, branches []string) (string, string, error) {
+func latestCommitID(ctx context.Context, dir, bundle string, item resource.Resource) (string, string, error) {
+	out, err := exec.CommandContext(ctx, "git", "bundle", "list-heads", bundle).Output()
+	if err != nil {
+		return "", "", err
+	}
+	var branches []string
+	for _, line := range strings.Split(string(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 2 && strings.HasPrefix(fields[1], "refs/heads/") {
+			branches = append(branches, strings.TrimPrefix(fields[1], "refs/heads/"))
+		}
+	}
 	if len(branches) == 0 {
 		return "", "", errors.New("bundle contains no branches")
 	}
@@ -566,12 +586,18 @@ func latestCommitID(ctx context.Context, dir string, item resource.Resource, bra
 		if err != nil {
 			return "", "", err
 		}
-		branch = strings.TrimSpace(strings.SplitN(string(out), "\n", 2)[0])
+		branch = ""
+		for _, candidate := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			if containsBranch(branches, candidate) {
+				branch = candidate
+				break
+			}
+		}
 	}
 	if branch == "" {
 		return "", "", errors.New("bundle contains no branch commit")
 	}
-	out, err := exec.CommandContext(ctx, "git", "--git-dir", dir, "rev-parse", "--verify", "--end-of-options", "refs/heads/"+branch+"^{commit}").Output()
+	out, err = exec.CommandContext(ctx, "git", "--git-dir", dir, "rev-parse", "--verify", "--end-of-options", "refs/heads/"+branch+"^{commit}").Output()
 	if err != nil {
 		return "", "", err
 	}

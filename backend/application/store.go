@@ -487,13 +487,7 @@ func (s *store) Update(ctx context.Context, projectID, applicationID string, inp
 		return Application{}, fmt.Errorf("encode application labels: %w", err)
 	}
 	args := []any{applicationID, current.Name, current.Code, current.Description, current.Icon, current.Status, current.RuntimeKind, current.ExternalUID, labels, current.Critical, current.TechnicalOwnerIDs, current.OperationsOwnerIDs}
-	query := `UPDATE applications a SET name=$2,code=$3,description=$4,icon=$5,status=$6,runtime_kind=$7,external_uid=$8,labels=$9,critical=$10,technical_owner_ids=$11::uuid[],operations_owner_ids=$12::uuid[],updated_at=now()
-WHERE a.id=$1::uuid AND a.deleted_at IS NULL`
-	if strings.TrimSpace(projectID) != "" {
-		args = append(args, projectID)
-		query += ` AND a.project_id=$13::uuid`
-	}
-	query, args = visibleApplications(query+` RETURNING a.id`, args, ctx)
+	query, args := applicationUpdateQuery(ctx, projectID, args)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return Application{}, fmt.Errorf("begin update application: %w", err)
@@ -531,6 +525,18 @@ WHERE a.id=$1::uuid AND a.deleted_at IS NULL`
 		return Application{}, fmt.Errorf("commit update application: %w", err)
 	}
 	return s.Get(ctx, projectID, updatedID)
+}
+
+func applicationUpdateQuery(ctx context.Context, projectID string, args []any) (string, []any) {
+	query := `UPDATE applications a SET name=$2,code=$3,description=$4,icon=$5,status=$6,runtime_kind=$7,external_uid=$8,labels=$9,critical=$10,technical_owner_ids=$11::uuid[],operations_owner_ids=$12::uuid[],updated_at=now()
+FROM projects p
+WHERE a.id=$1::uuid AND a.project_id=p.id AND a.deleted_at IS NULL AND p.deleted_at IS NULL`
+	if strings.TrimSpace(projectID) != "" {
+		args = append(args, projectID)
+		query += ` AND a.project_id=$13::uuid`
+	}
+	query, args = visibleApplications(query, args, ctx)
+	return query + ` RETURNING a.id`, args
 }
 
 type activeUserQuerier interface {

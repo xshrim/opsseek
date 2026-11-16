@@ -4703,7 +4703,7 @@
   }
 
   async function uploadRepositoryBundle(resourceID: string) {
-    if (!repositoryBundleFile) return;
+    if (!repositoryBundleFile) throw new Error('请先选择 Bundle 文件。');
     const body = new FormData();
     body.append('bundle', repositoryBundleFile);
     const data = await request<{
@@ -4731,13 +4731,12 @@
             config: {
               ...resource.config,
               storage_key: storageKey,
-              storage_backend: storageBackend,
-              default_branch: branch,
-              endpoint: resourceID + ' [' + branch + '·' + commitID + ']'
+              storage_backend: storageBackend
             }
           }
         : resource
     );
+    return { branch, commitID };
   }
 
   async function previewRepository(
@@ -4782,9 +4781,9 @@
     repositoryWorkflowError = '';
     try {
       const saved = await persistRepositoryWorkflow();
-      await uploadRepositoryBundle(saved.id);
+      const uploaded = await uploadRepositoryBundle(saved.id);
       repositoryBundleUploadedResourceId = saved.id;
-      await previewRepository(saved.id);
+      await previewRepository(saved.id, uploaded.branch, uploaded.commitID);
     } catch (error) {
       repositoryWorkflowError = describeError(error, 'Bundle 上传失败');
     } finally {

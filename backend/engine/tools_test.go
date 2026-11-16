@@ -70,6 +70,25 @@ func TestPolicyGatewayInvalidCallEmitsRequestedAndFailed(t *testing.T) {
 	}
 }
 
+func TestPolicyGatewayIncludesDatabaseScopeInObservation(t *testing.T) {
+	registry := NewToolRegistry()
+	err := registry.Register("db", ToolFunc{Def: ToolDefinition{Name: "read", Source: "test", ReadOnly: true}, Fn: func(context.Context, map[string]any) (ToolResult, error) {
+		return ToolResult{Output: map[string]any{"count": 3}, Scope: map[string]any{"database": "business"}}, nil
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gateway := NewPolicyGateway(registry, nil, time.Second, 4096, 1)
+	result, err := gateway.Invoke(context.Background(), ToolCall{ResourceID: "db", Name: "read"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := result.Output.(map[string]any)
+	if output["scope"].(map[string]any)["database"] != "business" || output["data"].(map[string]any)["count"] != 3 {
+		t.Fatalf("scope/data lost: %v", output)
+	}
+}
+
 func TestPolicyGatewayAuditsProviderModelTimingAndErrors(t *testing.T) {
 	registry := NewToolRegistry()
 	if err := registry.Register("resource-1", ToolFunc{Def: ToolDefinition{Name: "read", Source: "test"}, Fn: func(context.Context, map[string]any) (ToolResult, error) {

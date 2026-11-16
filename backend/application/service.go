@@ -510,7 +510,7 @@ func normalizeRepositoryDirectory(value string) (string, error) {
 func allowedDependencyBindingField(kind, key string) bool {
 	switch kind {
 	case "database":
-		return oneOf(key, "database", "schema", "instance", "service", "sid")
+		return oneOf(key, "database", "schema", "instance", "service", "service_name", "sid", "username")
 	case "messaging":
 		return oneOf(key, "topic", "queue", "exchange", "group", "vhost")
 	case "configuration":

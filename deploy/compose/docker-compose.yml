@@ -6,6 +6,14 @@ services:
     image: ${IMAGE_REPOSITORY:-opskeeper}-api:${IMAGE_TAG:-local}
     container_name: opskeeper-api
     profiles: ["svc"]
+    group_add:
+      - "${DOCKER_SOCKET_GID:-0}"
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        bind:
+          create_host_path: false
     environment:
       OPSK_LISTEN_PORT: ${OPSK_LISTEN_PORT:-8080}
       OPSK_DB_HOST: postgres:5432
@@ -59,6 +67,14 @@ services:
   app:
     image: ${IMAGE_REPOSITORY:-opskeeper}-app:${IMAGE_TAG:-local}
     container_name: opskeeper-app
+    group_add:
+      - "${DOCKER_SOCKET_GID:-0}"
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        bind:
+          create_host_path: false
     environment:
       OPSK_LISTEN_PORT: ${OPSK_LISTEN_PORT:-8080}
       OPSK_DB_HOST: postgres:5432

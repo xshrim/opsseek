@@ -4,6 +4,7 @@ COMPOSE_FILE := deploy/compose/docker-compose.yml
 WEBUI_DIST := backend/webui/dist
 IMAGE_REPOSITORY ?= opskeeper
 IMAGE_TAG ?= local
+DOCKERFILE ?= deploy/Dockerfile
 # Use pipe fallback semantics so an unavailable proxy does not block the
 # development workflow. A comma only falls back for 404/410 responses.
 # A command-line assignment (for example, `make GOPROXY=...`) can still
@@ -28,11 +29,12 @@ define docker-image
 		--build-arg VERSION=$(VERSION) \
 		--build-arg COMMIT=$(COMMIT) \
 		--build-arg BUILD_TIME=$(BUILD_TIME) \
-		--target $(1) -t $(IMAGE_REPOSITORY)-$(1):$(IMAGE_TAG) -f deploy/Dockerfile .
+		--target $(1) -t $(IMAGE_REPOSITORY)-$(1):$(IMAGE_TAG) -f $(DOCKERFILE) .
 endef
 
 define compose
-@if docker compose version >/dev/null 2>&1; then \
+@export DOCKER_SOCKET_GID="$${DOCKER_SOCKET_GID:-$$(stat -c '%g' /var/run/docker.sock 2>/dev/null || echo 0)}"; \
+if docker compose version >/dev/null 2>&1; then \
 	docker compose -f $(COMPOSE_FILE) --env-file .env $(1); \
 elif command -v docker-compose >/dev/null 2>&1; then \
 	docker-compose -f $(COMPOSE_FILE) --env-file .env $(1); \
@@ -171,6 +173,20 @@ app-run: env webui-assets ## Build and embed the frontend, then run the app dire
 	set -a; source .env; set +a; cd backend && go run -tags=embed_webui ./cmd/api
 
 # Service images and containers
+# Host-built image artifacts must be static Linux binaries; leave normal builds native.
+ifeq ($(DOCKERFILE),deploy/Dockerfile)
+api-image worker-image scheduler-image app-image docker-mcp-image host-mcp-image kubernetes-mcp-image: export GOOS := linux
+api-image worker-image scheduler-image app-image docker-mcp-image host-mcp-image kubernetes-mcp-image: CGO_ENABLED := 0
+api-image: api-build
+worker-image: worker-build
+scheduler-image: scheduler-build
+frontend-image: frontend-build
+app-image: app-build
+docker-mcp-image: docker-mcp-build
+host-mcp-image: host-mcp-build
+kubernetes-mcp-image: kubernetes-mcp-build
+endif
+
 image: api-image worker-image scheduler-image frontend-image app-image ## Build all service images.
 
 api-image: ## Build the API image.

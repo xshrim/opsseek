@@ -25,6 +25,7 @@
   import SearchInput from '../../components/SearchInput.svelte';
   import Tabs from '../../components/Tabs.svelte';
   import ResourceBindingPicker from './ResourceBindingPicker.svelte';
+  import { databaseBindingFields } from './databaseBindingFields';
   import ReadonlyTable from '../../components/ReadonlyTable.svelte';
   import type { ReadonlyTableColumn } from '../../components/ReadonlyTable.svelte';
   import { formatLabels, parseLabels } from '../../lib/labels';
@@ -796,13 +797,11 @@
   }
 
   function bindingFields(
-    kind: string
+    kind: string,
+    resource: Resource
   ): Array<{ key: string; label: string; placeholder: string }> {
     if (kind === 'database')
-      return [
-        { key: 'database', label: '数据库 / 实例', placeholder: '例如 orders' },
-        { key: 'schema', label: 'Schema（可选）', placeholder: '例如 public' }
-      ];
+      return databaseBindingFields(resource.kind, String(resource.config?.mode ?? ''));
     if (kind === 'messaging')
       return [
         {
@@ -1913,7 +1912,7 @@
                     {#if !collapsedBindingKeys.has(binding.key)}
                     {#if resource}
                       <div class="application-binding-fields">
-                        {#each bindingFields(binding.dependencyKind) as field}
+                        {#each bindingFields(binding.dependencyKind, resource) as field}
                           <FormField label={field.label}
                             ><TextInput
                               value={binding.binding[field.key] ?? ''}

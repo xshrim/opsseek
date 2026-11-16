@@ -41,6 +41,18 @@ func TestAgentToolNamesMatchSupportedResourceToolkits(t *testing.T) {
 	}
 }
 
+func TestDatabaseAgentUsesApplicationTargetWithoutChangingLogin(t *testing.T) {
+	p := mcpContextProvider{service: &Service{}}
+	resource := engine.ContextResource{Kind: "PostgreSQL", Subtype: "agent", Config: map[string]any{"database": "postgres", "username": "reader", "password": "secret"}, Binding: map[string]any{"database": "opskeeper", "username": "app"}}
+	got, err := p.agentArguments(context.Background(), resource, map[string]any{"database": "model-db", "username": "model-user"})
+	if err != nil || got["database"] != "opskeeper" || got["username"] != "reader" || got["password"] != "secret" {
+		t.Fatalf("incorrect Agent target or authentication: %v", err)
+	}
+	if resource.Config["database"] != "postgres" {
+		t.Fatal("resource default changed")
+	}
+}
+
 func TestRepositoryAgentSchemaHidesStorageConnectionFields(t *testing.T) {
 	var schema map[string]any
 	if err := json.Unmarshal(repositoryAgentSchema([]byte(`{"type":"object","required":["path","query"],"properties":{"path":{"type":"string"},"url":{"type":"string"},"branch":{"type":"string"},"timeout_seconds":{"type":"integer"},"storage_backend":{"type":"string"},"storage_key":{"type":"string"},"s3_endpoint":{"type":"string"},"s3_bucket":{"type":"string"},"s3_prefix":{"type":"string"},"query":{"type":"string"}}}`)), &schema); err != nil {

@@ -228,6 +228,25 @@ func TestPrepareCreateInputRejectsUnknownBindingFields(t *testing.T) {
 	}
 }
 
+func TestDatabaseBindingFieldsSurviveValidationAndDiagnosticContext(t *testing.T) {
+	binding := map[string]any{"database": "orders", "schema": "ORDERS", "service_name": "orders_pdb", "sid": "", "username": "orders_app"}
+	normalized, err := normalizeDependencyBinding("database", binding)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contextBinding := sanitizeBinding("database", normalized)
+	for key, value := range binding {
+		if contextBinding[key] != value {
+			t.Fatalf("database binding field %s lost: %#v", key, contextBinding)
+		}
+	}
+	for _, key := range []string{"password", "application_name", "client_address"} {
+		if _, err := normalizeDependencyBinding("database", map[string]any{key: "value"}); err == nil {
+			t.Fatalf("unexpected database binding field accepted: %s", key)
+		}
+	}
+}
+
 func TestCreateManyValidatesWholeBatchBeforeStore(t *testing.T) {
 	store := &testStore{}
 	s := NewService(store)

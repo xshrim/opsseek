@@ -30,9 +30,10 @@ type ToolDefinition struct {
 }
 
 type ToolResult struct {
-	Output    any  `json:"output,omitempty"`
-	Untrusted bool `json:"untrusted"`
-	Truncated bool `json:"truncated,omitempty"`
+	Scope     map[string]any `json:"scope,omitempty"`
+	Output    any            `json:"output,omitempty"`
+	Untrusted bool           `json:"untrusted"`
+	Truncated bool           `json:"truncated,omitempty"`
 }
 
 type Tool interface {
@@ -324,6 +325,10 @@ func (g *PolicyGateway) Invoke(ctx context.Context, call ToolCall) (ToolResult, 
 		g.recordToolCall(ToolCallRecord{ExecutionID: call.ExecutionID, Sequence: call.Sequence, ProviderID: call.ProviderID, ModelName: call.ModelName, ResourceID: call.ResourceID, ToolName: definition.Name, Arguments: call.Arguments, Status: StatusFailed, ErrorCode: "tool_execution", Error: message, StartedAt: started, CompletedAt: completedAt, DurationMS: durationMS})
 		_ = emitToolEvent(call.EventSink, Event{Type: "tool.failed", Status: StatusFailed, Payload: toolEventPayload(call, definition.Name, map[string]any{"arguments": redactValue(call.Arguments), "output": map[string]any{"error": message}, "error": message, "duration_ms": time.Since(started).Milliseconds()})})
 		return ToolResult{}, err
+	}
+	if len(result.Scope) > 0 {
+		result.Output = map[string]any{"scope": result.Scope, "data": result.Output}
+		result.Scope = nil
 	}
 	encoded, marshalErr := json.Marshal(result.Output)
 	if marshalErr != nil {

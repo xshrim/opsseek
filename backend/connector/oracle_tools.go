@@ -18,6 +18,7 @@ func (s *Service) resolveOracleTools(ctx context.Context, item engine.ContextRes
 	if err != nil {
 		return err
 	}
+	add = databaseScopedTools(add, map[string]any{"service_name": connection.ServiceName, "sid": connection.SID}, item.Binding)
 	register := func(name, desc string, fn func(context.Context, ot.ConnectionInput) (any, error)) {
 		add(name, desc, oracleDirectSchema(), func(c context.Context, _ map[string]any) (engine.ToolResult, error) {
 			out, e := fn(c, connection)
@@ -125,5 +126,10 @@ func (s *Service) oracleConnection(ctx context.Context, item engine.ContextResou
 	if in.SID == "" {
 		in.SID = stringValue(values, "sid")
 	}
+	target, err := engine.DatabaseConnectionTarget(item.Kind, map[string]any{"service_name": in.ServiceName, "sid": in.SID}, item.Binding)
+	if err != nil {
+		return in, err
+	}
+	in.ServiceName, in.SID = stringValue(target, "service_name"), stringValue(target, "sid")
 	return in, nil
 }

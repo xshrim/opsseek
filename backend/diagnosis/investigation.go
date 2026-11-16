@@ -289,6 +289,14 @@ func (o *Orchestrator) executeInvestigation(ctx context.Context, session Session
 	for _, target := range task.Targets {
 		resourceIDs = append(resourceIDs, target.resourceID)
 		for id, binding := range buildApplicationResourceBindings(target.context) {
+			if current, exists := bindings[id]; exists {
+				for _, key := range []string{"database", "schema", "service_name", "service", "sid", "username", "target_conflict"} {
+					if fmt.Sprint(current[key]) != fmt.Sprint(binding[key]) {
+						binding = map[string]any{"target_conflict": true}
+						break
+					}
+				}
+			}
 			bindings[id] = binding
 		}
 		for id, locator := range buildApplicationLocatorHints(target.context) {

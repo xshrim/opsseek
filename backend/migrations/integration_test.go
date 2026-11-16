@@ -305,6 +305,47 @@ func TestBaselineContainsProjectViewerRole(t *testing.T) {
 	}
 }
 
+func TestLegacyHistoryConsolidatesWithoutRebuildingTables(t *testing.T) {
+	pool := integrationPool(t)
+	ctx := context.Background()
+	legacy, err := loadLegacy()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `CREATE TABLE schema_migrations(version bigint PRIMARY KEY,name text NOT NULL,checksum text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now())`); err != nil {
+		t.Fatal(err)
+	}
+	// Start before the last migration to cover upgrading a partially current database.
+	for _, item := range legacy[:len(legacy)-1] {
+		if _, err := pool.Exec(ctx, item.sql); err != nil {
+			t.Fatalf("legacy %d: %v", item.version, err)
+		}
+		if _, err := pool.Exec(ctx, `INSERT INTO schema_migrations(version,name,checksum) VALUES($1,$2,$3)`, item.version, item.name, item.checksum); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `CREATE TABLE baseline_preservation_probe(value text); INSERT INTO baseline_preservation_probe VALUES('keep')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := Apply(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	if err := Apply(ctx, pool); err != nil {
+		t.Fatalf("second apply: %v", err)
+	}
+	var count int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM schema_migrations`).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("history count=%d err=%v", count, err)
+	}
+	var value string
+	if err := pool.QueryRow(ctx, `SELECT value FROM baseline_preservation_probe`).Scan(&value); err != nil || value != "keep" {
+		t.Fatalf("existing data lost: %v", err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM resource_schemas WHERE kind='Skywalking'`).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("pending migration not applied: count=%d err=%v", count, err)
+	}
+}
+
 func integrationPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	databaseURL := os.Getenv("OPSK_TEST_DATABASE_URL")

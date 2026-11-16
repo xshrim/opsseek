@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { onMount } from 'svelte';
   import type { Resource } from '../../lib/api';
   import { appURL } from '../../lib/health';
-  import FileUpload from '../../components/FileUpload.svelte';
+  import { repositoryRevisionFromEndpoint } from './repositoryPreview';
+  import { resourceEndpointFor } from './resourceCatalog';
   import RepositoryPreviewContent from './RepositoryPreviewContent.svelte';
   import type {
     RepositoryBranchRevision,
@@ -11,17 +12,20 @@
 
   export let resource: Resource;
   export let canUpdate = false;
+  export let formatDate: (value: string) => string = (value) => value || '—';
   let busy = false;
   let failed = false;
   let failureReason = '';
-  let uploading = false;
-  let file: File | null = null;
   let previewEntries: RepositoryPreviewEntry[] = [];
   let branches: RepositoryBranchRevision[] = [];
   let selectedBranch = '';
   let selectedCommit = '';
-  const dispatch = createEventDispatcher<{ resourceupdate: Resource }>();
   $: isBundle = String(resource.subtype ?? '').toLowerCase() === 'bundle';
+  $: savedRevision = repositoryRevisionFromEndpoint(
+    resource.subtype ?? '',
+    String(resource.config?.url ?? ''),
+    String(resource.config?.endpoint ?? '')
+  );
 
   async function preview(branch = selectedBranch, commitID = selectedCommit) {
     if (busy) return;
@@ -65,76 +69,62 @@
     await preview(branch, commitID);
   }
 
-  async function uploadBundle(event: CustomEvent<File>) {
-    if (uploading || !event.detail) return;
-    uploading = true;
-    failed = false;
-    failureReason = '';
-    let uploaded = false;
-    try {
-      const body = new FormData();
-      body.append('bundle', event.detail);
-      const response = await fetch(
-        appURL('api/v1/resources/' + resource.id + '/bundle'),
-        {
-          method: 'POST',
-          body,
-          credentials: 'include'
-        }
-      );
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok)
-        throw new Error(data?.error?.message ?? data?.message ?? '上传失败');
-      const branch = String(data.default_branch ?? '');
-      const commitID = String(data.commit_id ?? '');
-      const storageKey = String(data.storage_key ?? '');
-      const storageBackend = String(data.storage_backend ?? '');
-      if (!branch || !commitID || !storageKey || !storageBackend)
-        throw new Error('上传成功，但未返回所选分支或 commit。');
-      resource = {
-        ...resource,
-        config: {
-          ...resource.config,
-          storage_key: storageKey,
-          storage_backend: storageBackend,
-          default_branch: branch,
-          endpoint: resource.id + ' [' + branch + '·' + commitID + ']'
-        }
-      };
-      dispatch('resourceupdate', resource);
-      uploaded = true;
-    } catch (error) {
-      failed = true;
-      failureReason =
-        error instanceof Error
-          ? error.message
-          : 'Bundle 上传失败，请稍后重试。';
-    } finally {
-      uploading = false;
-    }
-    if (uploaded) await preview('', '');
-  }
-
   onMount(() => void preview());
 </script>
 
-{#if isBundle && canUpdate}
-  <FileUpload
-    bind:file
-    accept=".bundle,application/octet-stream"
-    ariaLabel="选择 Git Bundle 文件"
-    placeholder="选择或拖入 Bundle 文件"
-    showUploadButton
-    {uploading}
-    disabled={busy}
-    on:upload={uploadBundle}
-  />
-{/if}
+<div class="provider-resource-details">
+  <div class="provider-resource-meta">
+    <div><span>仓库类型</span><strong>{resource.subtype ?? '—'}</strong></div>
+    <div>
+      <span>资源端点</span><strong>{resourceEndpointFor(resource)}</strong>
+    </div>
+    <div>
+      <span>当前分支</span><strong
+        >{savedRevision.branch ||
+          String(resource.config?.default_branch ?? '—')}</strong
+      >
+    </div>
+    <div>
+      <span>当前 CommitID</span><strong>{savedRevision.commitID || '—'}</strong>
+    </div>
+    {#if isBundle}
+      <div>
+        <span>存储后端</span><strong
+          >{String(resource.config?.storage_backend ?? '—')}</strong
+        >
+      </div>
+      <div>
+        <span>存储标识</span><strong
+          >{String(resource.config?.storage_key ?? '—')}</strong
+        >
+      </div>
+      <div>
+        <span>Bundle 状态</span><strong
+          >{resource.config?.storage_key ? '已上传' : '未上传'}</strong
+        >
+      </div>
+    {:else}
+      <div>
+        <span>仓库地址</span><strong
+          >{String(resource.config?.url ?? '—')}</strong
+        >
+      </div>
+      <div>
+        <span>连接凭据</span><strong
+          >{resource.credential_configured ? '已配置' : '未配置'}</strong
+        >
+      </div>
+    {/if}
+    <div>
+      <span>最新更新</span><strong>{formatDate(resource.updated_at)}</strong>
+    </div>
+  </div>
+</div>
 <RepositoryPreviewContent
   {branches}
   bind:selectedBranch
   bind:selectedCommit
-  busy={busy || uploading}
+  {busy}
   {failed}
   {failureReason}
   entries={previewEntries}

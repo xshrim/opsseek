@@ -18,6 +18,7 @@ func (s *Service) resolveOceanBaseTools(ctx context.Context, item engine.Context
 	if err != nil {
 		return err
 	}
+	add = databaseScopedTools(add, map[string]any{"database": connection.Database, "service_name": connection.ServiceName, "mode": connection.Mode}, item.Binding)
 	register := func(name, desc string, fn func(context.Context, ot.ConnectionInput) (any, error)) {
 		add(name, desc, oceanBaseDirectSchema(), func(c context.Context, _ map[string]any) (engine.ToolResult, error) {
 			out, e := fn(c, connection)
@@ -123,5 +124,10 @@ func (s *Service) oceanBaseConnection(ctx context.Context, item engine.ContextRe
 	if in.ServiceName == "" {
 		in.ServiceName = stringValue(values, "service_name")
 	}
+	target, err := engine.DatabaseConnectionTarget(item.Kind, map[string]any{"database": in.Database, "service_name": in.ServiceName}, item.Binding)
+	if err != nil {
+		return in, err
+	}
+	in.Database, in.ServiceName = stringValue(target, "database"), stringValue(target, "service_name")
 	return in, nil
 }

@@ -14,10 +14,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-//go:embed sql/*.sql
+//go:embed sql/*.sql sql/archive/0001_initial_pre_0095.sql sql/archive/008*.sql sql/archive/009*.sql
 var migrationFiles embed.FS
 
 const (
@@ -40,6 +41,9 @@ func Apply(ctx context.Context, pool *pgxpool.Pool) error {
 func apply(ctx context.Context, conn *pgxpool.Conn) error {
 	migrations, err := load()
 	if err != nil {
+		return err
+	}
+	if err := consolidateLegacyHistory(ctx, conn, migrations[0]); err != nil {
 		return err
 	}
 
@@ -76,6 +80,52 @@ func apply(ctx context.Context, conn *pgxpool.Conn) error {
 	}
 
 	return nil
+}
+
+// Existing databases finish their original migration chain before adopting the baseline.
+func consolidateLegacyHistory(ctx context.Context, conn *pgxpool.Conn, baseline migration) error {
+	var historyExists bool
+	if err := conn.QueryRow(ctx, `SELECT to_regclass('schema_migrations') IS NOT NULL`).Scan(&historyExists); err != nil || !historyExists {
+		return err
+	}
+	var name, checksum string
+	if err := conn.QueryRow(ctx, `SELECT name,checksum FROM schema_migrations WHERE version=1`).Scan(&name, &checksum); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return fmt.Errorf("read baseline migration: %w", err)
+	}
+	if name == baseline.name && checksum == baseline.checksum {
+		return nil
+	}
+	legacy, err := loadLegacy()
+	if err != nil {
+		return err
+	}
+	applied, err := prepareMigrationHistory(ctx, conn, legacy)
+	if err != nil {
+		return err
+	}
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	for _, item := range legacy {
+		if _, exists := applied[item.version]; exists {
+			continue
+		}
+		if _, err := tx.Exec(ctx, item.sql); err != nil {
+			return fmt.Errorf("complete archived migration %d: %w", item.version, err)
+		}
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM schema_migrations`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO schema_migrations(version,name,checksum) VALUES(1,$1,$2)`, baseline.name, baseline.checksum); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func prepareMigrationHistory(ctx context.Context, conn *pgxpool.Conn, migrations []migration) (map[int64]struct{}, error) {
@@ -181,7 +231,15 @@ func closeMigrationConnection(conn *pgxpool.Conn) error {
 }
 
 func load() ([]migration, error) {
-	entries, err := fs.ReadDir(migrationFiles, "sql")
+	return loadDirectory("sql", false)
+}
+
+func loadLegacy() ([]migration, error) {
+	return loadDirectory("sql/archive", true)
+}
+
+func loadDirectory(directory string, legacy bool) ([]migration, error) {
+	entries, err := fs.ReadDir(migrationFiles, directory)
 	if err != nil {
 		return nil, fmt.Errorf("read migrations: %w", err)
 	}
@@ -189,6 +247,9 @@ func load() ([]migration, error) {
 	items := make([]migration, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".sql" || strings.HasSuffix(entry.Name(), ".down.sql") {
+			continue
+		}
+		if legacy && entry.Name() != "0001_initial_pre_0095.sql" && !strings.HasPrefix(entry.Name(), "008") && !strings.HasPrefix(entry.Name(), "009") {
 			continue
 		}
 		parts := strings.SplitN(strings.TrimSuffix(entry.Name(), ".sql"), "_", 2)
@@ -199,7 +260,10 @@ func load() ([]migration, error) {
 		if err != nil || version <= 0 {
 			return nil, fmt.Errorf("invalid migration version in %q", entry.Name())
 		}
-		content, err := migrationFiles.ReadFile("sql/" + entry.Name())
+		if legacy && version != 1 && (version < 85 || version > 95) {
+			continue
+		}
+		content, err := migrationFiles.ReadFile(directory + "/" + entry.Name())
 		if err != nil {
 			return nil, fmt.Errorf("read migration %q: %w", entry.Name(), err)
 		}
@@ -212,6 +276,9 @@ func load() ([]migration, error) {
 			checksum: migrationChecksum(content),
 			sql:      string(content),
 		})
+		if legacy && version == 1 {
+			items[len(items)-1].name = "initial"
+		}
 	}
 
 	sort.Slice(items, func(i, j int) bool { return items[i].version < items[j].version })

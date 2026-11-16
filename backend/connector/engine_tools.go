@@ -42,6 +42,17 @@ func (p connectorContextProvider) Resolve(ctx context.Context, resource engine.C
 	var cleanup func() error
 	add := func(name, description string, schema json.RawMessage, fn func(context.Context, map[string]any) (engine.ToolResult, error)) {
 		schema = engine.DescribeToolParameters(resource.Kind, schema)
+		if engine.IsDatabaseKind(resource.Kind) {
+			invoke := fn
+			fn = func(ctx context.Context, args map[string]any) (engine.ToolResult, error) {
+				args = engine.DatabaseToolArguments(resource.Kind, resource.Binding, schema, args)
+				result, err := invoke(ctx, args)
+				if err != nil {
+					return result, fmt.Errorf("database target %v (resource diagnostic credentials; no fallback): %w", resource.Binding, err)
+				}
+				return result, nil
+			}
+		}
 		tools = append(tools, engine.ToolFunc{Def: engine.ToolDefinition{Name: name, Description: description, InputSchema: schema, Source: "connector", ResourceID: resource.ID, ReadOnly: true}, Fn: fn})
 	}
 	switch resource.Kind {
@@ -130,6 +141,9 @@ func (p connectorContextProvider) Resolve(ctx context.Context, resource engine.C
 		}
 	}
 	facts := make([]engine.ContextFact, 0, 1)
+	if engine.IsDatabaseKind(resource.Kind) {
+		facts = append(facts, engine.ContextFact{ResourceID: resource.ID, Kind: resource.Kind, Summary: map[string]any{"default_database": resource.Config["database"], "default_service_name": resource.Config["service_name"], "application_target": resource.Binding, "authentication": "resource diagnostic credentials; binding username is not a login override", "statistics_scope": "tool-defined database or instance scope; not application-exclusive"}})
+	}
 	if resource.Kind == "Kafka" {
 		var result engine.ToolResult
 		var collectErr error

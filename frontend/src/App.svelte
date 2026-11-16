@@ -23,6 +23,7 @@
     Stethoscope,
     Trash2,
     UserRound,
+    UserRoundCog,
     UsersRound
   } from 'lucide-svelte';
   import {
@@ -915,7 +916,7 @@
           class="nav-item"
           on:click={() => chooseView('persona')}
           data-tooltip={sidebarCompact ? '专家' : undefined}
-          ><Bot size={18} strokeWidth={1.8} aria-hidden="true" /><span
+          ><UserRoundCog size={18} strokeWidth={1.8} aria-hidden="true" /><span
             class="nav-item-label">专家</span
           ></button
         >
@@ -925,7 +926,7 @@
           class="nav-item"
           on:click={() => chooseView('diagnosis')}
           data-tooltip={sidebarCompact ? '诊断' : undefined}
-          ><ScanSearch size={18} strokeWidth={1.8} aria-hidden="true" /><span
+          ><Sparkles size={18} strokeWidth={1.8} aria-hidden="true" /><span
             class="nav-item-label">诊断</span
           ></button
         >

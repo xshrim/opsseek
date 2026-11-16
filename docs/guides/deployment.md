@@ -4,12 +4,18 @@
 
 使用根目录 Makefile 构建，Compose 不负责 build：
 
+默认使用 `deploy/Dockerfile`：先在本地构建制品，再复制到官方 Go/Node 基础镜像；Docker 内不安装源码依赖、不执行编译。后端保留 Git CLI、CA 证书和 SSH 客户端，以非 root 用户运行；前端继续由 Nginx 提供静态文件和 API 代理。本地需准备 Go、Node 和前端依赖（首次执行 `make deps`）。
+
 ```bash
 # 运行发布前检查
 make quality
 # 构建 API、Worker、Scheduler、Frontend、App 五个服务镜像
 make image IMAGE_REPOSITORY=registry.example.com/opskeeper IMAGE_TAG=v0.1.0
+# 保留的生产多阶段链路：在容器内完成依赖安装、源码编译和打包
+make image DOCKERFILE=deploy/Dockerfile.prd IMAGE_REPOSITORY=registry.example.com/opskeeper IMAGE_TAG=v0.1.0
 ```
+
+`*-image` 和 `mcp-image` 均支持上述 `DOCKERFILE` 选择。快速链路自动使用 `GOOS=linux`、`CGO_ENABLED=0`；默认架构为宿主机架构，跨架构时必须让 `GOARCH` 与 Docker 的目标平台一致。直接执行 `docker build -f deploy/Dockerfile` 前，需自行准备对应的 Linux 二进制及 `frontend/dist`。快速链路仅传入制品和 Nginx 配置，生产链路继续使用根目录 `.dockerignore` 排除本地制品。
 
 生成五个同版本镜像：
 
@@ -43,6 +49,8 @@ make mcp-image IMAGE_REPOSITORY=registry.example.com/opskeeper IMAGE_TAG=v0.1.0
 ```bash
 make env
 make app-image
+# 直接使用 Compose 时，为非 root 服务加入宿主机 Docker socket 所属组
+export DOCKER_SOCKET_GID=$(stat -c '%g' /var/run/docker.sock)
 docker compose -f deploy/compose/docker-compose.yml --env-file .env \
   up -d --wait --wait-timeout 180 postgres app
 ```
@@ -57,6 +65,10 @@ make frontend-up
 ```
 
 `api`、`worker`、`scheduler`、`frontend` 属于 `svc` profile；`app` 为默认服务。服务不使用 `condition`，程序自身负责依赖重试。Compose 文件只引用镜像，不包含 `build`。
+
+App/API 将宿主机 `/var/run/docker.sock` 挂载到容器同一路径，Docker Direct 资源使用 `unix:///var/run/docker.sock` 即可访问宿主机容器。`make up`、`make app-up` 和 `make api-up` 自动识别 socket 的所属组，无需修改镜像或使用 root 用户。镜像构建不读取或挂载 socket，宿主机没有 socket 也能构建；运行上述服务则需要存在该 socket，缺失时明确报错，不自动创建同名目录。无本地 Docker 的部署需移除此挂载，并配置远程 Docker 端点。
+
+Docker socket 访问权限基本等同于宿主机管理员权限，仅向可信服务开放；它不只是只读监控接口。
 
 停止和清理：
 
@@ -110,6 +122,8 @@ curl --fail --silent https://ops.example.com/opskeeper/health/ready
 
 API/App 在监听端口前自动迁移，并通过 PostgreSQL advisory lock 防止并发执行。运行账号只需要本平台业务数据库的迁移权限，不需要 PostgreSQL 实例级超级用户权限，也不需要独立 Migration Job。
 
+`backend/migrations/sql/0001_initial.sql` 直接定义当前完整结构和内置数据，新库仅执行此文件；历史 SQL 保留在 `archive/`。已有数据库会校验原迁移历史、补齐归档链路中的缺失迁移，再事务性合并为初始化基线记录，不重建表、不清空业务数据。不要手工删除迁移历史来强行执行初始化 SQL。
+
 迁移采用前向兼容的 Expand/Contract 方式。发布顺序为：
 
 1. 发布 API/App，等待迁移和 readiness 成功。
@@ -117,6 +131,8 @@ API/App 在监听端口前自动迁移，并通过 PostgreSQL advisory lock 防�
 3. 验证登录、只读资源、诊断、巡检和通知。
 
 迁移失败时停止发布；不要在生产环境执行反向迁移。
+
+应用关联数据库时，资源中的数据库名是默认连接库，关联中的数据库名是本次应用诊断的业务目标。Direct 和 Agent 均使用资源保存的诊断凭据连接业务目标，不改写资源默认值；关联中的应用用户名不是登录凭据。无需在关联中重复保存密码：诊断账号需具备目标库的连接、统计及所需对象的只读权限，失败时不会静默退回默认库。同一资源关联不同业务目标时，先选定一个应用再诊断。数据库统计仍以工具实际支持的数据库或实例范围为准，不等同于应用独占统计。
 
 ## 5. 回滚
 

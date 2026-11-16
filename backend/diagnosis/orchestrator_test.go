@@ -227,8 +227,11 @@ func TestOrchestratorIncludesApplicationContextInEngineInput(t *testing.T) {
 	if !strings.Contains(captured.Instruction, "当前选择了应用") || !strings.Contains(captured.Instruction, "application_context") {
 		t.Fatalf("relationship-focused instruction missing: %q", captured.Instruction)
 	}
-	if captured.LocatorHints["db-1"]["database"] != "orders" {
-		t.Fatalf("locator hints = %#v, want server-side database binding", captured.LocatorHints)
+	if captured.Context.ResourceBindings["db-1"]["database"] != "orders" {
+		t.Fatalf("resource bindings = %#v, want server-side database target", captured.Context.ResourceBindings)
+	}
+	if len(captured.LocatorHints["db-1"]) != 0 {
+		t.Fatalf("database connection fields must not be injected as model operation arguments: %#v", captured.LocatorHints)
 	}
 }
 
@@ -306,6 +309,14 @@ func TestBuildApplicationResourceBindingsCarriesCommitIDWithoutDirectory(t *test
 	}
 	if _, exists := bindings["repo-2"]; exists {
 		t.Fatalf("conflicting repository commit IDs should not be selected: %#v", bindings)
+	}
+}
+
+func TestDatabaseBindingsRejectConflictingBusinessTargets(t *testing.T) {
+	raw := json.RawMessage(`{"applications":[{"resources":[{"id":"db","kind":"PostgreSQL","relation":"association","binding":{"database":"orders"}}]},{"resources":[{"id":"db","kind":"PostgreSQL","relation":"association","binding":{"database":"billing"}}]}]}`)
+	bindings := buildApplicationResourceBindings(raw)
+	if bindings["db"]["target_conflict"] != true {
+		t.Fatalf("conflicting databases silently selected: %v", bindings)
 	}
 }
 

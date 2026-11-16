@@ -17,6 +17,7 @@ func (s *Service) resolveMySQLTools(ctx context.Context, item engine.ContextReso
 	if err != nil {
 		return err
 	}
+	add = databaseScopedTools(add, map[string]any{"database": connection.Database}, item.Binding)
 	register := func(name, desc string, fn func(context.Context, mt.ConnectionInput) (any, error)) {
 		add(name, desc, mysqlDirectSchema(), func(c context.Context, _ map[string]any) (engine.ToolResult, error) {
 			out, e := fn(c, connection)
@@ -122,5 +123,10 @@ func (s *Service) mySQLConnection(ctx context.Context, item engine.ContextResour
 	if in.TimeoutSeconds == 0 {
 		in.TimeoutSeconds = intValue(values, "timeout_seconds")
 	}
+	target, err := engine.DatabaseConnectionTarget(item.Kind, map[string]any{"database": in.Database}, item.Binding)
+	if err != nil {
+		return in, err
+	}
+	in.Database = stringValue(target, "database")
 	return in, nil
 }

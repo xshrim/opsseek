@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { Resource } from '../../lib/api';
-  import { Filter, X } from 'lucide-svelte';
+  import { Activity, Boxes, Database, Filter, HardDrive, Network, Package, Server, Waypoints, X } from 'lucide-svelte';
   import ResourceBrandIcon from '../../components/ResourceBrandIcon.svelte';
   import SearchInput from '../../components/SearchInput.svelte';
   import {
@@ -29,6 +29,17 @@
   let expandedDomain = resourceCatalogDomainOrder[0] ?? '';
   let filterOpen = false;
   let filterRoot: HTMLDivElement;
+
+  const domainIcons = {
+    运行时: Server,
+    大模型: Waypoints,
+    工程库: Package,
+    数据库: Database,
+    存储库: HardDrive,
+    中间件: Boxes,
+    微服务: Network,
+    可观测: Activity
+  };
 
   function closeFilterOnOutside(event: PointerEvent) {
     if (filterOpen && filterRoot && !filterRoot.contains(event.target as Node))
@@ -150,6 +161,7 @@
           on:click={() =>
             (expandedDomain = expandedDomain === group.domain ? '' : group.domain)}
         >
+          <svelte:component this={domainIcons[group.domain as keyof typeof domainIcons]} size={15} aria-hidden="true" />
           <strong>{group.domain}</strong>
         </button>
         {#if expandedDomain === group.domain}

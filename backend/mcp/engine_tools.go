@@ -103,6 +103,7 @@ func (p mcpContextProvider) Resolve(ctx context.Context, resource engine.Context
 				ReadOnly: false,
 			},
 			Fn: func(runCtx context.Context, arguments map[string]any) (engine.ToolResult, error) {
+				arguments = engine.DatabaseToolArguments(resource.Kind, resource.Binding, inputSchema, arguments)
 				if err := rejectInternalLocatorArguments(resource.Kind, arguments); err != nil {
 					return engine.ToolResult{}, err
 				}
@@ -114,11 +115,21 @@ func (p mcpContextProvider) Resolve(ctx context.Context, resource engine.Context
 				if callErr != nil {
 					return engine.ToolResult{}, callErr
 				}
-				return engine.ToolResult{Output: result, Untrusted: true}, nil
+				output := engine.ToolResult{Output: result, Untrusted: true}
+				if engine.IsDatabaseKind(resource.Kind) {
+					output.Scope = map[string]any{"database": callArguments["database"], "service_name": callArguments["service_name"], "sid": callArguments["sid"], "schema": callArguments["schema"], "authentication": "resource diagnostic credentials", "application_attribution": "not_filtered; statistics may include other applications"}
+				}
+				return output, nil
 			},
 		})
 	}
 	fact := engine.ContextFact{ResourceID: resource.ID, Kind: resource.Kind, Summary: map[string]any{"server_name": snapshot.ServerName, "server_version": snapshot.ServerVersion, "tool_count": len(tools)}, Untrusted: true}
+	if engine.IsDatabaseKind(resource.Kind) {
+		fact.Summary["default_database"] = resource.Config["database"]
+		fact.Summary["application_target"] = resource.Binding
+		fact.Summary["authentication"] = "resource diagnostic credentials; binding username is not a login override"
+		fact.Summary["statistics_scope"] = "tool-defined database or instance scope; not application-exclusive"
+	}
 	return tools, []engine.ContextFact{fact}, nil
 }
 
@@ -256,7 +267,12 @@ func (p mcpContextProvider) dockerAgentArguments(ctx context.Context, contextRes
 	return p.agentArguments(ctx, contextResource, arguments)
 }
 
-func (p mcpContextProvider) agentArguments(ctx context.Context, contextResource engine.ContextResource, arguments map[string]any) (map[string]any, error) {
+func (p mcpContextProvider) agentArguments(ctx context.Context, contextResource engine.ContextResource, arguments map[string]any) (result map[string]any, resultErr error) {
+	defer func() {
+		if resultErr == nil && strings.EqualFold(contextResource.Subtype, "agent") {
+			result, resultErr = engine.DatabaseConnectionTarget(contextResource.Kind, result, contextResource.Binding)
+		}
+	}()
 	kind := strings.TrimSpace(contextResource.Kind)
 	if (!strings.EqualFold(kind, "Docker") && !strings.EqualFold(kind, "Kubernetes") && !strings.EqualFold(kind, "Host") && !strings.EqualFold(kind, "PostgreSQL") && !strings.EqualFold(kind, "MySQL") && !strings.EqualFold(kind, "Oracle") && !strings.EqualFold(kind, "OceanBase") && !strings.EqualFold(kind, "Redis") && !strings.EqualFold(kind, "Nacos") && !strings.EqualFold(kind, "Repository") && !strings.EqualFold(kind, "Kafka") && !strings.EqualFold(kind, "RabbitMQ") && !strings.EqualFold(kind, "Elasticsearch") && !strings.EqualFold(kind, "MinIO")) || !strings.EqualFold(strings.TrimSpace(contextResource.Subtype), "agent") {
 		return arguments, nil

@@ -393,7 +393,7 @@ func (e inspectionExplainer) Explain(ctx context.Context, run inspection.Run, po
 				}
 				resourceIDs = append(resourceIDs, item.ID)
 				resourceSet[item.ID] = true
-				if strings.EqualFold(item.Kind, "Repository") && item.Relation == "association" && len(item.Binding) > 0 {
+				if (strings.EqualFold(item.Kind, "Repository") || engine.IsDatabaseKind(item.Kind)) && item.Relation == "association" && len(item.Binding) > 0 {
 					bindings[item.ID] = item.Binding
 				}
 			}
