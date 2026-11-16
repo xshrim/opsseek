@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
+  import { syncFavicon } from './lib/favicon';
   import {
     Bell,
     Boxes,
@@ -257,6 +258,11 @@
     ? api.avatarURL(preferences.avatar_updated_at)
     : '';
   $: if (!currentUser) applySystemTheme();
+  $: {
+    authState;
+    currentUser;
+    void tick().then(syncFavicon);
+  }
   onMount(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     applySystemTheme();
@@ -488,6 +494,7 @@
       (preferences.theme === 'auto' &&
         window.matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+    syncFavicon();
   }
 
   function applySystemTheme() {
@@ -497,6 +504,7 @@
     ).matches
       ? 'dark'
       : 'light';
+    syncFavicon();
   }
 
   function openProfile() {
@@ -843,7 +851,7 @@
     >
       <div class="brand">
         <OpsSeekLogo size={30} /><span class="brand-copy"
-          >OpsSeek<small>智能值守平台</small></span
+          >OpsSeek<small>智能诊断平台</small></span
         >
       </div>
       <button

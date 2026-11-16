@@ -18,13 +18,19 @@
   z-index: 1;
 }
 .login-brand {
+  --login-brand-fg: color-mix(
+    in srgb,
+    var(--color-primary) 70%,
+    var(--theme-fg-muted)
+  );
+  --theme-logo-fg: var(--login-brand-fg);
   position: absolute;
   top: 52px;
   left: 56px;
   display: flex;
   align-items: center;
   gap: 14px;
-  color: var(--theme-fg-muted);
+  color: var(--login-brand-fg);
 }
 .login-brand-copy {
   display: grid;
@@ -35,7 +41,7 @@
   line-height: 1;
 }
 .login-brand-copy small {
-  color: var(--theme-fg-muted);
+  color: inherit;
   font-size: 15px;
   font-weight: 600;
   line-height: 1.2;

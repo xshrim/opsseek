@@ -171,9 +171,9 @@
   </div>
 {:else if authState === 'login'}
   <main class="login-shell">
-    <div class="login-brand" aria-label="OpsSeek 智能值守平台">
+    <div class="login-brand" aria-label="OpsSeek 智能诊断平台">
       <OpsSeekLogo size={56} /><span class="login-brand-copy"
-        ><strong>OpsSeek</strong><small>智能值守平台</small></span
+        ><strong>OpsSeek</strong><small>智能诊断平台</small></span
       >
     </div>
     <section class="login-panel" aria-labelledby="login-heading">

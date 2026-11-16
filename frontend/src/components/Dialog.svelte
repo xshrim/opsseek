@@ -81,6 +81,10 @@
         window.innerHeight - height - viewportMargin
       );
     }
+    // Native dialog auto margins must not offset explicitly measured coordinates.
+    dialogElement.style.margin = '0';
+    dialogElement.style.right = 'auto';
+    dialogElement.style.bottom = 'auto';
     dialogElement.style.left = `${left}px`;
     dialogElement.style.top = `${top}px`;
     dialogElement.style.width = lockWidth ? `${width}px` : '';

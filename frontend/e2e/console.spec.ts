@@ -623,7 +623,7 @@ test.describe('T07 console', () => {
     });
     await pageData(page, true);
     await page.goto('/');
-    await expect(page.getByLabel('OpsSeek 智能值守平台')).toBeVisible();
+    await expect(page.getByLabel('OpsSeek 智能诊断平台')).toBeVisible();
     await expect(page.getByRole('heading', { name: '欢迎回来' })).toBeVisible();
     expect(healthRequests).toBe(0);
     expect(

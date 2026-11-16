@@ -240,6 +240,7 @@
   padding-left: 12px;
 }
 .brand {
+  --theme-logo-fg: var(--color-primary);
   min-height: 42px;
   gap: 8px;
   padding: 0 4px;
@@ -264,7 +265,7 @@
 .sidebar:not(.sidebar-compact) .brand-copy {
   justify-items: initial;
   width: auto;
-  font-size: 13px;
+  font-size: 15px;
   text-align: left;
 }
 .brand-copy small {
