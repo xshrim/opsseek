@@ -1,12 +1,24 @@
 export function installDiagnosisDocumentListeners(options: {
-  copyCode: (encoded: string) => void;
+  copyCode: (encoded: string) => void | Promise<boolean>;
 }) {
   const handleMarkdownClick = (event: MouseEvent) => {
     const target = event.target as HTMLElement | null;
     const button = target?.closest<HTMLButtonElement>('[data-code-copy]');
     if (!button) return;
     event.preventDefault();
-    options.copyCode(button.dataset.codeCopy ?? '');
+    const result = options.copyCode(button.dataset.codeCopy ?? '');
+    if (result instanceof Promise) {
+      void result.then((copied) => {
+        if (!copied) return;
+        button.dataset.copied = 'true';
+        button.dataset.tooltip = '已复制';
+        window.setTimeout(() => {
+          if (!button.isConnected) return;
+          delete button.dataset.copied;
+          button.dataset.tooltip = '复制代码';
+        }, 1500);
+      });
+    }
   };
   document.addEventListener('click', handleMarkdownClick);
   return () => {

@@ -7,10 +7,10 @@
     ChevronDown,
     Pencil,
     Plus,
+    Network,
     RefreshCw,
     Trash2,
     UserX,
-    UsersRound
   } from 'lucide-svelte';
   import EntityBrandIcon from '../../components/EntityBrandIcon.svelte';
   import ScopeChip from '../../components/ScopeChip.svelte';
@@ -340,7 +340,7 @@
             class="access-scope-root"
             type="button"
             on:click={selectPlatform}
-            ><span class="scope-tree-icon"><UsersRound size={16} /></span><span
+            ><span class="scope-tree-icon"><Network size={16} /></span><span
               class="scope-tree-label"
               ><strong>{platformName}</strong><small class="scope-tree-count"
                 >{visibleAccessTeams.length} 个团队 · {visibleProjects.length} 个项目
@@ -385,7 +385,7 @@
                   on:click={() => selectTeam(team)}
                   ><EntityBrandIcon
                     kind="Team"
-                    fallback={team.icon || 'lucide:UsersRound'}
+                    fallback={team.icon || 'lucide:Building'}
                     size={16}
                     className="scope-tree-icon"
                   /><span

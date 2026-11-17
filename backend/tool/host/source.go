@@ -302,7 +302,7 @@ func (s *sshSource) ReadFile(ctx context.Context, path string) ([]byte, error) {
 	return s.run(ctx, "cat -- "+shellQuote(path), MaxReadBytes)
 }
 func (s *sshSource) ReadDir(ctx context.Context, path string) ([]string, error) {
-	output, err := s.run(ctx, "find -L -- "+shellQuote(path)+" -mindepth 1 -maxdepth 1 -type d -printf '%f\\n'", 1<<20)
+	output, err := s.run(ctx, "find -- "+shellQuote(path)+" -mindepth 1 -maxdepth 1 -printf '%f\\n'", 1<<20)
 	if err != nil {
 		return nil, err
 	}

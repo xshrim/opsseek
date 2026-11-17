@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -72,6 +73,20 @@ type ContainerInspectInput struct {
 	ContainerName string `json:"container_name,omitempty" jsonschema:"Docker container name, such as /opsseek-postgres; use this for names instead of container_id."`
 }
 
+type ContainerListenersInput = ContainerInspectInput
+
+type ContainerListener struct {
+	Address  string `json:"address,omitempty"`
+	Port     int    `json:"port"`
+	Protocol string `json:"protocol"`
+}
+
+type ContainerListenersOutput struct {
+	ContainerID        string                            `json:"container_id"`
+	Listeners          []ContainerListener               `json:"listeners"`
+	ConnectionFallback *client.ConnectionFallbackWarning `json:"connection_fallback,omitempty"`
+}
+
 type ContainerStatsInput struct {
 	client.ConnectionInput
 	ContainerID   string `json:"container_id,omitempty" jsonschema:"Docker container ID only (12 or 64 hexadecimal characters); never put a container name here."`
@@ -103,6 +118,8 @@ type DockerInfoOutput struct {
 // the same public parameter contract.
 func InputSchema(extra map[string]any) map[string]any {
 	properties := map[string]any{
+		"daemon_type":     map[string]any{"type": "string", "enum": []string{"dockerd", "containerd"}, "description": "Container daemon API: Docker Engine API (dockerd) or native containerd gRPC."},
+		"namespace":       map[string]any{"type": "string", "description": "containerd namespace; defaults to k8s.io."},
 		"host":            map[string]any{"type": "string", "description": "Optional Docker daemon URL."},
 		"timeout":         map[string]any{"description": "Docker request timeout in seconds or duration such as 30s. Defaults to 30s."},
 		"tls_ca":          map[string]any{"type": "string", "description": "Optional CA PEM content encoded as Base64, or a path to a CA PEM file."},
@@ -117,6 +134,9 @@ func InputSchema(extra map[string]any) map[string]any {
 }
 
 func Info(ctx context.Context, input DockerInfoInput) (DockerInfoOutput, error) {
+	if strings.EqualFold(input.DaemonType, "containerd") {
+		return containerdInfo(ctx, input.ConnectionInput)
+	}
 	var info DockerInfoDTO
 	warning, err := client.WithFallback(ctx, input.ConnectionInput, func(cli *dockerapi.Client) error {
 		value, callErr := cli.Info(ctx)
@@ -129,6 +149,9 @@ func Info(ctx context.Context, input DockerInfoInput) (DockerInfoOutput, error) 
 }
 
 func Images(ctx context.Context, input ListImagesInput) (ImagesOutput, error) {
+	if strings.EqualFold(input.DaemonType, "containerd") {
+		return containerdImages(ctx, input)
+	}
 	dockerFilters, err := toFilters(input.Filters)
 	if err != nil {
 		return ImagesOutput{}, err
@@ -147,6 +170,9 @@ func Images(ctx context.Context, input ListImagesInput) (ImagesOutput, error) {
 }
 
 func Containers(ctx context.Context, input ListContainersInput) (ContainersOutput, error) {
+	if strings.EqualFold(input.DaemonType, "containerd") {
+		return containerdContainers(ctx, input)
+	}
 	dockerFilters, err := toFilters(input.Filters)
 	if err != nil {
 		return ContainersOutput{}, err
@@ -172,6 +198,9 @@ func Containers(ctx context.Context, input ListContainersInput) (ContainersOutpu
 }
 
 func ContainerLogs(ctx context.Context, input ContainerLogsInput) (LogsOutput, error) {
+	if strings.EqualFold(input.DaemonType, "containerd") {
+		return LogsOutput{}, fmt.Errorf("containerd 模式不支持通用容器日志读取；日志由运行时或编排器管理")
+	}
 	id, err := resolveContainerIdentifier(input.ContainerID, input.ContainerName)
 	if err != nil {
 		return LogsOutput{}, err
@@ -208,6 +237,9 @@ func ContainerLogs(ctx context.Context, input ContainerLogsInput) (LogsOutput, e
 }
 
 func ContainerFile(ctx context.Context, input ContainerFileInput) (FileOutput, error) {
+	if strings.EqualFold(input.DaemonType, "containerd") {
+		return FileOutput{}, fmt.Errorf("containerd 模式不支持通用容器文件读取")
+	}
 	id, err := resolveContainerIdentifier(input.ContainerID, input.ContainerName)
 	if err != nil {
 		return FileOutput{}, err
@@ -272,6 +304,9 @@ func validateContainerPath(raw string) (string, error) {
 }
 
 func ContainerInspect(ctx context.Context, input ContainerInspectInput) (ContainerInspectDTO, error) {
+	if strings.EqualFold(input.DaemonType, "containerd") {
+		return containerdInspect(ctx, input)
+	}
 	id, err := resolveContainerIdentifier(input.ContainerID, input.ContainerName)
 	if err != nil {
 		return ContainerInspectDTO{}, err
@@ -288,7 +323,90 @@ func ContainerInspect(ctx context.Context, input ContainerInspectInput) (Contain
 	return output, err
 }
 
+// ContainerListeners returns the addressable port mappings reported by Docker
+// for one container. Unpublished ports use the container network address.
+func ContainerListeners(ctx context.Context, input ContainerListenersInput) (ContainerListenersOutput, error) {
+	if strings.EqualFold(input.DaemonType, "containerd") {
+		return ContainerListenersOutput{}, fmt.Errorf("containerd 模式不提供 Docker 端口映射；请使用 Host 或 Kubernetes 资源发现监听地址")
+	}
+	id, err := resolveContainerIdentifier(input.ContainerID, input.ContainerName)
+	if err != nil {
+		return ContainerListenersOutput{}, err
+	}
+	output := ContainerListenersOutput{ContainerID: id, Listeners: []ContainerListener{}}
+	warning, err := client.WithFallback(ctx, input.ConnectionInput, func(cli *dockerapi.Client) error {
+		inspect, callErr := cli.ContainerInspect(ctx, id)
+		if callErr != nil {
+			return callErr
+		}
+		output.Listeners = containerListeners(inspect)
+		return nil
+	})
+	output.ConnectionFallback = warning
+	return output, err
+}
+
+func containerListeners(inspect container.InspectResponse) []ContainerListener {
+	if inspect.NetworkSettings == nil {
+		return []ContainerListener{}
+	}
+	addresses := make([]string, 0, len(inspect.NetworkSettings.Networks))
+	for _, network := range inspect.NetworkSettings.Networks {
+		if network != nil && strings.TrimSpace(network.IPAddress) != "" {
+			addresses = append(addresses, network.IPAddress)
+		}
+	}
+	sort.Strings(addresses)
+	seen := map[string]struct{}{}
+	listeners := make([]ContainerListener, 0, len(inspect.NetworkSettings.Ports))
+	for rawPort, bindings := range inspect.NetworkSettings.Ports {
+		value, protocol, found := strings.Cut(string(rawPort), "/")
+		port, parseErr := strconv.Atoi(value)
+		if !found || parseErr != nil || port <= 0 || port > 65535 {
+			continue
+		}
+		if len(bindings) == 0 {
+			for _, address := range addresses {
+				listeners = appendContainerListener(listeners, seen, address, port, protocol)
+			}
+			if len(addresses) == 0 {
+				listeners = appendContainerListener(listeners, seen, "", port, protocol)
+			}
+			continue
+		}
+		for _, binding := range bindings {
+			publishedPort, err := strconv.Atoi(binding.HostPort)
+			if err != nil || publishedPort <= 0 || publishedPort > 65535 {
+				continue
+			}
+			listeners = appendContainerListener(listeners, seen, binding.HostIP, publishedPort, protocol)
+		}
+	}
+	sort.Slice(listeners, func(i, j int) bool {
+		if listeners[i].Address == listeners[j].Address {
+			if listeners[i].Port == listeners[j].Port {
+				return listeners[i].Protocol < listeners[j].Protocol
+			}
+			return listeners[i].Port < listeners[j].Port
+		}
+		return listeners[i].Address < listeners[j].Address
+	})
+	return listeners
+}
+
+func appendContainerListener(listeners []ContainerListener, seen map[string]struct{}, address string, port int, protocol string) []ContainerListener {
+	key := address + "\x00" + strconv.Itoa(port) + "\x00" + protocol
+	if _, exists := seen[key]; exists {
+		return listeners
+	}
+	seen[key] = struct{}{}
+	return append(listeners, ContainerListener{Address: address, Port: port, Protocol: protocol})
+}
+
 func ContainerStats(ctx context.Context, input ContainerStatsInput) (ContainerStatsDTO, error) {
+	if strings.EqualFold(input.DaemonType, "containerd") {
+		return ContainerStatsDTO{}, fmt.Errorf("containerd 容器统计暂不支持；请使用对应运行时或 Kubernetes 指标资源")
+	}
 	id, err := resolveContainerIdentifier(input.ContainerID, input.ContainerName)
 	if err != nil {
 		return ContainerStatsDTO{}, err

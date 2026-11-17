@@ -7,7 +7,7 @@ export function formatIconName(name: string) {
 export function iconGlyph(icon: string | undefined) {
   const glyphs: Record<string, string> = {
     platform: 'lucide:Building2',
-    team: 'lucide:UsersRound',
+    team: 'lucide:Building',
     building: 'lucide:Building2',
     cloud: 'lucide:Cloud',
     project: 'lucide:FolderKanban',

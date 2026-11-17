@@ -38,7 +38,7 @@
   let description = initialProject?.description || '';
   let labels = formatLabels(initialProject?.labels);
   let importanceLevel: '' | 'ITP1' | 'ITP2' | 'ITP3' | 'ITP4' =
-    initialProject?.importance_level || '';
+    initialProject?.importance_level || 'ITP4';
   let importanceLevelError = '';
   let technicalOwnerIds: string[] = initialProject?.technical_owner_ids || [];
   let operationsOwnerIds: string[] = initialProject?.operations_owner_ids || [];
@@ -51,7 +51,7 @@
   $: teamOptions = teams.map((team) => ({
     value: team.id,
     label: team.name,
-    icon: team.icon || 'lucide:UsersRound'
+    icon: team.icon || 'lucide:Building'
   }));
   $: ownerOptions = users
     .filter((user) => user.status === 'active')
@@ -62,7 +62,7 @@
     }));
 
   function generateProjectCode() {
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const letters = 'abcdefghijklmnopqrstuvwxyz';
     const digits = '0123456789';
     const random = (source: string) =>
       source[Math.floor(Math.random() * source.length)];

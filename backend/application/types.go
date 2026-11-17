@@ -21,6 +21,7 @@ type Application struct {
 	ExternalUID        string            `json:"external_uid,omitempty"`
 	Labels             map[string]string `json:"labels"`
 	Critical           bool              `json:"critical"`
+	ListeningAddress   string            `json:"listening_address,omitempty"`
 	TechnicalOwnerIDs  []string          `json:"technical_owner_ids"`
 	OperationsOwnerIDs []string          `json:"operations_owner_ids"`
 	Instances          []Instance        `json:"instances"`

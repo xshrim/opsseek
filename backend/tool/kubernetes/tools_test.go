@@ -3,7 +3,9 @@ package kubernetes
 import (
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestValidatePodPath(t *testing.T) {
@@ -45,6 +47,31 @@ func TestToResourceItemIncludesWorkloadReplicas(t *testing.T) {
 	}})
 	if item.Replicas != 4 || item.ReadyReplicas != 3 {
 		t.Fatalf("workload replicas = %d/%d", item.ReadyReplicas, item.Replicas)
+	}
+}
+
+func TestCafeDeploymentUsesDiscoveredResourceAndDeploymentFields(t *testing.T) {
+	definition, found := cafeDeploymentDefinitionFromResources([]*metav1.APIResourceList{{
+		GroupVersion: "custom.apps.example.io/v1alpha1",
+		APIResources: []metav1.APIResource{{Name: "cafedeployments", Kind: "CafeDeployment", Namespaced: true, Verbs: metav1.Verbs{"get", "list"}}},
+	}})
+	if !found || definition.gvr != (schema.GroupVersionResource{Group: "custom.apps.example.io", Version: "v1alpha1", Resource: "cafedeployments"}) {
+		t.Fatalf("CafeDeployment definition = %#v, found %v", definition, found)
+	}
+
+	item := toResourceItem("CafeDeployment", unstructured.Unstructured{Object: map[string]any{
+		"metadata": map[string]any{"namespace": "apps", "name": "api"},
+		"spec": map[string]any{
+			"replicas": int64(4),
+			"selector": map[string]any{"matchLabels": map[string]any{"app": "api"}},
+		},
+		"status": map[string]any{"readyReplicas": int64(3)},
+	}})
+	selector, err := selectorFromWorkload(map[string]any{"spec": map[string]any{
+		"selector": map[string]any{"matchLabels": map[string]any{"app": "api"}},
+	}}, "CafeDeployment", "api")
+	if err != nil || selector != "app=api" || item.Replicas != 4 || item.ReadyReplicas != 3 {
+		t.Fatalf("CafeDeployment selector/item = %q, %#v, %v", selector, item, err)
 	}
 }
 

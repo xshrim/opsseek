@@ -37,7 +37,6 @@
   export let scopeSelected = false;
   export let stepTitle = '';
   export let stepDescription = '';
-  export let validationMessage = '';
   export let onSelectStep: (step: number) => void = () => {};
   export let onContinueBasic: () => void = () => {};
   export let onContinueMcp: () => void = () => {};
@@ -337,12 +336,6 @@
         <h3>{stepTitle}</h3>
         {#if stepDescription}<small>{stepDescription}</small>{/if}
       </div>
-      {#if validationMessage}<p
-          class="resource-add-step-validation"
-          role="alert"
-        >
-          {validationMessage}
-        </p>{/if}
       <div class="resource-add-step-actions">
         {#if step === 1}
           <button class="primary" type="button" on:click={onContinueBasic}

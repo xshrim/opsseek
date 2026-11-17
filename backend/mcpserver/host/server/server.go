@@ -35,6 +35,7 @@ var toolCatalog = []ToolInfo{
 	{Name: "host_info", Description: "Read Linux host identity and system information."},
 	{Name: "host_metrics", Description: "Read Linux host metrics as structured JSON."},
 	{Name: "host_processes", Description: "Read selected Linux processes with &/| keyword expressions; empty keyword skips full process scans."},
+	{Name: "host_process_listeners", Description: "Read TCP and UDP listening ports owned by one concrete Linux process."},
 	{Name: "host_file_logs", Description: "Read bounded logs from a Linux host file."},
 	{Name: "host_health", Description: "Check Linux host health and availability."},
 }

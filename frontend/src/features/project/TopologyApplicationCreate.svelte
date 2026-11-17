@@ -14,6 +14,7 @@
     type User
   } from '../../lib/api';
   import { parseLabels } from '../../lib/labels';
+  import { randomId } from '../../lib/randomId';
   import {
     applicationKeywordFromSelector,
     preserveConfiguredValue,
@@ -332,7 +333,7 @@
             status: relation.status
           })) ?? [],
         instances: candidate.instances.map((instance, index) => ({
-          id: instance.id ?? crypto.randomUUID(),
+          id: instance.id ?? randomId(),
           ...(initialApplication?.instances.some(
             (saved) => saved.id === instance.id
           )

@@ -17,11 +17,18 @@ type testStore struct {
 	update         UpdateInput
 	candidateScope string
 	candidates     []Application
+	workspace      Workspace
 }
 type testBindingValidator struct{ err error }
 
+type testListenerResolver struct{ values map[string][]string }
+
 func (v testBindingValidator) ValidateApplicationBinding(context.Context, string, string, map[string]any) error {
 	return v.err
+}
+
+func (r testListenerResolver) ResolveApplicationListeners(_ context.Context, _ string, resourceID string, _ map[string]any) ([]string, error) {
+	return r.values[resourceID], nil
 }
 
 func (s *testStore) Create(_ context.Context, input CreateInput) (Application, error) {
@@ -58,8 +65,8 @@ func (*testStore) ContextResourceIDs(context.Context, string, string) ([]string,
 func (*testStore) DiagnosticContext(context.Context, string, string) (DiagnosticContext, error) {
 	return DiagnosticContext{}, nil
 }
-func (*testStore) Workspace(context.Context, string) (Workspace, error) { return Workspace{}, nil }
-func (*testStore) Topology(context.Context, string) (Topology, error)   { return Topology{}, nil }
+func (s *testStore) Workspace(context.Context, string) (Workspace, error) { return s.workspace, nil }
+func (*testStore) Topology(context.Context, string) (Topology, error)     { return Topology{}, nil }
 func (*testStore) SetTopologyPosition(context.Context, string, string, TopologyPositionInput) error {
 	return nil
 }
@@ -84,6 +91,28 @@ func TestCreateValidatesProjectAndCode(t *testing.T) {
 	}
 	if _, err := s.Create(context.Background(), CreateInput{ProjectID: "p", Name: "Orders", Code: "orders-api", RuntimeKind: RuntimeHost, Instances: []CreateInstanceInput{{Name: "primary", RuntimeKind: RuntimeHost, TargetResourceID: "host-1", Selector: map[string]any{"process_command_line": "orders"}}}}); err != nil {
 		t.Fatalf("valid application rejected: %v", err)
+	}
+}
+
+func TestWorkspaceEnrichesListeningAddress(t *testing.T) {
+	store := &testStore{workspace: Workspace{Applications: []Application{{
+		ID: "application-1",
+		Instances: []Instance{
+			{RuntimeKind: RuntimeHost, TargetResourceID: "runtime-a"},
+			{RuntimeKind: RuntimeDocker, TargetResourceID: "runtime-b"},
+		},
+	}}}}
+	service := NewService(store)
+	service.SetListenerResolver(testListenerResolver{values: map[string][]string{
+		"runtime-a": {"10.0.0.1:8080"},
+		"runtime-b": {"10.0.0.2:8080", "10.0.0.1:8080"},
+	}})
+	workspace, err := service.Workspace(context.Background(), "project-1")
+	if err != nil {
+		t.Fatalf("Workspace() error = %v", err)
+	}
+	if got := workspace.Applications[0].ListeningAddress; got != "10.0.0.1:8080、10.0.0.2:8080" {
+		t.Fatalf("ListeningAddress = %q", got)
 	}
 }
 

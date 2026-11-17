@@ -1,5 +1,7 @@
 # Package artifacts built on the host; no source compilation in this file.
 FROM alpine:3.22 AS runtime-base
+ARG ALPINE_MIRROR=https://mirrors.aliyun.com/alpine
+RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR}|g" /etc/apk/repositories
 RUN apk add --no-cache ca-certificates \
     && addgroup -g 65532 nonroot \
     && adduser -D -u 65532 -G nonroot nonroot

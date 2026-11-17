@@ -598,6 +598,13 @@
   function setDraftDefault(model: DraftModel) {
     providerDraft.defaultModel = model.name;
   }
+  function renameDraftModel(model: DraftModel, value: string) {
+    const previousName = model.name;
+    model.name = value;
+    if (providerDraft.defaultModel === previousName)
+      providerDraft.defaultModel = value;
+    providerDraft.models = [...providerDraft.models];
+  }
   function providerConfig(): ProviderConfig {
     return {
       provider_type: providerDraft.providerType,
@@ -651,6 +658,12 @@
     const errors: Record<string, string> = {};
     if (!engineDraft.name.trim()) errors.name = 'required';
     return errors;
+  }
+  function validationMessage(error: string | undefined) {
+    if (error === 'required') return '此项为必填项。';
+    if (error === 'duplicate') return '不能与其他模型名称重复。';
+    if (error === 'invalid') return '请检查填写值或格式。';
+    return '请检查此项填写内容。';
   }
   function validateProviderDraft() {
     const errors: Record<string, string> = {};
@@ -1023,6 +1036,8 @@
               bind:value={engineDraft.name}
               ariaLabel="引擎名称"
               invalid={Boolean(engineErrors.name)}
+              invalidMode="bubble"
+              invalidMessage={validationMessage(engineErrors.name)}
               placeholder="引擎名称"
               required
             /></label
@@ -1368,6 +1383,8 @@
                           /><TextInput
                             bind:value={providerDraft.name}
                             invalid={Boolean(providerErrors.name)}
+                            invalidMode="bubble"
+                            invalidMessage={validationMessage(providerErrors.name)}
                             required
                             placeholder="名称"
                           /></label
@@ -1438,9 +1455,11 @@
                   <div class="provider-runtime-grid">
                     <label
                       class:invalid={Boolean(providerErrors.timeoutSeconds)}
-                      ><FieldLabel text="超时（秒）" /><TextInput
+                      ><FieldLabel text="超时（秒）" invalid={Boolean(providerErrors.timeoutSeconds)} /><TextInput
                         bind:value={providerDraft.timeoutSeconds}
                         invalid={Boolean(providerErrors.timeoutSeconds)}
+                        invalidMode="bubble"
+                        invalidMessage={validationMessage(providerErrors.timeoutSeconds)}
                         type="number"
                         min="1"
                         max="300"
@@ -1448,18 +1467,22 @@
                     >
                     <label
                       class:invalid={Boolean(providerErrors.maxConcurrency)}
-                      ><FieldLabel text="最大并发" /><TextInput
+                      ><FieldLabel text="最大并发" invalid={Boolean(providerErrors.maxConcurrency)} /><TextInput
                         bind:value={providerDraft.maxConcurrency}
                         invalid={Boolean(providerErrors.maxConcurrency)}
+                        invalidMode="bubble"
+                        invalidMessage={validationMessage(providerErrors.maxConcurrency)}
                         type="number"
                         min="1"
                       /></label
                     >
                     <label
                       class:invalid={Boolean(providerErrors.rateLimitPerMinute)}
-                      ><FieldLabel text="限流（请求 / 分钟）" /><TextInput
+                      ><FieldLabel text="限流（请求 / 分钟）" invalid={Boolean(providerErrors.rateLimitPerMinute)} /><TextInput
                         bind:value={providerDraft.rateLimitPerMinute}
                         invalid={Boolean(providerErrors.rateLimitPerMinute)}
+                        invalidMode="bubble"
+                        invalidMessage={validationMessage(providerErrors.rateLimitPerMinute)}
                         type="number"
                         min="0"
                       /></label
@@ -1472,22 +1495,26 @@
                   </div>
                   <div class="provider-connection-row">
                     <label class:invalid={Boolean(providerErrors.providerType)}
-                      ><FieldLabel text="类型" required />
+                      ><FieldLabel text="类型" required invalid={Boolean(providerErrors.providerType)} />
                       <DropdownSelect
                         options={providerSelectOptions}
                         value={providerDraft.providerType}
                         showIcons
                         searchable
                         invalid={Boolean(providerErrors.providerType)}
+                        invalidMode="bubble"
+                        invalidMessage={validationMessage(providerErrors.providerType)}
                         ariaLabel="连接凭据类型"
                         on:change={(event) =>
                           selectProviderType(String(event.detail))}
                       />
                     </label><label
                       class:invalid={Boolean(providerErrors.baseUrl)}
-                      ><FieldLabel text="Base URL" required /><TextInput
+                      ><FieldLabel text="Base URL" required invalid={Boolean(providerErrors.baseUrl)} /><TextInput
                         bind:value={providerDraft.baseUrl}
                         invalid={Boolean(providerErrors.baseUrl)}
+                        invalidMode="bubble"
+                        invalidMessage={validationMessage(providerErrors.baseUrl)}
                         required
                         placeholder="https://api.example.com/v1"
                       /></label
@@ -1552,11 +1579,15 @@
                             class:invalid={Boolean(
                               providerErrors[`models.${index}.name`]
                             )}
-                            ><FieldLabel text="模型" required /><TextInput
-                              bind:value={model.name}
+                            ><FieldLabel text="模型" required invalid={Boolean(providerErrors[`models.${index}.name`])} /><TextInput
+                              value={model.name}
+                              on:value={(event) =>
+                                renameDraftModel(model, String(event.detail ?? ''))}
                               invalid={Boolean(
                                 providerErrors[`models.${index}.name`]
                               )}
+                              invalidMode="bubble"
+                              invalidMessage={validationMessage(providerErrors[`models.${index}.name`])}
                               required
                             /></label
                           >
@@ -1578,11 +1609,13 @@
                             class:invalid={Boolean(
                               providerErrors[`models.${index}.context`]
                             )}
-                            ><FieldLabel text="上下文" required /><TextInput
+                            ><FieldLabel text="上下文" required invalid={Boolean(providerErrors[`models.${index}.context`])} /><TextInput
                               bind:value={model.context_window_tokens}
                               invalid={Boolean(
                                 providerErrors[`models.${index}.context`]
                               )}
+                              invalidMode="bubble"
+                              invalidMessage={validationMessage(providerErrors[`models.${index}.context`])}
                               required
                               type="number"
                               min="1"
@@ -1592,11 +1625,13 @@
                             class:invalid={Boolean(
                               providerErrors[`models.${index}.maxOutput`]
                             )}
-                            ><FieldLabel text="最大输出" /><TextInput
+                            ><FieldLabel text="最大输出" invalid={Boolean(providerErrors[`models.${index}.maxOutput`])} /><TextInput
                               bind:value={model.max_output_tokens}
                               invalid={Boolean(
                                 providerErrors[`models.${index}.maxOutput`]
                               )}
+                              invalidMode="bubble"
+                              invalidMessage={validationMessage(providerErrors[`models.${index}.maxOutput`])}
                               type="number"
                               min="1"
                             /></label
@@ -1605,11 +1640,13 @@
                             class:invalid={Boolean(
                               providerErrors[`models.${index}.temperature`]
                             )}
-                            ><FieldLabel text="温度" /><TextInput
+                            ><FieldLabel text="温度" invalid={Boolean(providerErrors[`models.${index}.temperature`])} /><TextInput
                               bind:value={model.temperature}
                               invalid={Boolean(
                                 providerErrors[`models.${index}.temperature`]
                               )}
+                              invalidMode="bubble"
+                              invalidMessage={validationMessage(providerErrors[`models.${index}.temperature`])}
                               type="number"
                               min="0"
                               max="2"
@@ -2597,6 +2634,9 @@
   .drawer-form label.invalid :global(.text-input-wrap input) {
     border-color: var(--theme-danger) !important;
     box-shadow: 0 0 0 2px var(--theme-bg-danger-soft) !important;
+  }
+  .drawer-form label.invalid :global(.field-label) {
+    color: var(--theme-danger);
   }
   .provider-identity-row {
     display: grid;

@@ -348,6 +348,9 @@
   color: var(--theme-fg-muted);
   font-size: 12px;
 }
+.runtime-choice-grid .project-runtime-icon {
+  color: var(--theme-action);
+}
 .runtime-binding-fields {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 34px;

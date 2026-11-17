@@ -12,6 +12,7 @@
     FolderKanban,
     LayoutDashboard,
     LogOut,
+    Network,
     ChevronLeft,
     ChevronRight,
     Pencil,
@@ -25,7 +26,6 @@
     Trash2,
     UserRound,
     UserRoundCog,
-    UsersRound
   } from 'lucide-svelte';
   import {
     resourceHasConnector,
@@ -682,9 +682,10 @@
   const scopeName = (id: string) => getScopeName(scopeChoices, id);
   const scopeType = (id: string) => getScopeType(scopeChoices, id);
 
-  function resourceCreateScopeChoices(
+  function resourceScopeChoicesForPermission(
     workspaceScopeId: string,
     scopes: ScopeChoice[],
+    permission: 'resource:create' | 'resource:update',
     platformAdmin: boolean,
     userId: string | undefined,
     roleList: RoleDefinition[],
@@ -694,7 +695,7 @@
   ): ScopeChoice[] {
     if (!workspaceScopeId) return [];
     return scopesInWorkspace(scopes, workspaceScopeId).filter((scope) => {
-      const canCreate =
+      const canManage =
         platformAdmin ||
         getActorPermissionsAtScope(
           scope.id,
@@ -705,14 +706,26 @@
           memberships,
           roleBindings,
           scopes
-        ).includes('resource:create');
-      return canCreate;
+        ).includes(permission);
+      return canManage;
     });
   }
 
-  $: resourceCreateScopeOptions = resourceCreateScopeChoices(
+  $: resourceCreateScopeOptions = resourceScopeChoicesForPermission(
     selectedScopeId,
     scopeChoices,
+    'resource:create',
+    isPlatformAdmin,
+    currentUser?.id,
+    roles,
+    groups,
+    groupMembers,
+    bindings
+  );
+  $: resourceUpdateScopeOptions = resourceScopeChoicesForPermission(
+    selectedScopeId,
+    scopeChoices,
+    'resource:update',
     isPlatformAdmin,
     currentUser?.id,
     roles,
@@ -965,7 +978,7 @@
             class="nav-item"
             on:click={() => chooseView('access')}
             data-tooltip={sidebarCompact ? '权限' : undefined}
-            ><UsersRound size={18} strokeWidth={1.8} aria-hidden="true" /><span
+            ><Network size={18} strokeWidth={1.8} aria-hidden="true" /><span
               class="nav-item-label">权限</span
             ></button
           >
@@ -1071,7 +1084,6 @@
           organizationTeamCount={overviewTeamCount}
           organizationMemberCount={overviewMemberCount}
           {resourceSchemaName}
-          {resourceIcon}
           onOpenProject={(project) => {
             selectedTeamId = project.team_id;
             selectedProjectId = project.id;
@@ -1213,6 +1225,7 @@
             {resourcePermissionLabel}
             {scopeType}
             {resourceCreateScopeOptions}
+            {resourceUpdateScopeOptions}
             {formatDate}
             {resourceIcon}
             {selectedScopeId}
@@ -1259,6 +1272,7 @@
           {resourcePermissionLabel}
           {scopeType}
           {resourceCreateScopeOptions}
+          {resourceUpdateScopeOptions}
           {formatDate}
           {resourceIcon}
           {selectedResource}
@@ -1376,8 +1390,6 @@
           {selectedProjectId}
           {currentUser}
           {isPlatformAdmin}
-          {activeMessage}
-          {activeMessageTone}
           onNotice={(message) => (notice = message)}
           onError={(message) => (errorMessage = message)}
         />
@@ -1390,8 +1402,6 @@
         bind:preferences
         roleBindings={currentUser ? userRoleBindings(currentUser.id) : []}
         {scopeChoices}
-        message={activeMessage}
-        messageTone={activeMessageTone}
         onApplyTheme={applyTheme}
         onNotice={(message) => (notice = message)}
         onError={(message) => (errorMessage = message)}

@@ -8,6 +8,7 @@
     value: string;
     label: string;
     icon?: string;
+    monochromeIcon?: boolean;
     meta?: string;
     description?: string;
     tooltip?: string;
@@ -132,7 +133,8 @@
       0,
       window.innerHeight - rect.bottom - gap - padding
     );
-    menuStyle = `top: ${Math.round(rect.bottom + gap)}px; left: ${Math.round(rect.left)}px; width: ${Math.round(rect.width)}px; max-height: ${Math.round(availableHeight)}px;`;
+    const optionsHeight = Math.max(0, availableHeight - (searchable ? 48 : 0));
+    menuStyle = `top: ${Math.round(rect.bottom + gap)}px; left: ${Math.round(rect.left)}px; width: ${Math.round(rect.width)}px; max-height: ${Math.round(availableHeight)}px; --dropdown-select-options-height: ${Math.round(optionsHeight)}px;`;
   }
 
   function handleViewportChange() {
@@ -295,7 +297,7 @@
         aria-label={ariaLabel}
         on:click|preventDefault|stopPropagation={toggle}
       >
-        {#if showIcons && selected?.icon}<span class="dropdown-select-icon"
+        {#if showIcons && selected?.icon}<span class="dropdown-select-icon" style:filter={selected.monochromeIcon ? 'brightness(0) invert(1)' : undefined}
             ><IconValue value={selected.icon} size={14} /></span
           >{/if}
         <span class:placeholder={!displayValue} class="dropdown-select-value"
@@ -354,7 +356,7 @@
             data-tooltip={option.tooltip || undefined}
             on:click={() => select(option.value)}
           >
-            {#if showIcons && option.icon}<span class="dropdown-select-icon"
+            {#if showIcons && option.icon}<span class="dropdown-select-icon" style:filter={option.monochromeIcon ? 'brightness(0) invert(1)' : undefined}
                 ><IconValue value={option.icon} size={14} /></span
               >{/if}
             <span class="dropdown-select-option-copy"
@@ -400,8 +402,8 @@
     box-shadow: 0 0 0 2px var(--theme-bg-danger-soft);
   }
   .dropdown-select.invalid.bubble .dropdown-select-trigger {
-    border-color: var(--theme-border-strong);
-    box-shadow: none;
+    border-color: var(--theme-danger);
+    box-shadow: 0 0 0 1px var(--theme-danger);
   }
   .dropdown-select.bubble::after {
     position: absolute;
@@ -551,7 +553,7 @@
     position: fixed;
     z-index: 1000;
     padding: 5px;
-    overflow: auto;
+    overflow: hidden;
     background: var(--theme-bg-raised);
     border: 1px solid var(--theme-border-strong);
     border-radius: 5px;
@@ -562,8 +564,9 @@
     border-radius: 4px;
   }
   .dropdown-select-options {
-    max-height: 240px;
-    overflow: auto;
+    max-height: min(240px, var(--dropdown-select-options-height, 240px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
   .dropdown-select-option {
     display: flex;

@@ -86,6 +86,7 @@
           className="tls-credential-field"
           asLabel={false}
           invalid={invalid(value)}
+          error={fileErrors[field]}
         >
           <span class="docker-credential-label">
             {#if field === 'ca' && showSkipVerify}<Switch
@@ -120,9 +121,6 @@
               onChange();
             }}
           />
-          {#if fileErrors[field]}<small class="field-error"
-              >{fileErrors[field]}</small
-            >{/if}
         </FormField>
       {/each}
     </div>

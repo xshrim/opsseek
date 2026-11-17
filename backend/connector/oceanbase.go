@@ -11,7 +11,7 @@ import (
 type oceanBaseAdapter struct{ connection ot.ConnectionInput }
 
 func newOceanBaseAdapter(target Target, _ Limits) (Adapter, error) {
-	in := ot.ConnectionInput{Host: configString(target.Resource.Config, "host"), Port: configPort(target.Resource.Config, 2881), Mode: configString(target.Resource.Config, "mode"), Database: configString(target.Resource.Config, "database"), ServiceName: configString(target.Resource.Config, "service_name"), TimeoutSeconds: configInt(target.Resource.Config, "timeout_seconds")}
+	in := ot.ConnectionInput{Host: configString(target.Resource.Config, "host"), Port: configPort(target.Resource.Config, 2883), Mode: configString(target.Resource.Config, "mode"), Database: configString(target.Resource.Config, "database"), ServiceName: configString(target.Resource.Config, "service_name"), TimeoutSeconds: configInt(target.Resource.Config, "timeout_seconds")}
 	secret := secretFields(target.Secret)
 	in.Username, in.Password = strings.TrimSpace(secret["username"]), secret["password"]
 	if in.Host == "" || in.Username == "" || in.Password == "" {

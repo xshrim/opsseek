@@ -15,35 +15,23 @@
   export let typeSelectionAttempted = false;
   export let basicConfigurationAttempted = false;
   export let editing = false;
-  export let scopeSummary = '';
   export let onSelectCategory: (category: string) => void = () => {};
   export let onSelectSubtype: (subtype: string) => void = () => {};
   export let onSelectScope: (scopeId: string) => void = () => {};
 
-  const subtypeIcons: Record<string, string> = {
-    Direct: 'lucide:Plug',
-    Agent: 'lucide:Bot',
-    Generic: 'lucide:Package',
-    Git: 'lucide:GitBranch',
-    Bundle: 'lucide:Archive',
-    StreamHTTP: 'lucide:Radio',
-    SSE: 'lucide:Radio',
-    指标: 'lucide:ChartNoAxesCombined',
-    日志: 'lucide:FileText',
-    链路: 'lucide:Route',
-    告警: 'lucide:Bell'
-  };
   $: categoryDropdownOptions = Object.keys(categoryOptions)
     .filter((option) => option !== '全部')
     .map((option) => ({
       value: option,
       label: option,
-      icon: resourceCategoryIcon(option)
+      icon: resourceCategoryIcon(option),
+      monochromeIcon: true
     }));
   $: subtypeDropdownOptions = subtypeOptions.map((option) => ({
     value: option,
     label: option,
-    icon: subtypeIcons[option] ?? 'lucide:Package'
+    icon: resourceCategoryIcon(category),
+    monochromeIcon: true
   }));
   $: scopeDropdownOptions = scopeOptions.map((scope) => ({
     value: scope.id,
@@ -52,7 +40,7 @@
       scope.type === 'platform'
         ? 'lucide:PanelsTopLeft'
         : scope.type === 'team'
-          ? 'lucide:UsersRound'
+          ? 'lucide:Building'
           : 'lucide:Boxes'
   }));
 
@@ -128,25 +116,20 @@
       ><FieldLabel
         text="资源级别"
         required
-        invalid={basicConfigurationAttempted &&
-          !(editing ? scopeSummary : scopeId)}
-      />{#if editing}<TextInput
-          value={scopeSummary}
-          readonly
-          ariaLabel="资源级别"
-        />{:else}<DropdownSelect
-          value={scopeId}
-          options={scopeDropdownOptions}
-          showIcons
-          placeholder="请选择资源级别"
-          ariaLabel="资源级别"
-          invalid={basicConfigurationAttempted && !scopeId}
-          invalidMode="bubble"
-          invalidMessage="请选择资源级别"
-          on:change={(event) => onSelectScope(String(event.detail))}
-        />{#if !scopeOptions.length}<small
-            >当前工作区下没有可创建资源的范围。</small
-          >{/if}{/if}</label
+        invalid={basicConfigurationAttempted && !scopeId}
+      /><DropdownSelect
+        value={scopeId}
+        options={scopeDropdownOptions}
+        showIcons
+        placeholder="请选择资源级别"
+        ariaLabel="资源级别"
+        invalid={basicConfigurationAttempted && !scopeId}
+        invalidMode="bubble"
+        invalidMessage="请选择资源级别"
+        on:change={(event) => onSelectScope(String(event.detail))}
+      />{#if !scopeOptions.length}<small
+          >当前工作区下没有可管理资源的范围。</small
+        >{/if}</label
     >
   </div>
   <div class="resource-basic-labels">

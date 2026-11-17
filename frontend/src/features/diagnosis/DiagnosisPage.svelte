@@ -1148,12 +1148,17 @@
     );
   }
 
-  function copyDiagnosisCode(encoded: string) {
-    copyDiagnosisText(
-      decodeDiagnosisCode(encoded),
-      () => onNotice('代码已复制。'),
-      onNotice
-    );
+  function copyDiagnosisCode(encoded: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      copyDiagnosisText(
+        decodeDiagnosisCode(encoded),
+        () => resolve(true),
+        (message) => {
+          onNotice(message);
+          resolve(false);
+        }
+      );
+    });
   }
 
   const diagnosisActiveCausalChain = activeDiagnosisCausalChain;

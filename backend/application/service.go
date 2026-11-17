@@ -51,9 +51,17 @@ type BindingValidator interface {
 	ValidateApplicationBinding(context.Context, string, string, map[string]any) error
 }
 
+// ListenerResolver reads the current listening endpoint for an application
+// instance. It is intentionally optional because runtime inspection must not
+// make ordinary application reads unavailable.
+type ListenerResolver interface {
+	ResolveApplicationListeners(context.Context, string, string, map[string]any) ([]string, error)
+}
+
 type Service struct {
 	store            Store
 	bindingValidator BindingValidator
+	listenerResolver ListenerResolver
 }
 
 type diagnosticCandidateStore interface {
@@ -74,6 +82,9 @@ type diagnosticScopeContextStore interface {
 func NewService(store Store) *Service { return &Service{store: store} }
 func (s *Service) SetBindingValidator(validator BindingValidator) {
 	s.bindingValidator = validator
+}
+func (s *Service) SetListenerResolver(resolver ListenerResolver) {
+	s.listenerResolver = resolver
 }
 func validateCreate(in CreateInput) error {
 	if strings.TrimSpace(in.Name) == "" || !codePattern.MatchString(strings.TrimSpace(in.Code)) {
@@ -279,7 +290,12 @@ func (s *Service) Get(ctx context.Context, id string) (Application, error) {
 	if strings.TrimSpace(id) == "" {
 		return Application{}, ErrInvalid
 	}
-	return s.store.Get(ctx, "", id)
+	item, err := s.store.Get(ctx, "", id)
+	if err != nil {
+		return Application{}, err
+	}
+	s.enrichListeningAddress(ctx, &item)
+	return item, nil
 }
 func (s *Service) List(ctx context.Context, pid string) ([]Application, error) {
 	if strings.TrimSpace(pid) == "" {
@@ -575,7 +591,12 @@ func (s *Service) GetInProject(ctx context.Context, projectID, id string) (Appli
 	if strings.TrimSpace(projectID) == "" || strings.TrimSpace(id) == "" {
 		return Application{}, ErrInvalid
 	}
-	return s.store.Get(ctx, strings.TrimSpace(projectID), strings.TrimSpace(id))
+	item, err := s.store.Get(ctx, strings.TrimSpace(projectID), strings.TrimSpace(id))
+	if err != nil {
+		return Application{}, err
+	}
+	s.enrichListeningAddress(ctx, &item)
+	return item, nil
 }
 func (s *Service) CreateInstanceInProject(ctx context.Context, projectID, applicationID string, in CreateInstanceInput) (Instance, error) {
 	if strings.TrimSpace(projectID) == "" || strings.TrimSpace(applicationID) == "" {
@@ -665,7 +686,40 @@ func (s *Service) Workspace(ctx context.Context, pid string) (Workspace, error) 
 	if pid == "" {
 		return Workspace{}, ErrInvalid
 	}
-	return s.store.Workspace(ctx, pid)
+	workspace, err := s.store.Workspace(ctx, pid)
+	if err != nil {
+		return Workspace{}, err
+	}
+	for index := range workspace.Applications {
+		s.enrichListeningAddress(ctx, &workspace.Applications[index])
+	}
+	return workspace, nil
+}
+
+func (s *Service) enrichListeningAddress(ctx context.Context, item *Application) {
+	if item == nil || s.listenerResolver == nil {
+		return
+	}
+	seen := map[string]struct{}{}
+	addresses := make([]string, 0, len(item.Instances))
+	for _, instance := range item.Instances {
+		values, err := s.listenerResolver.ResolveApplicationListeners(ctx, instance.RuntimeKind, instance.TargetResourceID, instance.Selector)
+		if err != nil {
+			continue
+		}
+		for _, value := range values {
+			value = strings.TrimSpace(value)
+			if value == "" {
+				continue
+			}
+			if _, exists := seen[value]; exists {
+				continue
+			}
+			seen[value] = struct{}{}
+			addresses = append(addresses, value)
+		}
+	}
+	item.ListeningAddress = strings.Join(addresses, "、")
 }
 func (s *Service) Topology(ctx context.Context, pid string) (Topology, error) {
 	if strings.TrimSpace(pid) == "" {

@@ -1,9 +1,6 @@
 <script lang="ts">
   import {
-    Activity,
-    Database,
     FolderGit2,
-    Globe2,
     Network,
     Package,
     Server,
@@ -20,27 +17,20 @@
   };
   export let fallback = '◇';
   export let size = 18;
+  export let brandOnly = false;
+  export let monochrome = false;
 
   $: brand = brandNameFor(resource);
   $: kindIcon = {
     Artifact: Package,
     Repository: FolderGit2,
     Nacos: Network,
-    Nginx: Globe2,
-    TongHttpServer: Globe2,
-    Oracle: Database,
-    OceanBase: Database,
-    TongRDS: Database,
-    MCPServer: Waypoints,
-    Loki: Activity,
-    Tempo: Activity,
-    Jaeger: Activity,
-    Skywalking: Activity,
-    Alertmanager: Activity
+    MCPServer: Waypoints
   }[resource.kind];
 </script>
 
-{#if kindIcon}
+<span class:resource-brand-icon-monochrome={monochrome}>
+{#if kindIcon && !brandOnly}
   <svelte:component
     this={kindIcon}
     {size}
@@ -49,6 +39,8 @@
   />
 {:else if resource.kind === 'Host'}
   <Server {size} strokeWidth={1.8} aria-hidden="true" />
+{:else if brandOnly && (fallback.startsWith('lucide:') || fallback.startsWith('iconify:') || fallback.startsWith('data:image/'))}
+  <IconValue value={fallback} {size} />
 {:else if brand}
   <BrandIcon name={brand} {size} />
 {:else if fallback.startsWith('lucide:') || fallback.startsWith('iconify:') || fallback.startsWith('data:image/')}
@@ -56,3 +48,11 @@
 {:else}
   <span class="brand-icon-fallback" aria-hidden="true">{fallback}</span>
 {/if}
+</span>
+
+<style>
+  .resource-brand-icon-monochrome {
+    display: inline-flex;
+    filter: brightness(0) invert(1);
+  }
+</style>

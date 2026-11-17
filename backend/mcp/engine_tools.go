@@ -490,7 +490,7 @@ func rejectInternalLocatorArguments(kind string, arguments map[string]any) error
 }
 
 func dockerAgentSchema(raw json.RawMessage) json.RawMessage {
-	return hideConnectionFields(raw, "host", "timeout", "tls_ca", "tls_cert", "tls_key", "skip_tls_verify")
+	return hideConnectionFields(raw, "daemon_type", "namespace", "host", "timeout", "tls_ca", "tls_cert", "tls_key", "skip_tls_verify")
 }
 
 func hostAgentSchema(raw json.RawMessage) json.RawMessage {

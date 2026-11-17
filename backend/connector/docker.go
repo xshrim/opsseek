@@ -5,13 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"opsseek/backend/mcpserver/docker/client"
 )
 
 type DockerDraftInput struct {
+	DaemonType       string `json:"daemon_type"`
 	DockerHost       string `json:"host"`
+	Namespace        string `json:"namespace"`
 	TimeoutSeconds   any    `json:"timeout"`
 	DockerCA         string `json:"tls_ca"`
 	DockerCert       string `json:"tls_cert"`
@@ -32,6 +35,7 @@ func (s *Service) TestDockerDraft(ctx context.Context, input DockerDraftInput) (
 	started := time.Now()
 	check := DockerDraftCheck{Status: "failed"}
 	err := client.PingDraft(ctx, client.ConnectionInput{
+		DaemonType: input.DaemonType, Namespace: input.Namespace,
 		DockerHost: input.DockerHost, DockerCA: input.DockerCA, DockerCert: input.DockerCert,
 		DockerKey: input.DockerKey, DockerSkipVerify: input.DockerSkipVerify,
 	})
@@ -45,7 +49,7 @@ func (s *Service) TestDockerDraft(ctx context.Context, input DockerDraftInput) (
 		return check, nil
 	}
 	check.Status = "succeeded"
-	check.Message = "Docker 连接测试通过"
+	check.Message = "容器 daemon 连接测试通过"
 	return check, nil
 }
 
@@ -65,7 +69,10 @@ func newDockerAdapter(target Target) Adapter {
 
 func (dockerAdapter) Kind() string { return "Docker" }
 
-func (dockerAdapter) Capabilities() []Capability {
+func (adapter dockerAdapter) Capabilities() []Capability {
+	if strings.EqualFold(adapter.connection.DaemonType, "containerd") {
+		return []Capability{CapabilityDockerInfo, CapabilityDockerImages, CapabilityDockerContainers, CapabilityDockerInspect}
+	}
 	return []Capability{CapabilityDockerInfo, CapabilityDockerImages, CapabilityDockerContainers, CapabilityDockerLogs, CapabilityDockerInspect, CapabilityDockerStats}
 }
 

@@ -37,6 +37,17 @@ func TestWithFallbackRetriesExplicitConnectionConstructionErrors(t *testing.T) {
 	}
 }
 
+func TestValidateDaemonTypeRejectsUnknownValues(t *testing.T) {
+	for _, value := range []string{"", "dockerd", "containerd"} {
+		if err := ValidateDaemonType(value); err != nil {
+			t.Errorf("%q rejected: %v", value, err)
+		}
+	}
+	if err := ValidateDaemonType("container-d"); err == nil {
+		t.Fatal("invalid daemon type accepted")
+	}
+}
+
 func TestWithFallbackRetriesUnreachableRemoteHostWithDefaultSocket(t *testing.T) {
 	t.Setenv("DOCKER_MCP_DOCKER_HOST", "")
 	t.Setenv("DOCKER_HOST", "")

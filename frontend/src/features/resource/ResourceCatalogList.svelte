@@ -11,6 +11,7 @@
   import type { ConnectionCheck, Resource } from '../../lib/api';
   import {
     resourceCategoryFor,
+    resourceCategoryIcon,
     resourceEndpointFor,
     resourceSubtypeFor
   } from './resourceCatalog';
@@ -110,7 +111,9 @@
         ><span class="entity-icon resource-icon"
           ><ResourceBrandIcon
             {resource}
-            fallback={resourceIcon(resource.kind)}
+            fallback={resourceCategoryIcon(resource.kind) || resourceIcon(resource.kind)}
+            brandOnly
+            monochrome
           /></span
         ><span
           ><strong>{resource.name}</strong><small

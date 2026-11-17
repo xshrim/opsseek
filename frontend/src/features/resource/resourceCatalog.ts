@@ -263,28 +263,32 @@ export function resourceSubtypeOptionsFor(resource: Resource) {
 export function resourceCategoryIcon(category: string) {
   const icons: Record<string, string> = {
     全部: 'lucide:Circle',
-    Artifact: 'lucide:Package',
-    Repository: 'lucide:FolderGit2',
+    Artifact: 'iconify:simple-icons:artifacthub',
+    Repository: 'iconify:simple-icons:git',
+    Nacos: 'lucide:Infinity',
     Host: 'lucide:Server',
     Docker: 'iconify:simple-icons:docker',
     Kubernetes: 'iconify:simple-icons:kubernetes',
     Redis: 'iconify:simple-icons:redis',
-    TongRDS: 'lucide:Database',
+    TongRDS: 'iconify:brand:circle-letter-r',
     Kafka: 'iconify:simple-icons:apache-kafka',
     RabbitMQ: 'iconify:simple-icons:rabbitmq',
     Elasticsearch: 'iconify:simple-icons:elasticsearch',
-    OceanBase: 'lucide:Database',
-    Oracle: 'lucide:Database',
-    MySQL: 'lucide:Database',
+    ElasticSearch: 'iconify:simple-icons:elasticsearch',
+    OceanBase: 'iconify:brand:oceanbase',
+    Oracle: 'iconify:brand:oracle',
+    MySQL: 'iconify:simple-icons:mysql',
     PostgreSQL: 'iconify:simple-icons:postgresql',
     MinIO: 'iconify:simple-icons:minio',
-    MCPServer: 'lucide:Waypoints',
-    Prometheus: 'lucide:ChartNoAxesCombined',
-    Loki: 'lucide:FileSearch',
-    Tempo: 'lucide:Route',
-    Jaeger: 'lucide:Route',
-    Skywalking: 'lucide:Route',
-    Alertmanager: 'lucide:Bell'
+    MCPServer: 'iconify:simple-icons:modelcontextprotocol',
+    Prometheus: 'iconify:simple-icons:prometheus',
+    Loki: 'iconify:brand:loki',
+    Tempo: 'iconify:brand:tempo',
+    Jaeger: 'iconify:simple-icons:jaeger',
+    Skywalking: 'iconify:simple-icons:apache',
+    Alertmanager: 'lucide:Siren',
+    Nginx: 'iconify:simple-icons:nginx',
+    TongHttpServer: 'iconify:brand:circle-letter-t'
   };
   return icons[category] ?? 'lucide:Circle';
 }
@@ -341,6 +345,22 @@ export function resourceEndpointFor(resource: ResourceShape) {
     return host
       ? `${host}:${port}/${service || '未设置服务'}`
       : '未设置 Oracle 地址';
+  }
+  if (resource.kind === 'OceanBase') {
+    if (String(resource.subtype ?? '').toLowerCase() === 'agent')
+      return 'MCPServer 代理';
+    const host = String(resource.config?.host ?? '').trim();
+    const port = Number(resource.config?.port ?? 2883);
+    const isOracleMode =
+      String(resource.config?.mode ?? 'mysql').toLowerCase() === 'oracle';
+    const database = String(
+      isOracleMode
+        ? (resource.config?.service_name ?? '')
+        : (resource.config?.database ?? '')
+    ).trim();
+    return host
+      ? `${host}:${port}/${database || (isOracleMode ? '未设置服务' : '未设置数据库')}`
+      : '未设置 OceanBase 地址';
   }
   if (resource.kind === 'RabbitMQ') {
     if (String(resource.subtype ?? '').toLowerCase() === 'agent')

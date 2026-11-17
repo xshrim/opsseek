@@ -19,7 +19,8 @@
     return () => window.clearInterval(timer);
   });
 
-  $: detail = (message || '连接测试失败').replace(/\s+/g, ' ').trim();
+  $: fullDetail = (message || '连接测试失败').trim() || '连接测试失败';
+  $: detail = fullDetail.replace(/\s+/g, ' ');
   $: latency =
     latencyMs >= 1000 ? `${(latencyMs / 1000).toFixed(1)}s` : `${latencyMs}ms`;
   $: label = busy
@@ -30,7 +31,9 @@
         ? `异常·${detail}`
         : '未测试';
   $: tooltip =
-    status === 'failed' ? `异常·${detail}` : tooltipText || '点击进行连接测试';
+    status === 'failed'
+      ? `异常·${fullDetail}`
+      : tooltipText || '点击进行连接测试';
   $: checkedTime = checkedAt ? relativeTime(checkedAt, now) : '-';
 
   function activate() {
@@ -121,7 +124,7 @@
   }
   .connection-test-label.scroll {
     width: max-content;
-    animation: connection-test-scroll 7s linear infinite alternate;
+    animation: connection-test-scroll 14s linear infinite alternate;
   }
   .connection-test small {
     display: block;

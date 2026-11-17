@@ -112,6 +112,15 @@ func retryDefault(_ context.Context, customErr error, operation func(*client.Cli
 
 // Ping verifies that a connection can reach the Docker daemon.
 func Ping(ctx context.Context, input ConnectionInput) error {
+	if strings.EqualFold(input.DaemonType, "containerd") {
+		cli, err := OpenContainerd(input)
+		if err != nil {
+			return err
+		}
+		defer cli.Close()
+		_, err = cli.Version(ctx)
+		return err
+	}
 	if timeout := TimeoutSeconds(input.TimeoutSeconds); timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, timeout)
@@ -151,6 +160,15 @@ func TimeoutSeconds(value any) time.Duration {
 // PingDraft verifies the supplied connection without inheriting Docker
 // environment variables from the API process.
 func PingDraft(ctx context.Context, input ConnectionInput) error {
+	if strings.EqualFold(input.DaemonType, "containerd") {
+		cli, err := OpenContainerd(input)
+		if err != nil {
+			return err
+		}
+		defer cli.Close()
+		_, err = cli.Version(ctx)
+		return err
+	}
 	cli, _, err := newClient(input, false)
 	if err != nil {
 		return err

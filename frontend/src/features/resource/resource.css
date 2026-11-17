@@ -177,19 +177,19 @@
   gap: 6px;
   min-height: 29px;
   padding: 0 5px;
-  color: color-mix(in srgb, var(--theme-fg-muted) 78%, transparent);
+  color: color-mix(in srgb, var(--theme-fg-muted) 56%, transparent);
   background: transparent;
   border: 0;
   border-bottom: 0;
   border-radius: 0;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   text-align: left;
   cursor: pointer;
 }
 .catalog-domain-heading strong {
   color: inherit;
-  font-size: 13px;
+  font-size: 12px;
 }
 .catalog-domain-heading::after {
   position: absolute;
@@ -207,10 +207,13 @@
   pointer-events: none;
 }
 .catalog-domain-heading:hover {
-  color: var(--theme-fg-muted);
+  color: var(--theme-teal);
+}
+.catalog-domain-heading.expanded {
+  color: color-mix(in srgb, var(--theme-teal) 72%, var(--theme-fg-muted));
 }
 .resource-catalog-rail .catalog-domain-heading:hover {
-  background: transparent;
+  background: transparent !important;
 }
 .catalog-domain-heading:focus-visible {
   outline: 2px solid var(--theme-border-focus);
@@ -230,7 +233,7 @@
   width: 26px;
   height: 26px;
   flex: 0 0 auto;
-  color: var(--theme-teal);
+  color: #fff;
   background: var(--theme-bg-selected);
   border-radius: 4px;
   font-size: 13px;
@@ -2044,6 +2047,35 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
+.docker-daemon-fields {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px;
+}
+.docker-daemon-type-field,
+.docker-daemon-timeout-field {
+  grid-column: span 2;
+}
+.docker-daemon-address-field {
+  grid-column: span 4;
+}
+.docker-daemon-fields.containerd-daemon .docker-daemon-address-field {
+  grid-column: span 3;
+}
+.docker-daemon-namespace-field {
+  grid-column: span 1;
+}
+.docker-daemon-fields select {
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 10px;
+  color: var(--theme-fg);
+  background: var(--theme-bg-input);
+  border: 1px solid var(--theme-border-strong);
+  border-radius: 4px;
+  font-size: 12px;
+}
 .host-ssh-form-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2085,11 +2117,14 @@
   grid-column: 2 / -1;
 }
 .host-ssh-form-grid textarea {
-  min-height: 132px;
+  min-height: 0;
   box-sizing: border-box;
   resize: vertical;
   overflow-wrap: anywhere;
   word-break: break-all;
+}
+.host-known-hosts textarea {
+  height: 100%;
 }
 .host-ssh-form-grid input,
 .host-ssh-form-grid select {
@@ -2314,8 +2349,29 @@
   font-size: 11px;
 }
 .field-error {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  left: 0;
+  max-width: min(320px, 90vw);
+  padding: 6px 9px;
   color: var(--theme-danger);
+  background: var(--theme-bg-danger-soft);
+  border-radius: 4px;
+  box-shadow: var(--theme-shadow-soft);
   font-size: 11px;
+  line-height: 1.35;
+  pointer-events: none;
+}
+.host-known-hosts,
+.host-private-key,
+.kubernetes-kubeconfig-row label {
+  position: relative;
+}
+.host-known-hosts.invalid .docker-credential-label > span:first-child,
+.host-private-key.invalid .docker-credential-label > span:first-child,
+.kubernetes-kubeconfig-row label.invalid .docker-credential-label > span:first-child {
+  color: var(--theme-danger);
 }
 .docker-agent-form {
   max-width: 620px;
@@ -2420,6 +2476,7 @@
   }
   .docker-access-mode,
   .docker-form-grid,
+  .docker-daemon-fields,
   .host-ssh-form-grid,
   .docker-agent-connection-row,
   .kubernetes-connection-mode {
@@ -2431,6 +2488,10 @@
   }
   .docker-host-field,
   .docker-timeout-field,
+  .docker-daemon-type-field,
+  .docker-daemon-address-field,
+  .docker-daemon-namespace-field,
+  .docker-daemon-timeout-field,
   .host-auth-method,
   .host-password,
   .host-passphrase,
@@ -2562,7 +2623,7 @@
   border-color: var(--theme-border);
 }
 :root[data-theme='dark'] .catalog-icon {
-  color: var(--theme-teal);
+  color: #fff;
   background: var(--theme-bg-selected);
 }
 :root[data-theme='dark'] .resource-catalog-title h2,
@@ -2868,9 +2929,33 @@
   place-items: center;
 }
 .repository-upload-section {
+  position: relative;
   display: grid;
   gap: 8px;
   margin-bottom: 14px;
+}
+.repository-upload-section.invalid header strong {
+  color: var(--theme-danger);
+}
+.repository-upload-section.invalid .bundle-file-control {
+  border-color: var(--theme-danger);
+  box-shadow: 0 0 0 1px var(--theme-danger);
+}
+.repository-upload-section.invalid::after {
+  position: absolute;
+  z-index: 40;
+  top: 100%;
+  left: 0;
+  max-width: min(320px, 90vw);
+  padding: 6px 9px;
+  color: var(--theme-danger);
+  background: var(--theme-bg-danger-soft);
+  border-radius: 4px;
+  box-shadow: var(--theme-shadow-soft);
+  content: attr(data-error);
+  font-size: 11px;
+  line-height: 1.35;
+  pointer-events: none;
 }
 .repository-upload-section header {
   display: flex;

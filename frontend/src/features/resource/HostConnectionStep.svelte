@@ -207,7 +207,7 @@
               secretLabel="SSH 密码"
             />
           </label>
-          <label class="host-known-hosts">
+          <label class="host-known-hosts" class:invalid={Boolean(fileErrors.knownHosts)}>
             <span class="docker-credential-label"
               ><span>known_hosts（可选）</span><span class="docker-file-picker"
                 >{#if selectedFileNames.knownHosts}<small
@@ -252,7 +252,7 @@
               secretLabel="私钥口令"
             />
           </label>
-          <label class="host-private-key">
+          <label class="host-private-key" class:invalid={Boolean(fileErrors.privateKey)}>
             <span class="docker-credential-label"
               ><span>私钥<i class="required-mark" aria-hidden="true">*</i></span
               ><span class="docker-file-picker"
@@ -287,7 +287,7 @@
                 >{fileErrors.privateKey}</small
               >{/if}
           </label>
-          <label class="host-known-hosts">
+          <label class="host-known-hosts" class:invalid={Boolean(fileErrors.knownHosts)}>
             <span class="docker-credential-label"
               ><span>known_hosts（可选）</span><span class="docker-file-picker"
                 >{#if selectedFileNames.knownHosts}<small

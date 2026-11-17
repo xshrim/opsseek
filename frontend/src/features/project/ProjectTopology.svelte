@@ -321,7 +321,9 @@
   }
   function nodeSubtitle(node: Node) {
     if (node.kind === 'application') {
-      return `${String(node.metadata?.instance_count ?? 0)} 实例`;
+      const address = applications.find((item) => item.id === node.id)
+        ?.listening_address;
+      return `${String(node.metadata?.instance_count ?? 0)} 实例${address ? ` · ${address}` : ''}`;
     }
     if (node.kind === 'resource') return node.resource_kind ?? '资源';
     return String(node.metadata?.description ?? '').trim();
@@ -1127,16 +1129,23 @@
         <div class="topology-palette-title">
           <strong>组件</strong><small>拖到画布</small>
         </div>
-        <button
-          class="topology-palette-leaf"
-          type="button"
-          draggable="true"
-          data-tooltip="拖入画布新增未纳管实体"
-          on:dragstart={(event) => dragComponent(event, { kind: 'annotation' })}
-          ><span class="topology-palette-category-icon entity-tone"
-            ><StickyNote size={14} /></span
-          ><span>实体</span></button
-        >
+        <details class="topology-palette-section" open>
+          <summary
+            ><span class="topology-palette-category-icon entity-tone"
+              ><StickyNote size={15} /></span
+            >通用</summary
+          ><button
+            class="topology-palette-leaf"
+            type="button"
+            draggable="true"
+            data-tooltip="拖入画布新增实体"
+            on:dragstart={(event) =>
+              dragComponent(event, { kind: 'annotation' })}
+            ><span class="topology-palette-category-icon entity-tone"
+              ><StickyNote size={14} /></span
+            ><span>实体</span></button
+          >
+        </details>
         <details class="topology-palette-section" open>
           <summary
             ><span class="topology-palette-category-icon application-tone"
@@ -1227,6 +1236,7 @@
                     resource={{ kind }}
                     fallback={resourceCategoryIcon(kind)}
                     size={14}
+                    brandOnly
                   /></span
                 ><span>{kind}</span><small>{kindResources.length}</small
                 ></summary
@@ -1262,6 +1272,7 @@
                       {resource}
                       fallback={resourceCategoryIcon(kind)}
                       size={16}
+                      brandOnly
                     /></span
                   ><span
                     ><strong>{resource.name}</strong><small
@@ -1430,7 +1441,9 @@
                             size={15}
                           />{:else if node.kind === 'resource'}<ResourceBrandIcon
                             resource={{ kind: node.resource_kind ?? 'Host' }}
+                            fallback={resourceCategoryIcon(node.resource_kind ?? 'Host')}
                             size={15}
+                            brandOnly
                           />{:else}<Icon size={15} />{/if}</span
                       ><strong>{node.name}</strong></span
                     ><span class="topology-node-meta"
@@ -1605,6 +1618,8 @@
                   <dd>{String(selectedNode.metadata?.status ?? '未知')}</dd>
                   <dt>实例数量</dt>
                   <dd>{String(selectedNode.metadata?.instance_count ?? 0)}</dd>
+                  <dt>监听地址</dt>
+                  <dd>{applications.find((item) => item.id === selectedNode.id)?.listening_address || '—'}</dd>
                   <dt>所属项目</dt>
                   <dd>{selectedNode.project_name || project.name}</dd>
                 </dl>{:else}<dl>
@@ -1809,6 +1824,10 @@
   .topology-palette-category-icon {
     width: 16px;
     height: 18px;
+  }
+  .topology-palette-category-icon :global(svg [fill]:not([fill='none'])),
+  .topology-palette-icon :global(svg [fill]:not([fill='none'])) {
+    fill: currentColor;
   }
   .topology-palette-category-icon.application-tone,
   .topology-palette-item.application {

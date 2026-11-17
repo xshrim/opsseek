@@ -1,7 +1,7 @@
 <script lang="ts">
   import ModalDialog from '../../components/ModalDialog.svelte';
   import DeleteConfirmationDialog from '../../components/DeleteConfirmationDialog.svelte';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import {
     ClipboardCheck,
     Copy,
@@ -97,7 +97,7 @@
   export let teamDialogOpen = false;
   export let teamName = '';
   export let teamDescription = '';
-  export let teamIcon = 'lucide:UsersRound';
+  export let teamIcon = 'lucide:Building';
   export let teamLabels = '';
   export let teamOwnerIds: string[] = [];
   export let userDialogOpen = false;
@@ -142,8 +142,6 @@
   export let busy = false;
   export let copiedControl:
     'created-password' | 'reset-username' | 'reset-credentials' | null = null;
-  export let activeMessage = '';
-  export let activeMessageTone: 'success' | 'error' = 'success';
 
   let accessSearchQuery = '';
   let expandedAccessSection: 'organization' | 'audit' | 'roles' | '' =
@@ -158,6 +156,21 @@
   let newUserUsernameError = '';
   let newUserPasswordError = '';
   let editUserDisplayNameError = '';
+  let userDialogMessage = '';
+  let copyFeedbackTimer: number | null = null;
+
+  onDestroy(() => {
+    if (copyFeedbackTimer !== null) window.clearTimeout(copyFeedbackTimer);
+  });
+
+  function showCopied(control: NonNullable<typeof copiedControl>) {
+    copiedControl = control;
+    if (copyFeedbackTimer !== null) window.clearTimeout(copyFeedbackTimer);
+    copyFeedbackTimer = window.setTimeout(() => {
+      if (copiedControl === control) copiedControl = null;
+      copyFeedbackTimer = null;
+    }, 1800);
+  }
 
   $: ownerOptions = users
     .filter((user) => user.status === 'active')
@@ -717,6 +730,7 @@
     newUserPassword = '';
     newUserPasswordMode = 'generated';
     createdUserCredentials = null;
+    userDialogMessage = '';
     newUserUsernameError = '';
     newUserPasswordError = '';
     const preferred =
@@ -881,7 +895,7 @@
   function openTeamDialog() {
     teamName = '';
     teamDescription = '';
-    teamIcon = 'lucide:UsersRound';
+    teamIcon = 'lucide:Building';
     teamLabels = '';
     teamOwnerIds = [];
     teamNameError = '';
@@ -904,6 +918,7 @@
     newUserDisplayName = user.display_name || user.username;
     newUserPassword = '';
     newUserPasswordMode = 'generated';
+    userDialogMessage = '';
     createdUserCredentials = null;
     passwordResetCredentials = null;
     newUserUsernameError = '';
@@ -977,6 +992,7 @@
     });
   }
   async function createUser() {
+    userDialogMessage = '';
     newUserUsernameError = newUserUsername.trim() ? '' : '请填写用户名。';
     newUserPasswordError =
       newUserPasswordMode === 'manual'
@@ -1010,9 +1026,7 @@
         username: result.user.username,
         password: result.one_time_password
       };
-      onNotice(
-        `用户“${result.user.display_name || result.user.username}”已创建并完成授权`
-      );
+      userDialogMessage = `用户“${result.user.display_name || result.user.username}”创建成功，请复制一次性密码并妥善保存。`;
     });
   }
   async function saveTeam() {
@@ -1173,15 +1187,14 @@
         username: editingUser!.username,
         password: result.one_time_password
       };
-      onNotice('已生成一次性密码');
+      userDialogMessage = '一次性密码已生成，请复制并妥善保存。';
     });
   }
   async function copyOneTimePassword() {
     if (!createdUserCredentials) return;
     try {
       await navigator.clipboard.writeText(createdUserCredentials.password);
-      copiedControl = 'created-password';
-      onNotice('一次性密码已复制');
+      showCopied('created-password');
     } catch {
       onError('无法访问剪贴板，请手动复制。');
     }
@@ -1194,7 +1207,7 @@
           ? `用户名：${passwordResetCredentials.username}\n一次性密码：${passwordResetCredentials.password}`
           : passwordResetCredentials.username
       );
-      copiedControl = includePassword ? 'reset-credentials' : 'reset-username';
+      showCopied(includePassword ? 'reset-credentials' : 'reset-username');
     } catch {
       onError('无法访问剪贴板，请手动复制。');
     }
@@ -1394,8 +1407,6 @@
     confirmLabel="创建"
     confirmForm="create-team-form"
     {busy}
-    message={activeMessage}
-    messageTone={activeMessageTone}
     onCancel={() => (teamDialogOpen = false)}
   >
     <form
@@ -1497,8 +1508,8 @@
           )
       )}
     {busy}
-    message={activeMessage}
-    messageTone={activeMessageTone}
+    message={userDialogMessage}
+    messageTone="success"
     onCancel={() => {
       userDialogOpen = false;
       editingUser = null;
@@ -1520,10 +1531,7 @@
           <TextInput
             value={editingUser ? editingUser.username : newUserUsername}
             disabled={Boolean(editingUser)}
-            on:input={(event) =>
-              updateNewUserUsername(
-                (event.currentTarget as HTMLInputElement).value
-              )}
+            on:value={(event) => updateNewUserUsername(String(event.detail ?? ''))}
             required
             placeholder="登录用户名"
             ariaLabel="用户名"
@@ -1575,16 +1583,13 @@
             >
             {#if passwordResetCredentials}
               <div class="created-credentials-inline" aria-live="polite">
-                <span
-                  >一次性密码：<strong
-                    >{passwordResetCredentials.password}</strong
-                  ></span
-                >
+                <span class="user-password-label">一次性密码</span>
+                <strong class="user-password-value">{passwordResetCredentials.password}</strong>
                 <button
                   class="icon-button"
                   type="button"
                   aria-label="复制一次性密码"
-                  data-tooltip="复制一次性密码"
+                  data-tooltip={copiedControl === 'reset-credentials' ? '已复制' : '复制一次性密码'}
                   on:click={() => copyPasswordResetCredentials(true)}
                 >
                   {#if copiedControl === 'reset-credentials'}<ClipboardCheck
@@ -1594,9 +1599,10 @@
                 </button>
               </div>
             {:else}
-              <span class="user-password-hint"
-                >点击后生成新密码，原密码立即失效</span
-              >
+              <div class="created-credentials-inline">
+                <span class="user-password-label">一次性密码</span>
+                <small class="user-password-hint">点击后生成新密码，原密码立即失效</small>
+              </div>
             {/if}
           </div>
         {:else}
@@ -1620,40 +1626,45 @@
               >
             </div>
             {#if newUserPasswordMode === 'manual'}
-              <label
-                class="user-password-input"
-                class:invalid={Boolean(newUserPasswordError)}
-                ><PasswordInput
-                  bind:value={newUserPassword}
+              <div class="user-password-manual-row">
+                <FieldLabel
+                  text="一次性密码"
                   required
-                  minlength={8}
-                  ariaInvalid={Boolean(newUserPasswordError)}
-                  ariaDescribedby={newUserPasswordError
-                    ? 'new-user-password-error'
-                    : ''}
-                  autocomplete="new-password"
-                  placeholder="至少 8 位，建议包含字母、数字和特殊字符"
-                  ariaLabel="一次性密码"
-                  on:input={() => {
-                    if (newUserPassword.length >= 8) newUserPasswordError = '';
-                  }}
-                />{#if newUserPasswordError}<small
-                    id="new-user-password-error"
-                    class="access-field-error"
-                    role="alert">{newUserPasswordError}</small
-                  >{/if}</label
-              >
+                  invalid={Boolean(newUserPasswordError)}
+                />
+                <FormField
+                  className="user-password-input"
+                  asLabel={false}
+                  invalid={Boolean(newUserPasswordError)}
+                  error={newUserPasswordError}
+                  errorId="new-user-password-error"
+                >
+                  <PasswordInput
+                    bind:value={newUserPassword}
+                    required
+                    minlength={8}
+                    ariaInvalid={Boolean(newUserPasswordError)}
+                    ariaDescribedby={newUserPasswordError
+                      ? 'new-user-password-error'
+                      : ''}
+                    autocomplete="new-password"
+                    placeholder="至少 8 位，建议包含字母、数字和特殊字符"
+                    ariaLabel="一次性密码"
+                    on:input={() => {
+                      if (newUserPassword.length >= 8) newUserPasswordError = '';
+                    }}
+                  />
+                </FormField>
+              </div>
             {:else if createdUserCredentials}
               <div class="created-credentials-inline" aria-live="polite">
-                <span
-                  >一次性密码：<strong>{createdUserCredentials.password}</strong
-                  ></span
-                >
+                <span class="user-password-label">一次性密码</span>
+                <strong class="user-password-value">{createdUserCredentials.password}</strong>
                 <button
                   class="icon-button"
                   type="button"
-                  aria-label="复制一次性密码"
-                  data-tooltip="复制一次性密码"
+                  aria-label={copiedControl === 'created-password' ? '已复制一次性密码' : '复制一次性密码'}
+                  data-tooltip={copiedControl === 'created-password' ? '已复制' : '复制一次性密码'}
                   on:click={copyOneTimePassword}
                   >{#if copiedControl === 'created-password'}<ClipboardCheck
                       size={15}
@@ -1662,9 +1673,10 @@
                 >
               </div>
             {:else}
-              <span class="user-password-hint"
-                >创建后显示一次性密码，仅可查看和复制一次</span
-              >
+              <div class="created-credentials-inline">
+                <span class="user-password-label">一次性密码</span>
+                <small class="user-password-hint">创建后显示，仅可查看和复制一次</small>
+              </div>
             {/if}
           </div>
         {/if}
@@ -1860,8 +1872,6 @@
     confirmLabel="保存"
     confirmForm="edit-team-form"
     {busy}
-    message={activeMessage}
-    messageTone={activeMessageTone}
     onCancel={() => (editingTeam = null)}
   >
     <form
@@ -1941,8 +1951,6 @@
     busyLabel="正在处理"
     confirmVariant="danger"
     {busy}
-    message={activeMessage}
-    messageTone={activeMessageTone}
     closeOnBackdrop={false}
     resizable={false}
     onCancel={() => (disableTarget = null)}

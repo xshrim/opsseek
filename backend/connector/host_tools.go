@@ -42,6 +42,14 @@ func (s *Service) resolveHostTools(ctx context.Context, item engine.ContextResou
 		input.ConnectionInput = connection
 		return hostOutput(host.Processes(ctx, input))
 	})
+	add("host_process_listeners", "Read TCP and UDP listening ports owned by one concrete Linux process. Pass a process pid returned by host_processes.", hostDirectSchema(map[string]any{"pid": map[string]any{"type": "integer", "minimum": 1, "description": "Exact process ID returned by host_processes."}}), func(ctx context.Context, args map[string]any) (engine.ToolResult, error) {
+		input, err := decodeHost[host.ListenersInput](args)
+		if err != nil {
+			return engine.ToolResult{}, err
+		}
+		input.ConnectionInput = connection
+		return hostOutput(host.Listeners(ctx, input))
+	})
 	add("host_file_logs", "Read bounded logs from a regular Linux host file path. This tool does not capture a process's stdout stream; do not pass output targets such as stdout as file paths.", hostDirectSchema(map[string]any{"path": map[string]any{"type": "string", "description": "Absolute regular-file path on the host; this is not a stream name such as stdout."}, "tail": map[string]any{"type": "string"}, "since": map[string]any{"type": "string"}, "until": map[string]any{"type": "string"}, "keyword": map[string]any{"type": "string"}, "timestamps": map[string]any{"type": "boolean"}}), func(ctx context.Context, args map[string]any) (engine.ToolResult, error) {
 		input, err := decodeHost[host.FileLogsInput](args)
 		if err != nil {

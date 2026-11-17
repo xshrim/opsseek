@@ -143,7 +143,7 @@ func (s *Service) validateKubernetesApplicationBinding(ctx context.Context, reso
 	name, _ := selector["workload_name"].(string)
 	resourceKind := map[string]string{
 		"Deployment": "deployments", "StatefulSet": "statefulsets", "DaemonSet": "daemonsets",
-		"Job": "jobs", "CronJob": "cronjobs",
+		"Job": "jobs", "CronJob": "cronjobs", "CafeDeployment": "CafeDeployment",
 	}[strings.TrimSpace(kind)]
 	if resourceKind == "" || strings.TrimSpace(namespace) == "" || strings.TrimSpace(name) == "" {
 		return invalid("Kubernetes binding requires a valid namespace, workload kind and workload name")

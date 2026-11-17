@@ -276,13 +276,13 @@ func TestMinIOAgentSchemaHidesConnectionFields(t *testing.T) {
 }
 
 func TestDockerAgentSchemaHidesConnectionFieldsAndKeepsOperationRequirements(t *testing.T) {
-	raw := json.RawMessage(`{"type":"object","required":["host","container_id","path"],"properties":{"host":{"type":"string"},"timeout":{"type":"integer"},"tls_ca":{"type":"string"},"tls_cert":{"type":"string"},"tls_key":{"type":"string"},"skip_tls_verify":{"type":"boolean"},"container_id":{"type":"string"},"path":{"type":"string"}}}`)
+	raw := json.RawMessage(`{"type":"object","required":["daemon_type","namespace","host","container_id","path"],"properties":{"daemon_type":{"type":"string"},"namespace":{"type":"string"},"host":{"type":"string"},"timeout":{"type":"integer"},"tls_ca":{"type":"string"},"tls_cert":{"type":"string"},"tls_key":{"type":"string"},"skip_tls_verify":{"type":"boolean"},"container_id":{"type":"string"},"path":{"type":"string"}}}`)
 	var schema map[string]any
 	if err := json.Unmarshal(dockerAgentSchema(raw), &schema); err != nil {
 		t.Fatal(err)
 	}
 	props := schema["properties"].(map[string]any)
-	for _, key := range []string{"host", "timeout", "tls_ca", "tls_cert", "tls_key", "skip_tls_verify"} {
+	for _, key := range []string{"daemon_type", "namespace", "host", "timeout", "tls_ca", "tls_cert", "tls_key", "skip_tls_verify"} {
 		if _, ok := props[key]; ok {
 			t.Errorf("connection field %q exposed", key)
 		}
@@ -324,6 +324,8 @@ func TestDockerAgentArgumentsUseResourceConnection(t *testing.T) {
 		Kind:    "Docker",
 		Subtype: "agent",
 		Config: map[string]any{
+			"daemon_type":     "containerd",
+			"namespace":       "k8s.io",
 			"host":            "tcp://configured:2376",
 			"timeout":         float64(18),
 			"tls_ca":          "Y2E=",
@@ -335,7 +337,7 @@ func TestDockerAgentArgumentsUseResourceConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dockerAgentArguments: %v", err)
 	}
-	want := map[string]any{"host": "tcp://configured:2376", "timeout": float64(18), "tls_ca": "Y2E=", "skip_tls_verify": true, "container_id": "abc"}
+	want := map[string]any{"daemon_type": "containerd", "namespace": "k8s.io", "host": "tcp://configured:2376", "timeout": float64(18), "tls_ca": "Y2E=", "skip_tls_verify": true, "container_id": "abc"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("arguments = %#v, want %#v", got, want)
 	}

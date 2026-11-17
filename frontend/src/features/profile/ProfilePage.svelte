@@ -18,8 +18,6 @@
   export let roleBindings: RoleBinding[] = [];
   export let scopeChoices: Array<{ id: string; type: string; name: string }> =
     [];
-  export let message = '';
-  export let messageTone: 'success' | 'error' = 'success';
   export let onApplyTheme: () => void;
   export let onNotice: (message: string) => void;
   export let onError: (message: string) => void;
@@ -160,8 +158,6 @@
   busyLabel="正在保存"
   confirmForm="profile-dialog-form"
   {busy}
-  {message}
-  {messageTone}
   contentInset={false}
   onCancel={cancel}
 >

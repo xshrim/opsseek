@@ -29,6 +29,7 @@
   import ReadonlyTable from '../../components/ReadonlyTable.svelte';
   import type { ReadonlyTableColumn } from '../../components/ReadonlyTable.svelte';
   import { formatLabels, parseLabels } from '../../lib/labels';
+  import { randomId } from '../../lib/randomId';
   import type { Application, Resource, User } from '../../lib/api';
   import { api } from '../../lib/api';
   import {
@@ -114,7 +115,7 @@
   };
   function emptyResourceBinding(): ResourceBindingDraft {
     return {
-      key: crypto.randomUUID(),
+      key: randomId(),
       resourceId: '',
       dependencyKind: 'other',
       binding: {},
@@ -431,7 +432,7 @@
           ])
         );
         return {
-          key: crypto.randomUUID(),
+          key: randomId(),
           resourceId: dependency.target_resource_id,
           dependencyKind: dependency.dependency_kind,
           binding:
@@ -1266,7 +1267,7 @@
     const draft = candidateDrafts[candidate.key];
     const instances: ApplicationInstanceDraft[] = candidate.instances.map(
       (instance, index) => ({
-        id: crypto.randomUUID(),
+        id: randomId(),
         name: instance.name || `instance-${index + 1}`,
         targetResourceId: instance.target_resource_id,
         selector: instance.selector,
@@ -1813,6 +1814,13 @@
                         'logPath',
                         String(event.detail)
                       )}
+                  /></FormField
+                >
+                <FormField label="监听地址" className="full-field"
+                  ><TextInput
+                    value={initialApplication?.listening_address || '保存后自动获取'}
+                    readonly
+                    ariaLabel="监听地址"
                   /></FormField
                 >
                 <FormField label="应用描述" className="full-field"

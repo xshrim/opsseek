@@ -1778,28 +1778,19 @@
   line-height: 1.4;
 }
 .user-password-input {
-  display: flex !important;
-  flex: 1 1 240px;
-  align-items: center;
+  flex: 1 1 280px;
   min-width: 220px;
-  gap: 8px !important;
 }
-.user-password-input > span:first-child {
-  flex: 0 0 auto;
-}
-.user-password-input .password-control {
-  flex: 1 1 auto;
+.user-password-manual-row {
+  display: grid;
+  flex: 1 1 400px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
   min-width: 0;
 }
-.user-password-input .access-field-error {
-  flex-basis: 100%;
-}
-.access-field-error {
-  display: block;
-  grid-column: 1 / -1;
-  margin-top: -5px;
-  color: var(--theme-danger);
-  font-size: 12px;
+.user-password-input .password-control {
+  min-width: 0;
 }
 .role-preview {
   display: grid;
@@ -1813,12 +1804,12 @@
   display: flex;
   align-items: center;
   min-width: 0;
-  margin-right: auto;
+  flex: 1 1 320px;
   gap: 8px;
   color: var(--theme-fg-muted);
   font-size: 11px;
 }
-.created-credentials-inline span {
+.created-credentials-inline > span:not(.user-password-label) {
   overflow-wrap: anywhere;
   max-width: min(100%, 420px);
   padding: 6px 8px;
@@ -1831,6 +1822,23 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-weight: 650;
 }
+.user-password-label {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  color: var(--theme-fg-muted);
+  background: var(--theme-bg-subtle);
+  border-radius: 4px;
+  font-size: 11px;
+}
+.created-credentials-inline .user-password-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 6px 9px;
+  color: var(--theme-accent);
+  background: var(--theme-bg-input);
+  border: 1px solid var(--theme-border-strong);
+  border-radius: 5px;
+}
 .team-icon {
   color: var(--theme-fg-muted);
   background: var(--theme-bg-surface);
@@ -1841,17 +1849,24 @@
     width: 100%;
     flex-wrap: wrap;
   }
-  .created-credentials-inline span {
+  .created-credentials-inline > span:not(.user-password-label) {
     max-width: calc(100% - 38px);
+  }
+  .user-password-manual-row {
+    flex-basis: 100%;
   }
 }
 :root[data-theme='dark'] .created-credentials-inline strong {
   color: var(--theme-fg-strong);
 }
 :root[data-theme='dark'] .role-preview,
-:root[data-theme='dark'] .created-credentials-inline span {
+:root[data-theme='dark'] .created-credentials-inline > span:not(.user-password-label) {
   background: var(--theme-bg-surface);
   border-color: var(--theme-border);
+}
+:root[data-theme='dark'] .user-password-value {
+  color: var(--theme-accent);
+  background: var(--theme-bg-input);
 }
 :root[data-theme='dark'] .confirm-copy,
 :root[data-theme='dark'] .form-help,

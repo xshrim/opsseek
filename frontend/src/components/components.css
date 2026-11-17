@@ -675,34 +675,64 @@
 .message-banner {
   display: block;
   width: fit-content;
-  min-height: 26px;
+  height: auto;
+  min-height: 24px;
+  min-width: 0;
+  max-height: 40px;
   max-width: 100%;
-  padding: 6px 10px;
+  box-sizing: border-box;
+  padding: 2px 8px;
   color: var(--theme-fg);
   background: var(--theme-bg-info-soft);
-  border: 1px solid color-mix(in srgb, var(--theme-info) 22%, transparent);
+  border: 0;
   border-radius: 5px;
   font-size: 12px;
   font-weight: 400;
-  line-height: 1.6;
+  line-height: 16px;
   text-align: left;
+  overflow: hidden;
 }
 .message-banner.success {
   background: var(--theme-bg-success-soft);
-  border-color: color-mix(in srgb, var(--theme-success) 22%, transparent);
 }
 .message-banner.error {
   background: var(--theme-bg-danger-soft);
-  border-color: color-mix(in srgb, var(--theme-danger) 22%, transparent);
 }
 .message-banner.warning {
   background: var(--theme-bg-warning-soft);
-  border-color: color-mix(in srgb, var(--theme-warning) 22%, transparent);
 }
 .message-content {
   display: block;
+  min-height: 20px;
+  box-sizing: border-box;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+.message-viewport {
+  width: 100%;
+  min-height: 20px;
+  max-height: 36px;
+  overflow: hidden;
+}
+.message-track {
+  display: flex;
+  flex-direction: column;
+}
+.message-track.scrolling {
+  animation: message-banner-scroll 24s linear infinite;
+}
+.message-track.scrolling:hover {
+  animation-play-state: paused;
+}
+@keyframes message-banner-scroll {
+  0%,
+  15% {
+    transform: translateY(0);
+  }
+  85%,
+  100% {
+    transform: translateY(-50%);
+  }
 }
 .message-codes {
   display: inline-flex;

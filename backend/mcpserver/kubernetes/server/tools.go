@@ -118,7 +118,7 @@ func RegisterTools(s *mcp.Server) {
 		out, err := kt.Workloads(ctx, in.ConnectionInput, in.Namespace, in.Filters, in.Continue, in.Limit)
 		return nil, out, err
 	})
-	add("kubernetes_workload_pods", "Resolve the running Pods for one Kubernetes workload.", kt.WorkloadPodsInputProperties(), func(ctx context.Context, _ *mcp.CallToolRequest, in workloadPodsInput) (*mcp.CallToolResult, any, error) {
+	add("kubernetes_workload_pods", "Resolve the running Pods for one Kubernetes workload, including each Pod IP and declared container ports.", kt.WorkloadPodsInputProperties(), func(ctx context.Context, _ *mcp.CallToolRequest, in workloadPodsInput) (*mcp.CallToolResult, any, error) {
 		out, err := kt.WorkloadPods(ctx, in.ConnectionInput, in.WorkloadKind, in.Namespace, in.WorkloadName, in.Limit)
 		return nil, out, err
 	})

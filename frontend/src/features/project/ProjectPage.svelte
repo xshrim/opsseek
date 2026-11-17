@@ -47,6 +47,7 @@
   import ScopeLevelBadge from '../../components/ScopeLevelBadge.svelte';
   import DeleteConfirmationDialog from '../../components/DeleteConfirmationDialog.svelte';
   import { labelTags } from '../../lib/labels';
+  import { randomId } from '../../lib/randomId';
   import {
     resourceCategoryFor,
     resourceCategoryIcon
@@ -171,16 +172,17 @@
   let users: User[] = [];
 
   const applicationColumns: ReadonlyTableColumn[] = [
-    { key: 'application', label: '应用', width: '22%' },
-    { key: 'runtime', label: '运行时', width: '13%' },
-    { key: 'instances', label: '实例', width: '10%' },
-    { key: 'resources', label: '资源', width: '10%' },
-    { key: 'labels', label: '标签', width: '19%' },
-    { key: 'status', label: '状态', width: '10%' },
+    { key: 'application', label: '应用', width: '18%' },
+    { key: 'runtime', label: '运行时', width: '12%' },
+    { key: 'listening_address', label: '监听地址', width: '14%' },
+    { key: 'instances', label: '实例', width: '9%' },
+    { key: 'resources', label: '资源', width: '8%' },
+    { key: 'labels', label: '标签', width: '16%' },
+    { key: 'status', label: '状态', width: '9%' },
     {
       key: 'actions',
       label: '操作',
-      width: '12%',
+      width: '10%',
       className: 'application-actions-column'
     }
   ];
@@ -220,6 +222,13 @@
     visibleProjects.find((project) => project.id === selectedProjectId) ??
     allProjects.find((project) => project.id === selectedProjectId) ??
     null;
+  $: canUpdateSelectedProject = Boolean(
+    selectedProject && canManageProject(selectedProject, 'update')
+  );
+  $: canDeleteSelectedProject = Boolean(
+    selectedProject && canManageProject(selectedProject, 'delete')
+  );
+  $: topologyMode = canUpdateSelectedProject ? 'edit' : 'browse';
   $: selectedApplications =
     workspace?.applications.filter((application) =>
       selectedApplicationIds.includes(application.id)
@@ -427,7 +436,6 @@
     selectedApplicationIds = [];
     inspectedApplicationID = '';
     inspectedResourceIDs = null;
-    topologyMode = 'browse';
     void loadWorkspace(selectedProjectId);
   }
   $: if (!selectedProjectId) {
@@ -661,7 +669,6 @@
     projectAreaTab = tab;
     inspectedApplicationID = '';
     inspectedResourceIDs = null;
-    if (tab === 'applications') topologyMode = 'browse';
     if (tab === 'applications') topologyComponentIntent = null;
   }
 
@@ -731,12 +738,8 @@
       loadingTopology = false;
     }
   }
-  function enterTopologyEdit() {
-    if (selectedProject && canManageProject(selectedProject, 'update'))
-      topologyMode = 'edit';
-  }
   function requestTopologyResource(kind: string) {
-    const id = crypto.randomUUID();
+    const id = randomId();
     topologyResourceRequestId = id;
     onRequestResourceCreate({
       id,
@@ -876,7 +879,7 @@
         await loadTopology();
       } else {
         const name = topologyAnnotationName.trim();
-        if (!name) throw new Error('请填写外部实体标题');
+        if (!name) throw new Error('请填写实体标题');
         const node = await api.createProjectTopologyAnnotation(
           selectedProjectId,
           {
@@ -989,7 +992,6 @@
     applicationWizardOpen = false;
     await loadWorkspace(selectedProjectId);
     if (addedFromTopology) {
-      topologyMode = 'edit';
       if (dropPosition)
         await Promise.all(
           result.items.map((application, index) =>
@@ -1365,7 +1367,7 @@
                 ><span class="group-title"
                   ><EntityBrandIcon
                     kind="Team"
-                    fallback={group.team.icon || 'lucide:UsersRound'}
+                    fallback={group.team.icon || 'lucide:Building'}
                     size={16}
                     className="team-mark"
                   /><span
@@ -1535,12 +1537,12 @@
             selectedProject && void loadWorkspace(selectedProject.id)}
           ><RefreshCw size={15} />刷新</button
         >
-        <button
-          class="danger-button workspace-action"
-          type="button"
-          on:click={() => (deletingProject = selectedProject)}
-          ><Trash2 size={15} />删除项目</button
-        ><button
+        {#if canDeleteSelectedProject}<button
+            class="danger-button workspace-action"
+            type="button"
+            on:click={() => (deletingProject = selectedProject)}
+            ><Trash2 size={15} />删除项目</button
+          >{/if}<button
           class="primary workspace-action"
           type="button"
           on:click={() => (projectCreateOpen = true)}
@@ -1609,21 +1611,21 @@
                 on:click={() =>
                   selectedProject && void loadWorkspace(selectedProject.id)}
                 ><RefreshCw size={15} />刷新</button
-              ><button
-                class="danger-button workspace-action"
-                type="button"
-                disabled={!selectedApplications.length}
-                data-tooltip={selectedApplications.length
-                  ? `删除所选 ${selectedApplications.length} 个应用`
-                  : '请先选择应用'}
-                on:click={() => (deletingApplications = selectedApplications)}
-                ><Trash2 size={15} />删除</button
-              ><button
-                class="primary workspace-action"
-                type="button"
-                on:click={() => (applicationWizardOpen = true)}
-                ><Plus size={15} />新增</button
-              >
+              >{#if canDeleteSelectedProject}<button
+                  class="danger-button workspace-action"
+                  type="button"
+                  disabled={!selectedApplications.length}
+                  data-tooltip={selectedApplications.length
+                    ? `删除所选 ${selectedApplications.length} 个应用`
+                    : '请先选择应用'}
+                  on:click={() => (deletingApplications = selectedApplications)}
+                  ><Trash2 size={15} />删除</button
+                >{/if}{#if canUpdateSelectedProject}<button
+                  class="primary workspace-action"
+                  type="button"
+                  on:click={() => (applicationWizardOpen = true)}
+                  ><Plus size={15} />新增</button
+                >{/if}
             {:else}
               <button
                 class="secondary"
@@ -1633,22 +1635,6 @@
                 aria-label="刷新拓扑"
                 on:click={() => void loadTopology()}
                 ><RefreshCw size={15} />刷新</button
-              ><button
-                class="primary"
-                type="button"
-                disabled={!selectedProject ||
-                  !canManageProject(selectedProject, 'update')}
-                data-tooltip={topologyMode === 'edit'
-                  ? '返回浏览模式'
-                  : '编辑拓扑'}
-                aria-label={topologyMode === 'edit'
-                  ? '返回浏览模式'
-                  : '编辑拓扑'}
-                on:click={() =>
-                  (topologyMode = topologyMode === 'edit' ? 'browse' : 'edit')}
-                >{#if topologyMode === 'edit'}<Map
-                    size={15}
-                  />浏览{:else}<Pencil size={15} />编辑{/if}</button
               >
             {/if}
           </div>
@@ -1707,6 +1693,11 @@
                           : '未绑定运行时'}</small
                       ></span
                     >
+                  {:else if column.key === 'listening_address'}<span
+                      class="application-table-value"
+                      data-tooltip={row.listening_address || '未发现监听地址'}
+                      ><strong>{row.listening_address || '—'}</strong></span
+                    >
                   {:else if column.key === 'instances'}<span
                       class="application-table-count"
                       >{row.instances.length} 个实例</span
@@ -1740,24 +1731,24 @@
                           onOpenApplicationDiagnosis(selectedProject, row)}
                         ><Sparkles size={14} /></button
                       >
-                      <button
-                        class="icon-button edit-action"
-                        type="button"
-                        data-tooltip="编辑应用"
-                        aria-label="编辑应用"
-                        on:click|stopPropagation={() =>
-                          void openApplicationEditor(row)}
-                        ><Pencil size={15} /></button
-                      >
-                      <button
-                        class="icon-button danger-action delete-action"
-                        type="button"
-                        data-tooltip="删除应用"
-                        aria-label={`删除应用 ${row.name}`}
-                        on:click|stopPropagation={() =>
-                          (deletingApplications = [row])}
-                        ><Trash2 size={14} /></button
-                      >
+                      {#if canUpdateSelectedProject}<button
+                          class="icon-button edit-action"
+                          type="button"
+                          data-tooltip="编辑应用"
+                          aria-label="编辑应用"
+                          on:click|stopPropagation={() =>
+                            void openApplicationEditor(row)}
+                          ><Pencil size={15} /></button
+                        >{/if}
+                      {#if canDeleteSelectedProject}<button
+                          class="icon-button danger-action delete-action"
+                          type="button"
+                          data-tooltip="删除应用"
+                          aria-label={`删除应用 ${row.name}`}
+                          on:click|stopPropagation={() =>
+                            (deletingApplications = [row])}
+                          ><Trash2 size={14} /></button
+                        >{/if}
                     </span>
                   {/if}
                 </svelte:fragment>
@@ -1775,6 +1766,11 @@
                           >{row.instances.length
                             ? runtimeLabel(row.runtime_kind)
                             : '未知'}</strong
+                        >
+                      </div>
+                      <div>
+                        <small>监听地址</small><strong
+                          >{row.listening_address || '—'}</strong
                         >
                       </div>
                       <div>
@@ -1827,12 +1823,12 @@
                 <Network size={28} />
                 <h3>还没有应用</h3>
                 <p>使用应用向导新增 Host、Docker 或 Kubernetes 应用。</p>
-                <button
-                  class="primary"
-                  type="button"
-                  on:click={() => (applicationWizardOpen = true)}
-                  ><Plus size={15} />新增应用</button
-                >
+                {#if canUpdateSelectedProject}<button
+                    class="primary"
+                    type="button"
+                    on:click={() => (applicationWizardOpen = true)}
+                    ><Plus size={15} />新增应用</button
+                  >{/if}
               </div>{/if}
           </div>
         {:else}
@@ -1912,20 +1908,20 @@
               <span class="relationship-selected-name">
                 {relationshipApplication?.name ?? ''}
               </span>
-              <button
-                class="icon-button"
-                type="button"
-                aria-label={relationTab === 'resources' ? '添加资源关联' : '添加应用依赖'}
-                data-tooltip={relationTab === 'resources' ? '添加资源关联' : '添加应用依赖'}
-                disabled={!relationshipApplication}
-                on:click={() =>
-                  relationshipApplication &&
-                  void openApplicationEditor(
-                    relationshipApplication,
-                    relationTab === 'resources' ? 'bindings' : 'applications'
-                  )}
-                ><Plus size={15} /></button
-              >
+              {#if canUpdateSelectedProject}<button
+                  class="icon-button"
+                  type="button"
+                  aria-label={relationTab === 'resources' ? '添加资源关联' : '添加应用依赖'}
+                  data-tooltip={relationTab === 'resources' ? '添加资源关联' : '添加应用依赖'}
+                  disabled={!relationshipApplication}
+                  on:click={() =>
+                    relationshipApplication &&
+                    void openApplicationEditor(
+                      relationshipApplication,
+                      relationTab === 'resources' ? 'bindings' : 'applications'
+                    )}
+                  ><Plus size={15} /></button
+                >{/if}
             </div>
             {#if relationTab === 'resources'}
               {#each relationshipResourceRows as row, index (`${row.application?.id ?? 'unlinked'}:${row.resource.id}:${index}`)}
@@ -1969,7 +1965,7 @@
                     <span>{row.resource.kind}</span>
                   </span>
                   <span class="relationship-row-actions">
-                    {#if row.application}<button
+                    {#if row.application && canUpdateSelectedProject}<button
                         class="icon-button"
                         type="button"
                         aria-label="编辑资源关联"
@@ -1977,7 +1973,7 @@
                         on:click={() =>
                           void openApplicationEditor(row.application!, 'bindings')}
                         ><Pencil size={13} /></button
-                      ><button
+                      >{/if}{#if row.application && canDeleteSelectedProject}<button
                         class="icon-button danger-action"
                         type="button"
                         aria-label="删除资源关联"
@@ -2046,7 +2042,7 @@
                     >
                   </span>
                   <span class="relationship-row-actions">
-                    <button
+                    {#if canUpdateSelectedProject}<button
                       class="icon-button"
                       type="button"
                       aria-label="编辑应用依赖"
@@ -2054,7 +2050,7 @@
                       on:click={() =>
                         void openApplicationEditor(row.application, 'applications')}
                       ><Pencil size={13} /></button
-                    ><button
+                    >{/if}{#if canDeleteSelectedProject}<button
                       class="icon-button danger-action"
                       type="button"
                       aria-label="删除应用依赖"
@@ -2068,7 +2064,7 @@
                           onError(describeError(error, '删除应用依赖失败'))
                         )}
                       ><Trash2 size={13} /></button
-                    >
+                    >{/if}
                   </span>
                 </div>
               {:else}<div class="detail-empty">暂无应用依赖</div>{/each}
@@ -2156,7 +2152,7 @@
                         ? '配置应用节点'
                         : topologyComponentIntent.kind === 'resource'
                           ? '配置资源节点'
-                          : '配置外部实体'}</strong
+                          : '配置实体'}</strong
                     ><small>确认组件内容后添加到项目拓扑</small>
                   </div>
                 </header>
@@ -2281,7 +2277,7 @@
     {onResourceCreated}
     onRequestResourceCreate={(kind: RuntimeResourceKind, instanceId?: string) =>
       onRequestResourceCreate({
-        id: crypto.randomUUID(),
+        id: randomId(),
         kind,
         scopeId: selectedProject?.scope.id ?? selectedScopeId,
         ...(instanceId ? { instanceId } : {})

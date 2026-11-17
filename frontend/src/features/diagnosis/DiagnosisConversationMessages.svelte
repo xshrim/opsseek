@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { afterUpdate, onDestroy } from 'svelte';
+import { afterUpdate, onDestroy, onMount } from 'svelte';
   import {
     Bot,
     Check,
@@ -216,6 +216,13 @@
     collapsedDays = { ...collapsedDays, [dayKey]: !collapsedDays[dayKey] };
   }
 
+  function toggleMermaidZoom(event: MouseEvent) {
+    const target = event.target as HTMLElement | null;
+    const diagram = target?.closest<HTMLElement>('.diagnosis-mermaid');
+    if (!diagram || target?.closest('button')) return;
+    diagram.classList.toggle('diagnosis-mermaid-zoomed');
+  }
+
   function markMessageCopied(key: string) {
     copiedMessageKey = key;
     if (copiedMessageTimer) clearTimeout(copiedMessageTimer);
@@ -272,12 +279,21 @@
     void renderMermaidDiagrams();
   });
 
+  onMount(() => {
+    const handleClick = (event: MouseEvent) => toggleMermaidZoom(event);
+    diagnosisMessageListElement?.addEventListener('click', handleClick);
+    return () => diagnosisMessageListElement?.removeEventListener('click', handleClick);
+  });
+
   onDestroy(() => {
     if (copiedMessageTimer) clearTimeout(copiedMessageTimer);
   });
 </script>
 
-<div class="diagnosis-message-list-f" bind:this={diagnosisMessageListElement}>
+<div
+  class="diagnosis-message-list-f"
+  bind:this={diagnosisMessageListElement}
+>
   {#if !diagnosisSnapshot && !displayMessages.length}
     <div class="diagnosis-welcome">
       <span class="diagnosis-welcome-icon"><Stethoscope size={23} /></span>

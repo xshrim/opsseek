@@ -51,6 +51,10 @@
   export let capabilityName: (capability: ConnectorCapability) => string;
   export let formatDate: (value: string) => string;
   export let scopeName: (id: string) => string;
+  export let editScopeId = '';
+  export let scopeOptions: Array<{ id: string; type: string; name: string }> =
+    [];
+  export let onSelectScope: (scopeId: string) => void = () => {};
   export let resourceCategoryFor: (resource: Resource) => string;
   export let resourceSubtypeFor: (resource: Resource) => string;
   export let resourceSchemaFieldRequired: (key: string) => boolean;
@@ -108,7 +112,9 @@
         resource={selectedResource}
         bind:name={editResourceName}
         bind:labels={editResourceLabels}
-        {scopeName}
+        scopeId={editScopeId}
+        {scopeOptions}
+        {onSelectScope}
       />
       {#if selectedResource.kind === 'MCPServer'}
         <div class="mcp-resource-form editor-mcp-form">

@@ -50,6 +50,10 @@ type ProcessesInput struct {
 	CommandLine string `json:"command_line,omitempty"`
 	Limit       int    `json:"limit,omitempty"`
 }
+type ListenersInput struct {
+	ConnectionInput
+	PID int `json:"pid"`
+}
 type FileLogsInput struct {
 	ConnectionInput
 	Path       string `json:"path"`
@@ -102,6 +106,19 @@ type Target struct {
 	Host     string `json:"host,omitempty"`
 	Port     int    `json:"port,omitempty"`
 	Username string `json:"username,omitempty"`
+}
+type Listener struct {
+	Port     int    `json:"port"`
+	Protocol string `json:"protocol"`
+}
+type ListenersOutput struct {
+	SchemaVersion int        `json:"schema_version"`
+	CollectedAt   time.Time  `json:"collected_at"`
+	Target        Target     `json:"target"`
+	PID           int        `json:"pid"`
+	Listeners     []Listener `json:"listeners"`
+	Partial       bool       `json:"partial"`
+	Unavailable   []string   `json:"unavailable,omitempty"`
 }
 type OSInfo struct {
 	Name       string `json:"name,omitempty"`

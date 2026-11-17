@@ -16,6 +16,7 @@
     type Team
   } from '../../lib/api';
   import { resourceHasConnector } from '../../lib/resources';
+  import { resourceCategoryIcon } from '../resource/resourceCatalog';
 
   export let teams: Team[] = [];
   export let projects: Project[] = [];
@@ -29,7 +30,6 @@
   export let organizationTeamCount = 0;
   export let organizationMemberCount: number | null = null;
   export let resourceSchemaName: (kind: string) => string;
-  export let resourceIcon: (kind: string) => string;
   export let onOpenProject: (project: Project) => void;
   export let onOpenDiagnosis: () => void;
   export let onOpenInspection: () => void;
@@ -326,7 +326,10 @@
                     resource={visibleResources.find(
                       (item) => item.kind === kind
                     )!}
-                    fallback={resourceIcon(kind)}
+                    fallback={resourceCategoryIcon(kind)}
+                    size={20}
+                    brandOnly
+                    monochrome
                   /></span
                 >
                 <span class="kind-copy"
@@ -904,12 +907,12 @@
   .kind-icon {
     display: grid;
     place-items: center;
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
     flex: 0 0 auto;
-    color: var(--overview-accent);
-    background: var(--theme-bg-subtle);
-    border-radius: 7px;
+    color: #fff;
+    background: var(--theme-bg-selected);
+    border-radius: 4px;
   }
   .kind-copy {
     min-width: 0;
@@ -1001,14 +1004,13 @@
     height: 22px;
     padding: 0 5px;
     color: var(--overview-danger);
-    background: var(--theme-bg-danger-soft);
+    background: transparent;
     border-radius: 6px;
     font-size: 10px;
     font-weight: 700;
   }
   .exception-count.healthy {
-    color: #fff;
-    background: var(--overview-success);
+    color: var(--overview-success);
   }
   .exception-list {
     padding: 4px 13px;

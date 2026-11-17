@@ -40,7 +40,7 @@ export function resourceAddStepDescription(
       : '确认配置并核验 MCP Server 连接。';
   if (kind === 'Docker')
     return step === 2
-      ? '配置 Docker Engine 的连接方式和 TLS 凭据。'
+      ? '配置容器引擎的连接方式和 TLS 凭据。'
       : '确认配置并核验 Docker 连接。';
   if (kind === 'Kubernetes')
     return step === 2
@@ -152,6 +152,8 @@ export function kubernetesKubeconfigText(value: string) {
 
 export type DockerConnectionDraft = {
   accessMode: DockerAccessMode;
+  daemonType: 'dockerd' | 'containerd';
+  namespace: string;
   host: string;
   timeoutSeconds: number;
   caBase64: string;
@@ -171,7 +173,7 @@ export function dockerHostValid(value: string) {
   if (!raw) return true;
   try {
     const parsed = new URL(raw);
-    if (!['http:', 'https:', 'tcp:', 'unix:'].includes(parsed.protocol))
+    if (!['http:', 'https:', 'tcp:', 'unix:', 'grpc:', 'grpcs:'].includes(parsed.protocol))
       return false;
     if (parsed.username || parsed.password || parsed.search || parsed.hash)
       return false;
@@ -188,7 +190,7 @@ export function dockerHostValid(value: string) {
 export function dockerHostSupportsTLS(value: string) {
   try {
     const protocol = new URL(value.trim()).protocol.toLowerCase();
-    return protocol === 'tcp:' || protocol === 'https:';
+    return protocol === 'tcp:' || protocol === 'https:' || protocol === 'grpcs:';
   } catch {
     return false;
   }
@@ -275,7 +277,14 @@ export function dockerConnectionConfigurationValid(
   if (draft.accessMode === 'agent' && !draft.mcpServerResourceId.trim())
     return false;
   if (draft.accessMode === 'agent' && !draft.connectionOverride) return true;
+  if (draft.daemonType === 'containerd' && !draft.namespace.trim()) return false;
   if (!draft.host.trim() || !dockerHostValid(draft.host)) return false;
+  const protocol = new URL(draft.host.trim()).protocol.toLowerCase();
+  if (
+    draft.daemonType === 'containerd'
+      ? !['unix:', 'tcp:', 'grpc:', 'grpcs:', 'https:'].includes(protocol)
+      : ['grpc:', 'grpcs:'].includes(protocol)
+  ) return false;
   const tlsSupported = dockerHostSupportsTLS(draft.host);
   const tlsConfigured = Boolean(
     draft.caBase64.trim() ||
@@ -379,8 +388,9 @@ export function hostCredentialForSave(
 export function dockerConfigForSave(
   draft: DockerConnectionDraft
 ): Record<string, unknown> {
-  if (draft.accessMode === 'agent' && !draft.connectionOverride) return {};
-  const config: Record<string, unknown> = {};
+  const config: Record<string, unknown> = { daemon_type: draft.daemonType };
+  if (draft.daemonType === 'containerd') config.namespace = draft.namespace.trim();
+  if (draft.accessMode === 'agent' && !draft.connectionOverride) return config;
   if (draft.host.trim()) config.host = draft.host.trim();
   config.timeout = draft.timeoutSeconds;
   if (dockerHostSupportsTLS(draft.host)) {
@@ -392,6 +402,7 @@ export function dockerConfigForSave(
 export function dockerCredentialForSave(
   draft: DockerConnectionDraft
 ): Record<string, string> {
+  if (draft.accessMode === 'agent' && !draft.connectionOverride) return {};
   if (!dockerHostSupportsTLS(draft.host)) return {};
   return Object.fromEntries(
     [

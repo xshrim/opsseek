@@ -35,6 +35,9 @@ RUN make -o webui-assets backend-build VERSION="${VERSION}" COMMIT="${COMMIT}" B
 
 FROM alpine:3.22 AS runtime-base
 
+ARG ALPINE_MIRROR=https://mirrors.aliyun.com/alpine
+RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR}|g" /etc/apk/repositories
+
 # Repository and SSH operations run in-process in Go.
 RUN apk add --no-cache ca-certificates \
     && addgroup -g 65532 nonroot \

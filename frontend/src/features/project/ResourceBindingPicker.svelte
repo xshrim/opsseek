@@ -8,6 +8,7 @@
   import {
     resourceCatalogTagClass,
     resourceCatalogTagsFor,
+    resourceCategoryIcon,
     resourceSubtypeFor
   } from '../resource/resourceCatalog';
 
@@ -156,7 +157,13 @@
             <span
               class:project-runtime-icon={['Host', 'Docker', 'Kubernetes'].includes(resource.kind)}
               class:project-resource-icon={!['Host', 'Docker', 'Kubernetes'].includes(resource.kind)}
-            ><ResourceBrandIcon {resource} size={17} /></span>
+            ><ResourceBrandIcon
+              {resource}
+              fallback={resourceCategoryIcon(resource.kind)}
+              size={17}
+              brandOnly
+              monochrome
+            /></span>
             <span class="resource-binding-picker-option-copy">
               <span class="resource-binding-picker-option-title">
                 <strong>{resource.name}</strong>

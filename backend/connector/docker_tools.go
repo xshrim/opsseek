@@ -22,6 +22,7 @@ func (s *Service) resolveDockerTools(ctx context.Context, item engine.ContextRes
 	if err != nil {
 		return err
 	}
+	containerdMode := strings.EqualFold(connection.DaemonType, "containerd")
 
 	add("docker_info", "Read Docker Engine information only; this does not report any container's state or resource usage. For an application instance use docker_container_inspect or docker_container_stats.", directDockerSchema(nil), func(runCtx context.Context, args map[string]any) (engine.ToolResult, error) {
 		input, err := decodeDockerInput[dockertool.DockerInfoInput](args)
@@ -54,35 +55,39 @@ func (s *Service) resolveDockerTools(ctx context.Context, item engine.ContextRes
 		input.ConnectionInput = connection
 		return dockerOutput(dockertool.Containers(runCtx, input))
 	})
-	add("docker_container_logs", "Read bounded, non-following logs from a Docker container.", directDockerSchema(map[string]any{
-		"container_id":   map[string]any{"type": "string", "description": "Docker container ID only (12 or 64 hexadecimal characters); never use a container name here."},
-		"container_name": map[string]any{"type": "string", "description": "Docker container name; use this field for names such as /opsseek-postgres."},
-		"tail":           map[string]any{"type": "string", "description": "Number of lines requested from the end; defaults to 1000. Keyword filtering is applied first, then output is limited to the most recent 200 lines."},
-		"since":          map[string]any{"type": "string", "description": "Only show logs since this timestamp or duration."},
-		"until":          map[string]any{"type": "string", "description": "Only show logs until this timestamp."},
-		"keyword":        map[string]any{"type": "string", "description": "Case-insensitive keyword filter. Separate terms with & to require all terms on the same line, or | to match any term; AND binds tighter than OR."},
-		"timestamps":     map[string]any{"type": "boolean", "description": "Include timestamps in log lines."},
-		"details":        map[string]any{"type": "boolean", "description": "Include extra Docker log attributes."},
-	}), func(runCtx context.Context, args map[string]any) (engine.ToolResult, error) {
-		input, err := decodeDockerInput[dockertool.ContainerLogsInput](args)
-		if err != nil {
-			return engine.ToolResult{}, err
-		}
-		input.ConnectionInput = connection
-		return dockerOutput(dockertool.ContainerLogs(runCtx, input))
-	})
-	add("docker_container_file", "Read a bounded regular file from a Docker container.", directDockerSchema(map[string]any{
-		"container_id":   map[string]any{"type": "string", "description": "Docker container ID only (12 or 64 hexadecimal characters); never use a container name here."},
-		"container_name": map[string]any{"type": "string", "description": "Docker container name; use this field for names such as /opsseek-postgres."},
-		"path":           map[string]any{"type": "string", "description": "Absolute path of a regular file inside the container."},
-	}), func(runCtx context.Context, args map[string]any) (engine.ToolResult, error) {
-		input, err := decodeDockerInput[dockertool.ContainerFileInput](args)
-		if err != nil {
-			return engine.ToolResult{}, err
-		}
-		input.ConnectionInput = connection
-		return dockerOutput(dockertool.ContainerFile(runCtx, input))
-	})
+	if !containerdMode {
+		add("docker_container_logs", "Read bounded, non-following logs from a Docker container.", directDockerSchema(map[string]any{
+			"container_id":   map[string]any{"type": "string", "description": "Docker container ID only (12 or 64 hexadecimal characters); never use a container name here."},
+			"container_name": map[string]any{"type": "string", "description": "Docker container name; use this field for names such as /opsseek-postgres."},
+			"tail":           map[string]any{"type": "string", "description": "Number of lines requested from the end; defaults to 1000. Keyword filtering is applied first, then output is limited to the most recent 200 lines."},
+			"since":          map[string]any{"type": "string", "description": "Only show logs since this timestamp or duration."},
+			"until":          map[string]any{"type": "string", "description": "Only show logs until this timestamp."},
+			"keyword":        map[string]any{"type": "string", "description": "Case-insensitive keyword filter. Separate terms with & to require all terms on the same line, or | to match any term; AND binds tighter than OR."},
+			"timestamps":     map[string]any{"type": "boolean", "description": "Include timestamps in log lines."},
+			"details":        map[string]any{"type": "boolean", "description": "Include extra Docker log attributes."},
+		}), func(runCtx context.Context, args map[string]any) (engine.ToolResult, error) {
+			input, err := decodeDockerInput[dockertool.ContainerLogsInput](args)
+			if err != nil {
+				return engine.ToolResult{}, err
+			}
+			input.ConnectionInput = connection
+			return dockerOutput(dockertool.ContainerLogs(runCtx, input))
+		})
+	}
+	if !containerdMode {
+		add("docker_container_file", "Read a bounded regular file from a Docker container.", directDockerSchema(map[string]any{
+			"container_id":   map[string]any{"type": "string", "description": "Docker container ID only (12 or 64 hexadecimal characters); never use a container name here."},
+			"container_name": map[string]any{"type": "string", "description": "Docker container name; use this field for names such as /opsseek-postgres."},
+			"path":           map[string]any{"type": "string", "description": "Absolute path of a regular file inside the container."},
+		}), func(runCtx context.Context, args map[string]any) (engine.ToolResult, error) {
+			input, err := decodeDockerInput[dockertool.ContainerFileInput](args)
+			if err != nil {
+				return engine.ToolResult{}, err
+			}
+			input.ConnectionInput = connection
+			return dockerOutput(dockertool.ContainerFile(runCtx, input))
+		})
+	}
 	add("docker_container_inspect", "Inspect one concrete Docker container instance, including its state and configuration. Use container_name for a human-readable name.", directDockerSchema(map[string]any{
 		"container_id":   map[string]any{"type": "string", "description": "Docker container ID only (12 or 64 hexadecimal characters); never use a container name here."},
 		"container_name": map[string]any{"type": "string", "description": "Docker container name; use this field for names such as /opsseek-postgres."},
@@ -94,24 +99,39 @@ func (s *Service) resolveDockerTools(ctx context.Context, item engine.ContextRes
 		input.ConnectionInput = connection
 		return dockerOutput(dockertool.ContainerInspect(runCtx, input))
 	})
-	add("docker_container_stats", "Read one snapshot of CPU and memory statistics for one concrete Docker container instance. Use container_name for a human-readable name.", directDockerSchema(map[string]any{
-		"container_id":   map[string]any{"type": "string", "description": "Docker container ID only (12 or 64 hexadecimal characters); never use a container name here."},
-		"container_name": map[string]any{"type": "string", "description": "Docker container name; use this field for names such as /opsseek-postgres."},
-	}), func(runCtx context.Context, args map[string]any) (engine.ToolResult, error) {
-		input, err := decodeDockerInput[dockertool.ContainerStatsInput](args)
-		if err != nil {
-			return engine.ToolResult{}, err
-		}
-		input.ConnectionInput = connection
-		return dockerOutput(dockertool.ContainerStats(runCtx, input))
-	})
+	if !containerdMode {
+		add("docker_container_listeners", "Read Docker-reported addressable port mappings for one concrete container. Unpublished ports use the container network address.", directDockerSchema(map[string]any{
+			"container_id":   map[string]any{"type": "string", "description": "Docker container ID only (12 or 64 hexadecimal characters); never use a container name here."},
+			"container_name": map[string]any{"type": "string", "description": "Docker container name; use this field for names such as /opsseek-postgres."},
+		}), func(runCtx context.Context, args map[string]any) (engine.ToolResult, error) {
+			input, err := decodeDockerInput[dockertool.ContainerListenersInput](args)
+			if err != nil {
+				return engine.ToolResult{}, err
+			}
+			input.ConnectionInput = connection
+			return dockerOutput(dockertool.ContainerListeners(runCtx, input))
+		})
+	}
+	if !containerdMode {
+		add("docker_container_stats", "Read one snapshot of CPU and memory statistics for one concrete Docker container instance. Use container_name for a human-readable name.", directDockerSchema(map[string]any{
+			"container_id":   map[string]any{"type": "string", "description": "Docker container ID only (12 or 64 hexadecimal characters); never use a container name here."},
+			"container_name": map[string]any{"type": "string", "description": "Docker container name; use this field for names such as /opsseek-postgres."},
+		}), func(runCtx context.Context, args map[string]any) (engine.ToolResult, error) {
+			input, err := decodeDockerInput[dockertool.ContainerStatsInput](args)
+			if err != nil {
+				return engine.ToolResult{}, err
+			}
+			input.ConnectionInput = connection
+			return dockerOutput(dockertool.ContainerStats(runCtx, input))
+		})
+	}
 	return nil
 }
 
 func directDockerSchema(extra map[string]any) json.RawMessage {
 	schema := dockertool.InputSchema(extra)
 	if properties, ok := schema["properties"].(map[string]any); ok {
-		for _, name := range []string{"host", "timeout", "tls_ca", "tls_cert", "tls_key", "skip_tls_verify"} {
+		for _, name := range []string{"daemon_type", "namespace", "host", "timeout", "tls_ca", "tls_cert", "tls_key", "skip_tls_verify"} {
 			delete(properties, name)
 		}
 	}
@@ -161,6 +181,8 @@ func setDockerConnectionFromMap(connection *client.ConnectionInput, values map[s
 	if connection == nil {
 		return
 	}
+	connection.DaemonType = stringValue(values, "daemon_type")
+	connection.Namespace = stringValue(values, "namespace")
 	connection.DockerHost = stringValue(values, "host")
 	connection.TimeoutSeconds = values["timeout"]
 	connection.DockerCA = stringValue(values, "tls_ca")
@@ -172,6 +194,12 @@ func setDockerConnectionFromMap(connection *client.ConnectionInput, values map[s
 func setDockerConnectionFromMapIfEmpty(connection *client.ConnectionInput, values map[string]any) {
 	if connection == nil {
 		return
+	}
+	if connection.DaemonType == "" {
+		connection.DaemonType = stringValue(values, "daemon_type")
+	}
+	if connection.Namespace == "" {
+		connection.Namespace = stringValue(values, "namespace")
 	}
 	if connection.DockerHost == "" {
 		connection.DockerHost = stringValue(values, "host")

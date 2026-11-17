@@ -22,6 +22,13 @@ func TestModeAndSchema(t *testing.T) {
 	}
 }
 
+func TestAddressDefaultsToOceanBasePort(t *testing.T) {
+	got, err := address(ConnectionInput{Host: "db.example.com", Username: "user", Password: "secret"})
+	if err != nil || got != "db.example.com:2883" {
+		t.Fatalf("address = %q, %v; want db.example.com:2883", got, err)
+	}
+}
+
 func TestProbeMySQLWire(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

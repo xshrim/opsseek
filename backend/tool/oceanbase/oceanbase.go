@@ -122,7 +122,7 @@ func address(in ConnectionInput) (string, error) {
 	}
 	p := in.Port
 	if p == 0 {
-		p = 2881
+		p = 2883
 	}
 	if p < 1 || p > 65535 {
 		return "", errors.New("port must be between 1 and 65535")

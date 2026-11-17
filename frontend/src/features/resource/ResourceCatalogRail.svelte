@@ -1,7 +1,19 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { Resource } from '../../lib/api';
-  import { Activity, Boxes, Database, Filter, HardDrive, Network, Package, Server, Waypoints, X } from 'lucide-svelte';
+  import {
+    Activity,
+    Blocks,
+    Database,
+    Filter,
+    Box,
+    HardDrive,
+    Package,
+    Sparkle,
+    VectorSquare,
+    X,
+    Zap
+  } from 'lucide-svelte';
   import ResourceBrandIcon from '../../components/ResourceBrandIcon.svelte';
   import SearchInput from '../../components/SearchInput.svelte';
   import {
@@ -26,18 +38,20 @@
   export let onToggleCatalogTag: (tag: string) => void = () => {};
 
   let expandedCategory = '';
-  let expandedDomain = resourceCatalogDomainOrder[0] ?? '';
+  let expandedDomains: Record<string, boolean> = Object.fromEntries(
+    resourceCatalogDomainOrder.map((domain) => [domain, true])
+  );
   let filterOpen = false;
   let filterRoot: HTMLDivElement;
 
   const domainIcons = {
-    运行时: Server,
-    大模型: Waypoints,
+    运行时: Zap,
+    大模型: Sparkle,
     工程库: Package,
     数据库: Database,
     存储库: HardDrive,
-    中间件: Boxes,
-    微服务: Network,
+    中间件: Blocks,
+    微服务: VectorSquare,
     可观测: Activity
   };
 
@@ -156,15 +170,19 @@
       <section class="catalog-domain-group" aria-label={group.domain}>
         <button
           class="catalog-domain-heading"
+          class:expanded={expandedDomains[group.domain]}
           type="button"
-          aria-expanded={expandedDomain === group.domain}
+          aria-expanded={expandedDomains[group.domain]}
           on:click={() =>
-            (expandedDomain = expandedDomain === group.domain ? '' : group.domain)}
+            (expandedDomains = {
+              ...expandedDomains,
+              [group.domain]: !expandedDomains[group.domain]
+            })}
         >
-          <svelte:component this={domainIcons[group.domain as keyof typeof domainIcons]} size={15} aria-hidden="true" />
+          <svelte:component this={domainIcons[group.domain as keyof typeof domainIcons]} size={13} aria-hidden="true" />
           <strong>{group.domain}</strong>
         </button>
-        {#if expandedDomain === group.domain}
+        {#if expandedDomains[group.domain]}
         {#each group.categories as [categoryName, subtypes]}
         <div class="catalog-category">
         <button
@@ -179,6 +197,8 @@
                 resource={{ kind: categoryName }}
                 fallback={resourceCategoryIcon(categoryName)}
                 size={20}
+                brandOnly
+                monochrome
               /></span
             >{categoryName}{#each resourceCatalogTagsFor(categoryName) as tag}<em
                 class={`resource-catalog-tag resource-catalog-tag-${resourceCatalogTagClass(tag)}`}
@@ -204,8 +224,10 @@
                   ><span class="catalog-icon subtype-icon"
                     ><ResourceBrandIcon
                       resource={{ kind: categoryName, subtype: subtypeName }}
-                      fallback={resourceCategoryIcon(subtypeName)}
+                      fallback={resourceCategoryIcon(categoryName)}
                       size={15}
+                      brandOnly
+                      monochrome
                     /></span
                   >{subtypeName}</span
                 >

@@ -27,7 +27,7 @@ func (s *Service) CreateTeam(ctx context.Context, input CreateTeamInput) (Team, 
 	if len([]rune(input.Description)) > 1000 {
 		return Team{}, invalid("description must be at most 1000 characters")
 	}
-	input.Icon = normalizeIcon(input.Icon, "lucide:UsersRound")
+	input.Icon = normalizeIcon(input.Icon, "lucide:Building")
 	if err := validateLabels(input.Labels); err != nil {
 		return Team{}, err
 	}
@@ -76,7 +76,7 @@ func (s *Service) UpdateTeam(ctx context.Context, teamID string, input UpdateTea
 		input.Description = &description
 	}
 	if input.Icon != nil {
-		icon := normalizeIcon(*input.Icon, "lucide:UsersRound")
+		icon := normalizeIcon(*input.Icon, "lucide:Building")
 		input.Icon = &icon
 	}
 	if input.Labels != nil {

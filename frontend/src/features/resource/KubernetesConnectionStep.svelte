@@ -146,7 +146,7 @@
         <legend>Kubeconfig 配置</legend>
         <div class="docker-form-grid docker-tls-grid">
           <div class="docker-tls-certificate-row kubernetes-kubeconfig-row">
-            <label class:invalid={configurationAttempted && !kubeconfig.trim()}>
+            <label class:invalid={(configurationAttempted && !kubeconfig.trim()) || Boolean(fileError)}>
               <span class="docker-credential-label">
                 <span
                   >Kubeconfig<i class="required-mark" aria-hidden="true">*</i

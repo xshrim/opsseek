@@ -264,6 +264,11 @@
     border-color: var(--theme-danger);
     box-shadow: 0 0 0 1px var(--theme-danger);
   }
+  .text-input-wrap.invalid.bubble input,
+  .text-input-wrap.invalid.bubble .text-input-tag-control {
+    border-color: var(--theme-danger);
+    box-shadow: 0 0 0 1px var(--theme-danger);
+  }
   .text-input-wrap input:disabled,
   .text-input-wrap input:read-only {
     color: var(--theme-fg-muted);

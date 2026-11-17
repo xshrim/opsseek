@@ -46,6 +46,7 @@ var toolCatalog = []ToolInfo{
 	{Name: "docker_container_logs", Description: "Read bounded, non-following logs from a Docker container."},
 	{Name: "docker_container_file", Description: "Read a bounded regular file from a Docker container."},
 	{Name: "docker_container_inspect", Description: "Inspect one concrete Docker container instance with sensitive values removed. Use container_name for a human-readable name."},
+	{Name: "docker_container_listeners", Description: "Read Docker-reported addressable port mappings for one concrete container."},
 	{Name: "docker_container_stats", Description: "Read one snapshot of CPU and memory statistics for one concrete Docker container instance. Use container_name for a human-readable name."},
 }
 

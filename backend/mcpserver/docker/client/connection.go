@@ -19,7 +19,9 @@ import (
 // TLS fields accept either Base64-encoded PEM material or a path to a PEM
 // file. The server resolves the material and never returns it in tool output.
 type ConnectionInput struct {
+	DaemonType       string `json:"daemon_type,omitempty" jsonschema:"Container daemon type: dockerd or containerd. Defaults to dockerd."`
 	DockerHost       string `json:"host,omitempty" jsonschema:"Optional Docker daemon URL."`
+	Namespace        string `json:"namespace,omitempty" jsonschema:"containerd namespace. Defaults to k8s.io."`
 	TimeoutSeconds   any    `json:"timeout,omitempty" jsonschema:"Docker request timeout in seconds or duration such as 30s. Defaults to 30s."`
 	DockerCA         string `json:"tls_ca,omitempty" jsonschema:"CA PEM material as Base64 text or a file path."`
 	DockerCert       string `json:"tls_cert,omitempty" jsonschema:"Client certificate PEM material as Base64 text or a file path."`
@@ -35,6 +37,15 @@ type ConnectionConfig struct {
 	CertFile   string
 	KeyFile    string
 	SkipVerify bool
+}
+
+func ValidateDaemonType(value string) error {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "dockerd", "containerd":
+		return nil
+	default:
+		return fmt.Errorf("unsupported container daemon type %q", value)
+	}
 }
 
 const defaultHost = client.DefaultDockerHost
@@ -240,6 +251,12 @@ func NewClient(input ConnectionInput) (*client.Client, ConnectionConfig, error) 
 }
 
 func newClient(input ConnectionInput, inheritEnvironment bool) (*client.Client, ConnectionConfig, error) {
+	if err := ValidateDaemonType(input.DaemonType); err != nil {
+		return nil, ConnectionConfig{}, err
+	}
+	if strings.EqualFold(input.DaemonType, "containerd") {
+		return nil, ConnectionConfig{}, fmt.Errorf("containerd uses the native gRPC client")
+	}
 	config, err := resolveConnection(input, inheritEnvironment)
 	if err != nil {
 		return nil, ConnectionConfig{}, err

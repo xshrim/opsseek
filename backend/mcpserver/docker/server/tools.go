@@ -15,6 +15,7 @@ type ListContainersInput = docker.ListContainersInput
 type ContainerLogsInput = docker.ContainerLogsInput
 type ContainerFileInput = docker.ContainerFileInput
 type ContainerInspectInput = docker.ContainerInspectInput
+type ContainerListenersInput = docker.ContainerListenersInput
 type ContainerStatsInput = docker.ContainerStatsInput
 type LogsOutput = docker.LogsOutput
 type FileOutput = docker.FileOutput
@@ -25,6 +26,7 @@ type DockerInfoDTO = docker.DockerInfoDTO
 type ImageDTO = docker.ImageDTO
 type ContainerDTO = docker.ContainerDTO
 type ContainerInspectDTO = docker.ContainerInspectDTO
+type ContainerListenersOutput = docker.ContainerListenersOutput
 type ContainerStatsDTO = docker.ContainerStatsDTO
 
 func RegisterTools(s *mcp.Server) {
@@ -73,6 +75,13 @@ func RegisterTools(s *mcp.Server) {
 		"container_name": map[string]any{"type": "string", "description": "Docker container name; use this field for names such as /opsseek-postgres."},
 	})}, func(ctx context.Context, _ *mcp.CallToolRequest, input ContainerInspectInput) (*mcp.CallToolResult, any, error) {
 		output, err := docker.ContainerInspect(ctx, input)
+		return nil, output, err
+	})
+	mcp.AddTool(s, &mcp.Tool{Name: "docker_container_listeners", Description: "Read Docker-reported addressable port mappings for one concrete container. Unpublished ports use the container network address.", InputSchema: docker.InputSchema(map[string]any{
+		"container_id":   map[string]any{"type": "string", "description": "Docker container ID only (12 or 64 hexadecimal characters); never use a container name here."},
+		"container_name": map[string]any{"type": "string", "description": "Docker container name; use this field for names such as /opsseek-postgres."},
+	})}, func(ctx context.Context, _ *mcp.CallToolRequest, input ContainerListenersInput) (*mcp.CallToolResult, any, error) {
+		output, err := docker.ContainerListeners(ctx, input)
 		return nil, output, err
 	})
 	mcp.AddTool(s, &mcp.Tool{Name: "docker_container_stats", Description: "Read one snapshot of CPU and memory statistics for one concrete Docker container instance. Use container_name for a human-readable name.", InputSchema: docker.InputSchema(map[string]any{

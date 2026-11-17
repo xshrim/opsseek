@@ -51,7 +51,13 @@
 
 {#if subtype === 'Git'}
   <div class="git-config-row">
-    <FormField className="git-url-field" label="Git 仓库 URL" required>
+    <FormField
+      className="git-url-field"
+      label="Git 仓库 URL"
+      required
+      invalid={configurationAttempted && !url.trim()}
+      invalidMessage="请填写 Git 仓库 URL。"
+    >
       <TextInput
         bind:value={url}
         type="url"
@@ -82,7 +88,12 @@
       />
     </FormField>
     <div class="git-revision-controls">
-      <FormField label="默认分支" required>
+      <FormField
+        label="默认分支"
+        required
+        invalid={configurationAttempted && (!selectedBranch || !selectedCommit)}
+        invalidMessage="请选择默认分支和 Commit ID。"
+      >
         <GroupedSelect
           groups={revisionGroups}
           group={selectedBranch || defaultBranch}
@@ -114,14 +125,7 @@
         <Eye size={14} aria-hidden="true" />{previewBusy ? '预览中…' : '预览'}
       </button>
     </div>
-    {#if configurationAttempted && !valid}<p
-        class="form-error git-config-error"
-      >
-        请填写 Git 仓库 URL 并选择默认分支和 Commit ID。
-      </p>{/if}
   </div>
-{:else if configurationAttempted && !valid}
-  <p class="form-error">请上传 Bundle 文件。</p>
 {/if}
 
 <style>
@@ -146,10 +150,6 @@
     gap: 5px;
     flex: 0 0 auto;
     white-space: nowrap;
-  }
-  .git-config-error {
-    grid-column: 1 / -1;
-    margin: 0;
   }
   @media (max-width: 760px) {
     .git-config-row {

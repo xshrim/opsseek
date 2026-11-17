@@ -13,6 +13,8 @@
   } from './resourceWorkflow';
 
   export let accessMode: DockerAccessMode = 'direct';
+  export let daemonType: 'dockerd' | 'containerd' = 'dockerd';
+  export let namespace = 'k8s.io';
   export let host = '';
   export let timeoutSeconds = 10;
   export let caBase64 = '';
@@ -44,6 +46,84 @@
     onConfigurationChange();
   }
 </script>
+
+<div
+  class="docker-daemon-fields"
+  class:containerd-daemon={daemonType === 'containerd'}
+>
+  <FormField label="Daemon 类型" required className="docker-daemon-type-field">
+    <select
+      bind:value={daemonType}
+      on:change={onConfigurationChange}
+      aria-label="Daemon 类型"
+    >
+      <option value="dockerd">dockerd</option>
+      <option value="containerd">containerd</option>
+    </select>
+  </FormField>
+  {#if accessMode === 'direct' || connectionOverride}
+    <FormField
+      label="Daemon 地址"
+      required
+      invalid={configurationAttempted &&
+        (!host.trim() || !dockerHostValid(host))}
+      className="docker-daemon-address-field"
+    >
+      <TextInput
+        bind:value={host}
+        on:input={onConfigurationChange}
+        required
+        placeholder={daemonType === 'containerd'
+          ? '例如 unix:///run/containerd/containerd.sock 或 tcp://host:2376'
+          : '例如 unix:///var/run/docker.sock 或 https://docker.example.com:2376'}
+        autocomplete="off"
+        ariaLabel="Daemon 地址"
+      />
+    </FormField>
+  {/if}
+  {#if daemonType === 'containerd'}
+    <FormField
+      label="命名空间"
+      required
+      invalid={configurationAttempted && !namespace.trim()}
+      className="docker-daemon-namespace-field"
+    >
+      <TextInput
+        bind:value={namespace}
+        on:input={onConfigurationChange}
+        required
+        placeholder="k8s.io"
+        ariaLabel="命名空间"
+      />
+    </FormField>
+  {/if}
+  {#if accessMode === 'direct' || connectionOverride}
+    <FormField
+      label="超时时间（秒）"
+      className="docker-daemon-timeout-field"
+    >
+      <TextInput
+        bind:value={timeoutSeconds}
+        on:input={onConfigurationChange}
+        min="1"
+        max="300"
+        type="number"
+        ariaLabel="超时时间（秒）"
+      />
+    </FormField>
+  {/if}
+  {#if accessMode === 'direct' || connectionOverride}
+    <p id="docker-host-help" class="docker-field-help">
+      {#if daemonType === 'containerd'}
+        containerd 使用原生 gRPC：本地 Socket 示例 <code>unix:///run/containerd/containerd.sock</code>；远程示例
+        <code>tcp://host:端口</code>，可配置 TLS。命名空间默认 <code>k8s.io</code>。
+      {:else}
+        dockerd 使用 Docker Engine API：本地 Socket 示例 <code>unix:///var/run/docker.sock</code>；远程支持
+        <code>tcp://</code>、<code>http://</code>、<code>https://</code>，且不能包含用户名或密码。
+      {/if}
+    </p>
+  {/if}
+</div>
 
 {#if accessMode === 'agent'}
   <div class="docker-agent-form">
@@ -83,39 +163,6 @@
     class="docker-connection-form"
     on:submit|preventDefault
   >
-    <div class="docker-form-grid">
-      <FormField
-        label="Docker Host URL"
-        required
-        invalid={configurationAttempted &&
-          (!host.trim() || !dockerHostValid(host))}
-        className="docker-host-field"
-        ><TextInput
-          bind:value={host}
-          on:input={onConfigurationChange}
-          required
-          placeholder="例如 unix:///var/run/docker.sock 或 https://docker.example.com:2376"
-          autocomplete="off"
-          ariaLabel="Docker Host URL"
-        /></FormField
-      >
-      <FormField label="超时时间（秒）" className="docker-timeout-field"
-        ><TextInput
-          bind:value={timeoutSeconds}
-          on:input={onConfigurationChange}
-          min="1"
-          max="300"
-          type="number"
-          ariaLabel="超时时间（秒）"
-        /></FormField
-      >
-      <p id="docker-host-help" class="docker-field-help">
-        支持 <code>unix://</code>、<code>tcp://</code>、<code>http://</code
-        >、<code>https://</code>；仅 <code>tcp://</code>、<code>https://</code> 支持
-        TLS，且不能包含用户名或密码。
-      </p>
-    </div>
-
     <TlsCredentialFields
       bind:ca={caBase64}
       bind:cert={certBase64}

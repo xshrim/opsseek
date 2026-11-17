@@ -10,10 +10,12 @@ import (
 type HostInfoInput = host.InfoInput
 type HostMetricsInput = host.MetricsInput
 type HostProcessesInput = host.ProcessesInput
+type HostListenersInput = host.ListenersInput
 type HostFileLogsInput = host.FileLogsInput
 type HostInfoOutput = host.InfoOutput
 type HostMetricsOutput = host.MetricsOutput
 type HostProcessesOutput = host.ProcessesOutput
+type HostListenersOutput = host.ListenersOutput
 type HostFileLogsOutput = host.FileLogsOutput
 type HostHealthOutput = host.HealthOutput
 
@@ -28,6 +30,10 @@ func RegisterTools(s *mcp.Server) {
 	})
 	mcp.AddTool(s, &mcp.Tool{Name: "host_processes", Description: "Read information about selected Linux processes. Keyword supports & for AND, | for OR, commas/spaces as AND, and quoted terms; empty keyword without pid skips process scanning.", InputSchema: host.InputSchema(map[string]any{"pid": map[string]any{"type": "integer", "minimum": 1}, "keyword": map[string]any{"type": "string", "description": "Case-insensitive expression: A&B, A|B, comma/space-separated AND, quoted terms are kept intact."}, "limit": map[string]any{"type": "integer", "minimum": 1, "maximum": host.MaxProcessLimit}})}, func(ctx context.Context, _ *mcp.CallToolRequest, input HostProcessesInput) (*mcp.CallToolResult, any, error) {
 		output, err := host.Processes(ctx, input)
+		return nil, output, err
+	})
+	mcp.AddTool(s, &mcp.Tool{Name: "host_process_listeners", Description: "Read TCP and UDP listening ports owned by one concrete Linux process.", InputSchema: host.InputSchema(map[string]any{"pid": map[string]any{"type": "integer", "minimum": 1, "description": "Exact process ID returned by host_processes."}})}, func(ctx context.Context, _ *mcp.CallToolRequest, input HostListenersInput) (*mcp.CallToolResult, any, error) {
+		output, err := host.Listeners(ctx, input)
 		return nil, output, err
 	})
 	mcp.AddTool(s, &mcp.Tool{Name: "host_file_logs", Description: "Read bounded logs from a Linux host file.", InputSchema: host.InputSchema(map[string]any{"path": map[string]any{"type": "string", "description": "Absolute path on the selected Linux host."}, "tail": map[string]any{"type": "string"}, "since": map[string]any{"type": "string"}, "until": map[string]any{"type": "string"}, "keyword": map[string]any{"type": "string"}, "timestamps": map[string]any{"type": "boolean"}})}, func(ctx context.Context, _ *mcp.CallToolRequest, input HostFileLogsInput) (*mcp.CallToolResult, any, error) {

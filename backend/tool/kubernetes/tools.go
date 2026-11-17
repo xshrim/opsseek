@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 
@@ -64,7 +65,7 @@ func AvailableTools() []ToolInfo {
 	items = append(items,
 		ToolInfo{Name: "kubernetes_workloads", Description: "List Kubernetes workloads."},
 		ToolInfo{Name: "kubernetes_resource_search", Description: "Search Kubernetes resource names by keyword."},
-		ToolInfo{Name: "kubernetes_workload_pods", Description: "Resolve the running Pods for one Kubernetes workload. Use this to map an application workload to its concrete Pod instances before checking per-Pod state, logs or metrics; results are workload-scoped and may be paginated."},
+		ToolInfo{Name: "kubernetes_workload_pods", Description: "Resolve the running Pods for one Kubernetes workload, including each Pod IP and declared container ports. Use this to map an application workload to concrete Pod instances before checking per-Pod state, logs or metrics; results are workload-scoped and may be paginated."},
 		ToolInfo{Name: "kubernetes_pod_stat", Description: "Read current pod CPU and memory usage from the Kubernetes Metrics API. Pod metrics are instance-level; kubernetes_node_stat reports node-level metrics. Metrics API availability depends on the cluster."},
 		ToolInfo{Name: "kubernetes_node_stat", Description: "Read current node CPU and memory usage from the Kubernetes Metrics API."},
 		ToolInfo{Name: "kubernetes_pod_logs", Description: "Read bounded, non-following pod logs."},
@@ -116,9 +117,19 @@ type FileOutput struct {
 // returned so callers can keep pod log/file reads bounded without guessing a
 // container name from user input.
 type PodTarget struct {
-	Namespace  string   `json:"namespace"`
-	Name       string   `json:"name"`
-	Containers []string `json:"containers,omitempty"`
+	Namespace  string    `json:"namespace"`
+	Name       string    `json:"name"`
+	Containers []string  `json:"containers,omitempty"`
+	IP         string    `json:"ip,omitempty"`
+	Ports      []PodPort `json:"ports,omitempty"`
+}
+
+// PodPort is a container port declared by the workload for a selected pod.
+// Kubernetes does not expose process socket state without an exec permission.
+type PodPort struct {
+	Name     string `json:"name,omitempty"`
+	Port     int32  `json:"port"`
+	Protocol string `json:"protocol"`
 }
 
 type WorkloadPodsOutput struct {
@@ -246,7 +257,7 @@ func PodFileInputProperties() map[string]any {
 
 func WorkloadPodsInputProperties() map[string]any {
 	return map[string]any{
-		"workload_kind": map[string]any{"type": "string", "enum": []string{"Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"}},
+		"workload_kind": map[string]any{"type": "string", "enum": []string{"Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob", "CafeDeployment"}},
 		"namespace":     map[string]any{"type": "string"},
 		"workload_name": map[string]any{"type": "string"},
 		"limit":         map[string]any{"type": "integer", "minimum": 1, "maximum": 100},
@@ -285,7 +296,7 @@ func APIResources(ctx context.Context, input client.ConnectionInput) (map[string
 	out := make([]map[string]any, 0)
 	for _, list := range lists {
 		for _, item := range list.APIResources {
-			if _, ok := resources[strings.ToLower(item.Name)]; ok {
+			if _, ok := resources[strings.ToLower(item.Name)]; ok || strings.EqualFold(item.Kind, "CafeDeployment") {
 				out = append(out, map[string]any{"group_version": list.GroupVersion, "name": item.Name, "kind": item.Kind, "namespaced": item.Namespaced})
 			}
 		}
@@ -386,6 +397,36 @@ func Search(ctx context.Context, input client.ConnectionInput, resource, namespa
 }
 
 var workloadResourceNames = []string{"deployments", "statefulsets", "daemonsets", "jobs", "cronjobs"}
+
+func cafeDeploymentDefinition(discoveryClient discovery.DiscoveryInterface) (resourceDef, bool) {
+	lists, _ := discoveryClient.ServerPreferredNamespacedResources()
+	return cafeDeploymentDefinitionFromResources(lists)
+}
+
+func cafeDeploymentDefinitionFromResources(lists []*metav1.APIResourceList) (resourceDef, bool) {
+	for _, list := range lists {
+		groupVersion, err := schema.ParseGroupVersion(list.GroupVersion)
+		if err != nil {
+			continue
+		}
+		for _, resource := range list.APIResources {
+			if !strings.EqualFold(resource.Kind, "CafeDeployment") || !containsVerb(resource.Verbs, "list") || !containsVerb(resource.Verbs, "get") {
+				continue
+			}
+			return resourceDef{gvr: groupVersion.WithResource(resource.Name), namespaced: resource.Namespaced, kind: "CafeDeployment"}, true
+		}
+	}
+	return resourceDef{}, false
+}
+
+func containsVerb(verbs []string, expected string) bool {
+	for _, verb := range verbs {
+		if verb == expected {
+			return true
+		}
+	}
+	return false
+}
 
 func searchResourceDefinitions(raw string) ([]resourceDef, error) {
 	name := strings.ToLower(strings.TrimSpace(raw))
@@ -523,11 +564,50 @@ func Workloads(ctx context.Context, input client.ConnectionInput, namespace, fil
 		}
 		truncated = truncated || out.Truncated
 	}
+	c, err := client.Open(ctx, input)
+	if err != nil {
+		return ListOutput{}, err
+	}
+	if def, ok := cafeDeploymentDefinition(c.Discovery); ok {
+		selector, selectorErr := labelsFromString(filters)
+		if selectorErr != nil {
+			return ListOutput{}, selectorErr
+		}
+		list, listErr := c.Dynamic.Resource(def.gvr).Namespace(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector, Limit: int64(limit), Continue: continuation})
+		if listErr != nil {
+			return ListOutput{}, listErr
+		}
+		for _, item := range list.Items {
+			all = append(all, toResourceItem(def.kind, item))
+		}
+		truncated = truncated || list.GetContinue() != ""
+		if next == "" {
+			next = list.GetContinue()
+		}
+	}
 	return ListOutput{Items: all, Count: len(all), Truncated: truncated, Continue: next}, nil
 }
 
 func Get(ctx context.Context, input client.ConnectionInput, resource, namespace, name string) (map[string]any, error) {
 	def, ok := resources[strings.ToLower(strings.TrimSpace(resource))]
+	if !ok && strings.EqualFold(strings.TrimSpace(resource), "CafeDeployment") {
+		c, err := client.Open(ctx, input)
+		if err != nil {
+			return nil, err
+		}
+		def, ok = cafeDeploymentDefinition(c.Discovery)
+		if !ok {
+			return nil, fmt.Errorf("CafeDeployment is not available in this Kubernetes cluster")
+		}
+		if strings.TrimSpace(name) == "" {
+			return nil, fmt.Errorf("name is required")
+		}
+		item, err := c.Dynamic.Resource(def.gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"item": sanitize(item.Object)}, nil
+	}
 	if !ok {
 		return nil, fmt.Errorf("resource %q is not allowed", resource)
 	}
@@ -566,7 +646,7 @@ func WorkloadPods(ctx context.Context, input client.ConnectionInput, kind, names
 		limit = 50
 	}
 	resourceName := map[string]string{"Deployment": "deployments", "StatefulSet": "statefulsets", "DaemonSet": "daemonsets", "Job": "jobs", "CronJob": "cronjobs"}[kind]
-	if resourceName == "" {
+	if resourceName == "" && kind != "CafeDeployment" {
 		return WorkloadPodsOutput{}, fmt.Errorf("workload_kind %q is invalid", kind)
 	}
 	c, err := client.Open(ctx, input)
@@ -574,6 +654,13 @@ func WorkloadPods(ctx context.Context, input client.ConnectionInput, kind, names
 		return WorkloadPodsOutput{}, err
 	}
 	def := resources[resourceName]
+	if kind == "CafeDeployment" {
+		var found bool
+		def, found = cafeDeploymentDefinition(c.Discovery)
+		if !found {
+			return WorkloadPodsOutput{}, fmt.Errorf("CafeDeployment is not available in this Kubernetes cluster")
+		}
+	}
 	workload, err := c.Dynamic.Resource(def.gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return WorkloadPodsOutput{}, err
@@ -610,12 +697,29 @@ func WorkloadPods(ctx context.Context, input client.ConnectionInput, kind, names
 			}
 			seen[pod.Name] = true
 			containers := make([]string, 0, len(pod.Spec.Containers))
+			ports := make([]PodPort, 0)
+			portSeen := map[string]struct{}{}
 			for _, container := range pod.Spec.Containers {
 				if strings.TrimSpace(container.Name) != "" {
 					containers = append(containers, container.Name)
 				}
+				for _, port := range container.Ports {
+					if port.ContainerPort <= 0 {
+						continue
+					}
+					protocol := string(port.Protocol)
+					if protocol == "" {
+						protocol = string(corev1.ProtocolTCP)
+					}
+					key := protocol + ":" + fmt.Sprint(port.ContainerPort)
+					if _, exists := portSeen[key]; exists {
+						continue
+					}
+					portSeen[key] = struct{}{}
+					ports = append(ports, PodPort{Name: port.Name, Port: port.ContainerPort, Protocol: protocol})
+				}
 			}
-			result.Pods = append(result.Pods, PodTarget{Namespace: pod.Namespace, Name: pod.Name, Containers: containers})
+			result.Pods = append(result.Pods, PodTarget{Namespace: pod.Namespace, Name: pod.Name, Containers: containers, IP: pod.Status.PodIP, Ports: ports})
 		}
 		if result.Truncated {
 			break

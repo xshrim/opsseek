@@ -23,6 +23,7 @@ const toolsByKind: Record<string, ResourceTool[]> = {
     tool('docker_containers', '读取容器列表'),
     tool('docker_container_logs', '读取容器日志'),
     tool('docker_container_inspect', '读取容器详情'),
+    tool('docker_container_listeners', '读取容器监听地址'),
     tool('docker_container_stats', '读取容器统计')
   ],
   Kubernetes: [
@@ -38,7 +39,7 @@ const toolsByKind: Record<string, ResourceTool[]> = {
     tool('kubernetes_events', '列出 Kubernetes 事件'),
     tool('kubernetes_workloads', '列出 Kubernetes 工作负载'),
     tool('kubernetes_resource_search', '按关键字搜索 Kubernetes 资源名称'),
-    tool('kubernetes_workload_pods', '解析指定工作负载正在运行的 Pod'),
+    tool('kubernetes_workload_pods', '解析工作负载 Pod 的 IP 和声明端口'),
     tool(
       'kubernetes_pod_stat',
       '读取 Kubernetes Metrics API 中的 Pod CPU 和内存使用情况'
@@ -56,6 +57,7 @@ const toolsByKind: Record<string, ResourceTool[]> = {
     tool('host_info', '读取主机信息'),
     tool('host_metrics', '读取主机指标'),
     tool('host_processes', '读取主机进程'),
+    tool('host_process_listeners', '读取进程监听端口'),
     tool('host_file_logs', '读取主机文件日志'),
     tool('host_health', '检查主机健康')
   ],

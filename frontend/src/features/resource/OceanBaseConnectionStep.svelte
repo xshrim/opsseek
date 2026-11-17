@@ -9,7 +9,7 @@
   export let accessMode: 'direct' | 'agent' = 'direct';
   export let mode: 'mysql' | 'oracle' = 'mysql';
   export let host = '';
-  export let port = 2881;
+  export let port = 2883;
   export let database = '';
   export let serviceName = '';
   export let username = '';

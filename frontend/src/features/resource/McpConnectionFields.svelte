@@ -13,18 +13,29 @@
   export let maxResponseBytes = 4 * 1024 * 1024;
   export let tokenPlaceholder = '保存于资源加密字段';
   export let configurationAttempted = false;
+  export let headersError = '';
   export let tlsCA = '';
   export let tlsCert = '';
   export let tlsKey = '';
   export let skipTLSVerify = false;
+
+  function validServerURL(value: string) {
+    try {
+      const parsed = new URL(value.trim());
+      return ['http:', 'https:'].includes(parsed.protocol) && !parsed.username && !parsed.password;
+    } catch {
+      return false;
+    }
+  }
 </script>
 
 <div class="mcp-resource-form">
   <FormField
     label="Server 地址"
     required
-    invalid={configurationAttempted && !url.trim()}
+    invalid={configurationAttempted && !validServerURL(url)}
     className="mcp-url-field"
+    invalidMessage={url.trim() ? '请输入有效的 HTTP 或 HTTPS 地址，且地址中不要包含凭据。' : '请填写 Server 地址。'}
   >
     <TextInput
       bind:value={url}
@@ -68,7 +79,7 @@
     </FormField>
   </div>
 
-  <FormField label="请求 Header">
+  <FormField label="请求 Header" invalid={Boolean(headersError)} error={headersError}>
     <TextArea
       bind:value={requestHeaders}
       rows={3}

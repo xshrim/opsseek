@@ -14,33 +14,35 @@
   export let resource: Resource;
   export let name = '';
   export let labels = '';
-  export let scopeName: (id: string) => string;
+  export let scopeId = resource.scope_id;
+  export let scopeOptions: Array<{ id: string; type: string; name: string }> =
+    [];
+  export let onSelectScope: (scopeId: string) => void = () => {};
   $: categoryValue = resourceCategoryFor(resource);
   $: subtypeValue = resourceSubtypeFor(resource);
-  const subtypeIcons: Record<string, string> = {
-    Direct: 'lucide:Plug',
-    Agent: 'lucide:Bot',
-    Generic: 'lucide:Package',
-    Git: 'lucide:GitBranch',
-    Bundle: 'lucide:Archive',
-    StreamHTTP: 'lucide:Radio',
-    SSE: 'lucide:Radio',
-    指标: 'lucide:ChartNoAxesCombined',
-    日志: 'lucide:FileText',
-    链路: 'lucide:Route',
-    告警: 'lucide:Bell'
-  };
   $: categoryOptions = Object.keys(resourceCategoryOptions)
     .filter((category) => category !== '全部')
     .map((category) => ({
       value: category,
       label: category,
-      icon: resourceCategoryIcon(category)
+      icon: resourceCategoryIcon(category),
+      monochromeIcon: true
     }));
   $: subtypeOptions = resourceSubtypeOptionsFor(resource).map((subtype) => ({
     value: subtype,
     label: subtype,
-    icon: subtypeIcons[subtype] ?? 'lucide:Package'
+    icon: resourceCategoryIcon(categoryValue),
+    monochromeIcon: true
+  }));
+  $: scopeDropdownOptions = scopeOptions.map((scope) => ({
+    value: scope.id,
+    label: `${scope.type === 'platform' ? '平台' : scope.type === 'team' ? '团队' : '项目'} · ${scope.name}`,
+    icon:
+      scope.type === 'platform'
+        ? 'lucide:PanelsTopLeft'
+        : scope.type === 'team'
+          ? 'lucide:Building'
+          : 'lucide:Boxes'
   }));
 </script>
 
@@ -73,8 +75,15 @@
     <FormField label="资源名称" required
       ><TextInput bind:value={name} required /></FormField
     >
-    <FormField label="资源级别"
-      ><TextInput value={scopeName(resource.scope_id)} readonly /></FormField
+    <FormField label="资源级别" required
+      ><DropdownSelect
+        value={scopeId}
+        options={scopeDropdownOptions}
+        showIcons
+        placeholder="请选择资源级别"
+        ariaLabel="资源级别"
+        on:change={(event) => onSelectScope(String(event.detail))}
+      /></FormField
     >
   </div>
   <FormField label="资源标签" className="resource-basic-labels" asLabel={false}

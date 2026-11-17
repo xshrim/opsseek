@@ -149,6 +149,7 @@ export interface Application {
   external_uid?: string;
   labels: Record<string, string>;
   critical: boolean;
+  listening_address?: string;
   technical_owner_ids: string[];
   operations_owner_ids: string[];
   instances: ApplicationInstance[];
@@ -1252,6 +1253,8 @@ export const api = {
       method: 'POST'
     }),
   testDraftDocker: (body: {
+    daemon_type?: 'dockerd' | 'containerd';
+    namespace?: string;
     host: string;
     timeout?: number | string;
     tls_ca?: string;

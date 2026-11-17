@@ -98,6 +98,8 @@ describe('resource workflow helpers', () => {
     );
     const direct = {
       accessMode: 'direct' as const,
+      daemonType: 'dockerd' as const,
+      namespace: 'k8s.io',
       host: 'tcp://docker.example.com:2376',
       timeoutSeconds: 10,
       caBase64: 'Y2E=',
@@ -109,6 +111,7 @@ describe('resource workflow helpers', () => {
     };
     expect(dockerConnectionConfigurationValid(direct)).toBe(true);
     expect(dockerConfigForSave(direct)).toEqual({
+      daemon_type: 'dockerd',
       host: 'tcp://docker.example.com:2376',
       timeout: 10
     });
@@ -117,6 +120,22 @@ describe('resource workflow helpers', () => {
       tls_cert: 'Y2VydA==',
       tls_key: 'a2V5'
     });
+    expect(
+      dockerConfigForSave({
+        ...direct,
+        accessMode: 'agent',
+        daemonType: 'containerd',
+        namespace: 'k8s.io',
+        connectionOverride: false
+      })
+    ).toEqual({ daemon_type: 'containerd', namespace: 'k8s.io' });
+    expect(
+      dockerCredentialForSave({
+        ...direct,
+        accessMode: 'agent',
+        connectionOverride: false
+      })
+    ).toEqual({});
     expect(dockerTLSValueValid('Y2E=')).toBe(true);
     expect(dockerTLSValueValid('/etc/docker/ca.pem')).toBe(false);
     expect(
@@ -146,6 +165,17 @@ describe('resource workflow helpers', () => {
         host: 'http://docker.example.com:2375'
       })
     ).toBe(false);
+    expect(
+      dockerConnectionConfigurationValid({
+        ...direct,
+        daemonType: 'containerd',
+        namespace: 'k8s.io',
+        caBase64: '',
+        certBase64: '',
+        keyBase64: '',
+        host: 'unix:///run/containerd/containerd.sock'
+      })
+    ).toBe(true);
   });
 
   it('summarizes Host subtype and configured SSH authentication', () => {

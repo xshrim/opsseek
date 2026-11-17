@@ -48,7 +48,7 @@ function renderCode(
     }
   }
   const encoded = encodeURIComponent(source);
-  return `<div class="diagnosis-code-wrap"><button class="diagnosis-code-copy" type="button" data-code-copy="${encoded}" aria-label="复制代码" data-tooltip="复制代码"><span aria-hidden="true">⧉</span></button><pre class="diagnosis-code-block"><code${normalized ? ` class="language-${normalized} hljs"` : ' class="hljs"'}>${rendered}</code></pre></div>`;
+  return `<div class="diagnosis-code-wrap"><button class="diagnosis-code-copy" type="button" data-code-copy="${encoded}" aria-label="复制代码" data-tooltip="复制代码"><span class="diagnosis-code-copy-icon" aria-hidden="true">⧉</span><span class="diagnosis-code-copied-icon" aria-hidden="true">✓</span></button><pre class="diagnosis-code-block"><code${normalized ? ` class="language-${normalized} hljs"` : ' class="hljs"'}>${rendered}</code></pre></div>`;
 }
 
 export function renderDiagnosisMarkdown(

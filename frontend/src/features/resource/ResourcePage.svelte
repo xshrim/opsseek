@@ -214,6 +214,11 @@
     type: string;
     name: string;
   }> = [];
+  export let resourceUpdateScopeOptions: Array<{
+    id: string;
+    type: string;
+    name: string;
+  }> = [];
   export let resourcePermissionLabel: (resource: Resource) => string = () =>
     '可查看';
   export let onSelectResourceScope: (scopeId: string) => void = () => {};
@@ -251,6 +256,7 @@
   let resourceSensitiveValues: Record<string, string> = {};
   let editResourceName = '';
   let editResourceLabels = '';
+  let editResourceScopeId = '';
   let editResourceConfig = '{}';
   let editResourceSensitiveValues: Record<string, string> = {};
   let genericTimeoutSeconds = 60;
@@ -275,6 +281,8 @@
   let resourceTypeSelectionAttempted = false;
   let resourceBasicConfigurationAttempted = false;
   let dockerAccessMode: DockerAccessMode = 'direct';
+  let dockerDaemonType: 'dockerd' | 'containerd' = 'dockerd';
+  let dockerNamespace = 'k8s.io';
   let dockerHost = '';
   let dockerTimeoutSeconds = 10;
   let dockerCABase64 = '';
@@ -361,7 +369,7 @@
   let oceanBaseAccessMode: 'direct' | 'agent' = 'direct';
   let oceanBaseMode: 'mysql' | 'oracle' = 'mysql';
   let oceanBaseHost = '';
-  let oceanBasePort = 2881;
+  let oceanBasePort = 2883;
   let oceanBaseDatabase = '';
   let oceanBaseServiceName = '';
   let oceanBaseUsername = '';
@@ -831,13 +839,15 @@
       String(resource.subtype ?? 'direct').toLowerCase() === 'agent'
         ? 'agent'
         : 'direct';
+    dockerDaemonType = config.daemon_type === 'containerd' ? 'containerd' : 'dockerd';
+    dockerNamespace = String(config.namespace ?? 'k8s.io');
     dockerHost = String(config.host ?? '');
     dockerTimeoutSeconds = Number(config.timeout ?? 10);
     dockerSkipTLSVerify =
       config.skip_tls_verify === true ||
       String(config.skip_tls_verify ?? '').toLowerCase() === 'true';
     dockerMCPServerResourceId = String(resource.agent_ref ?? '');
-    dockerAgentConnectionOverride = Object.keys(config).length > 0;
+    dockerAgentConnectionOverride = Boolean(config.host);
     dockerCABase64 = '';
     dockerCertBase64 = '';
     dockerKeyBase64 = '';
@@ -900,6 +910,7 @@
 
   function syncResourceEditor(resource: Resource) {
     editResourceName = resource.name;
+    editResourceScopeId = resource.scope_id;
     editResourceLabels = Object.entries(resource.labels ?? {})
       .map(([key, value]) => `${key}=${value}`)
       .join(', ');
@@ -944,6 +955,7 @@
   function openMCPWorkflowForEdit(resource: Resource) {
     onSelectResourceScope(resource.scope_id);
     selectedScopeId = resource.scope_id;
+    resourceCreateScopeId = resource.scope_id;
     selectedResourceId = resource.id;
     resourceKind = 'MCPServer';
     resourceAddCategory = 'MCPServer';
@@ -970,6 +982,7 @@
   function openDockerWorkflowForEdit(resource: Resource) {
     onSelectResourceScope(resource.scope_id);
     selectedScopeId = resource.scope_id;
+    resourceCreateScopeId = resource.scope_id;
     selectedResourceId = resource.id;
     resourceKind = 'Docker';
     resourceAddCategory = 'Docker';
@@ -991,6 +1004,7 @@
   function openRepositoryWorkflowForEdit(resource: Resource) {
     onSelectResourceScope(resource.scope_id);
     selectedScopeId = resource.scope_id;
+    resourceCreateScopeId = resource.scope_id;
     selectedResourceId = resource.id;
     resourceKind = 'Repository';
     resourceAddCategory = 'Repository';
@@ -1032,6 +1046,7 @@
   function openOracleWorkflowForEdit(resource: Resource) {
     onSelectResourceScope(resource.scope_id);
     selectedScopeId = resource.scope_id;
+    resourceCreateScopeId = resource.scope_id;
     selectedResourceId = resource.id;
     resourceKind = 'Oracle';
     resourceAddCategory = 'Oracle';
@@ -1061,6 +1076,7 @@
   function openOceanBaseWorkflowForEdit(resource: Resource) {
     onSelectResourceScope(resource.scope_id);
     selectedScopeId = resource.scope_id;
+    resourceCreateScopeId = resource.scope_id;
     selectedResourceId = resource.id;
     resourceKind = 'OceanBase';
     resourceAddCategory = 'OceanBase';
@@ -1086,7 +1102,7 @@
         ? 'oracle'
         : 'mysql';
     oceanBaseHost = String(resource.config?.host ?? '');
-    oceanBasePort = Number(resource.config?.port ?? 2881);
+    oceanBasePort = Number(resource.config?.port ?? 2883);
     oceanBaseDatabase = String(resource.config?.database ?? '');
     oceanBaseServiceName = String(resource.config?.service_name ?? '');
     oceanBaseTimeoutSeconds = Number(resource.config?.timeout_seconds ?? 10);
@@ -1168,6 +1184,7 @@
   function openKubernetesWorkflowForEdit(resource: Resource) {
     onSelectResourceScope(resource.scope_id);
     selectedScopeId = resource.scope_id;
+    resourceCreateScopeId = resource.scope_id;
     selectedResourceId = resource.id;
     resourceKind = 'Kubernetes';
     resourceAddCategory = 'Kubernetes';
@@ -1188,6 +1205,7 @@
   function openHostWorkflowForEdit(resource: Resource) {
     onSelectResourceScope(resource.scope_id);
     selectedScopeId = resource.scope_id;
+    resourceCreateScopeId = resource.scope_id;
     selectedResourceId = resource.id;
     resourceKind = 'Host';
     resourceAddCategory = 'Host';
@@ -1698,6 +1716,8 @@
 
   function resetDockerDraft() {
     dockerAccessMode = 'direct';
+    dockerDaemonType = 'dockerd';
+    dockerNamespace = 'k8s.io';
     dockerHost = '';
     dockerTimeoutSeconds = 10;
     dockerCABase64 = '';
@@ -1795,7 +1815,7 @@
     oceanBaseAccessMode = 'direct';
     oceanBaseMode = 'mysql';
     oceanBaseHost = '';
-    oceanBasePort = 2881;
+    oceanBasePort = 2883;
     oceanBaseDatabase = '';
     oceanBaseServiceName = '';
     oceanBaseUsername = '';
@@ -1916,74 +1936,14 @@
     return validateMCPConfiguration(mcpTransport, mcpURL, mcpRequestHeaders);
   }
 
-  function resourceAddStepValidationMessage() {
-    if (resourceAddStep === 1 && resourceBasicConfigurationAttempted) {
-      const issues: string[] = [];
-      if (!resourceAddCategory) issues.push('资源类型');
-      if (!resourceAddSubtype) issues.push('资源子类型');
-      if (!resourceName.trim()) issues.push('资源名称');
-      if (
-        !(resourceWorkflowEditing() ? selectedScopeId : resourceCreateScopeId)
-      )
-        issues.push('有权限的资源级别');
-      return issues.length ? `请填写：${issues.join('、')}。` : '';
+  function mcpHeadersError() {
+    if (!mcpConfigurationAttempted) return '';
+    try {
+      parseMCPHeaders(mcpRequestHeaders);
+      return '';
+    } catch (error) {
+      return error instanceof Error ? error.message : '请求 Header 格式无效。';
     }
-    if (
-      resourceKind === 'MCPServer' &&
-      resourceAddStep === 2 &&
-      mcpConfigurationAttempted &&
-      !mcpConfigurationValid()
-    )
-      return '请填写有效的 Server 地址和请求 Header。';
-    if (
-      resourceKind === 'Docker' &&
-      resourceAddStep === 2 &&
-      dockerConfigurationAttempted &&
-      !dockerConfigurationComplete()
-    ) {
-      const issues = dockerConfigurationIssues();
-      return `请检查：${issues.length ? issues.join('、') : 'Docker 配置'}。`;
-    }
-    if (
-      resourceKind === 'Kubernetes' &&
-      resourceAddStep === 2 &&
-      kubernetesConfigurationAttempted &&
-      !kubernetesConfigurationComplete()
-    ) {
-      const issues = kubernetesConfigurationIssues();
-      return `请检查：${issues.length ? issues.join('、') : 'Kubernetes 配置'}。`;
-    }
-    if (
-      resourceKind === 'Host' &&
-      resourceAddStep === 2 &&
-      hostConfigurationAttempted &&
-      !hostConfigurationComplete()
-    ) {
-      const issues = hostConfigurationIssues();
-      return `请检查：${issues.length ? issues.join('、') : 'Host 配置'}。`;
-    }
-    if (
-      resourceKind === 'Repository' &&
-      resourceAddStep === 2 &&
-      repositoryConfigurationAttempted &&
-      !repositoryConfigurationComplete()
-    )
-      return `请检查${resourceAddSubtype === 'Bundle' ? ' Bundle 上传' : ' Git 配置'}。`;
-    if (
-      resourceKind === 'RabbitMQ' &&
-      resourceAddStep === 2 &&
-      rabbitMQConfigurationAttempted &&
-      !rabbitMQConfigurationComplete()
-    )
-      return '请检查 RabbitMQ 配置。';
-    if (
-      resourceKind === 'MinIO' &&
-      resourceAddStep === 2 &&
-      minIOConfigurationAttempted &&
-      !minIOConfigurationComplete()
-    )
-      return '请检查 MinIO 配置。';
-    return '';
   }
 
   function mcpConfigForSave(): Record<string, unknown> {
@@ -2125,6 +2085,8 @@
     const tlsSupported = dockerHostSupportsTLS(dockerHost);
     return {
       accessMode: dockerAccessMode,
+      daemonType: dockerDaemonType,
+      namespace: dockerNamespace,
       host: dockerHost,
       timeoutSeconds: dockerTimeoutSeconds,
       caBase64: tlsSupported ? dockerCABase64 : '',
@@ -2851,6 +2813,7 @@
   function openElasticsearchWorkflowForEdit(resource: Resource) {
     onSelectResourceScope(resource.scope_id);
     selectedScopeId = resource.scope_id;
+    resourceCreateScopeId = resource.scope_id;
     selectedResourceId = resource.id;
     resourceKind = 'Elasticsearch';
     resourceAddCategory = 'ElasticSearch';
@@ -2883,6 +2846,7 @@
   function openRabbitMQWorkflowForEdit(resource: Resource) {
     onSelectResourceScope(resource.scope_id);
     selectedScopeId = resource.scope_id;
+    resourceCreateScopeId = resource.scope_id;
     selectedResourceId = resource.id;
     resourceKind = 'RabbitMQ';
     resourceAddCategory = 'RabbitMQ';
@@ -2913,6 +2877,7 @@
   function openMinIOWorkflowForEdit(resource: Resource) {
     onSelectResourceScope(resource.scope_id);
     selectedScopeId = resource.scope_id;
+    resourceCreateScopeId = resource.scope_id;
     selectedResourceId = resource.id;
     resourceKind = 'MinIO';
     resourceAddCategory = 'MinIO';
@@ -2945,6 +2910,7 @@
   function openKafkaWorkflowForEdit(resource: Resource) {
     onSelectResourceScope(resource.scope_id);
     selectedScopeId = resource.scope_id;
+    resourceCreateScopeId = resource.scope_id;
     selectedResourceId = resource.id;
     resourceKind = 'Kafka';
     resourceAddCategory = 'Kafka';
@@ -2993,6 +2959,7 @@
   function openMySQLWorkflowForEdit(resource: Resource) {
     onSelectResourceScope(resource.scope_id);
     selectedScopeId = resource.scope_id;
+    resourceCreateScopeId = resource.scope_id;
     selectedResourceId = resource.id;
     resourceKind = 'MySQL';
     resourceAddCategory = 'MySQL';
@@ -3023,6 +2990,7 @@
   function openPostgreSQLWorkflowForEdit(resource: Resource) {
     onSelectResourceScope(resource.scope_id);
     selectedScopeId = resource.scope_id;
+    resourceCreateScopeId = resource.scope_id;
     selectedResourceId = resource.id;
     resourceKind = 'PostgreSQL';
     resourceAddCategory = 'PostgreSQL';
@@ -3040,6 +3008,7 @@
   function openRedisWorkflowForEdit(resource: Resource) {
     onSelectResourceScope(resource.scope_id);
     selectedScopeId = resource.scope_id;
+    resourceCreateScopeId = resource.scope_id;
     selectedResourceId = resource.id;
     resourceKind = 'Redis';
     resourceAddCategory = 'Redis';
@@ -3066,6 +3035,7 @@
   function openNacosWorkflowForEdit(resource: Resource) {
     onSelectResourceScope(resource.scope_id);
     selectedScopeId = resource.scope_id;
+    resourceCreateScopeId = resource.scope_id;
     selectedResourceId = resource.id;
     resourceKind = 'Nacos';
     resourceAddCategory = 'Nacos';
@@ -3396,6 +3366,8 @@
       }
       const credential = dockerCredentialForSave(dockerDraft());
       const result = await api.testDraftDocker({
+        daemon_type: dockerDaemonType,
+        namespace: dockerNamespace,
         host: dockerHost.trim(),
         timeout: dockerTimeoutSeconds,
         tls_ca: credential.tls_ca,
@@ -3519,6 +3491,7 @@
         editResourceSensitiveValues
       );
       const updated = await updateResourceRecord(selectedResource.id, {
+        scope_id: editResourceScopeId,
         name: editResourceName,
         subtype: resourceSubtypeFor({ kind: selectedResource.kind, config }),
         labels: parseLabels(editResourceLabels),
@@ -3533,6 +3506,16 @@
     } catch (error) {
       onError(describeError(error, '更新资源失败'));
     }
+  }
+
+  function updateWorkflowResourceRecord(
+    resourceId: string,
+    body: Record<string, unknown>
+  ) {
+    return updateResourceRecord(resourceId, {
+      ...body,
+      scope_id: resourceCreateScopeId
+    });
   }
 
   async function createResource() {
@@ -3864,7 +3847,7 @@
       }
       const config = mcpConfigForSave();
       const credentialDraft = await saveMCPCredential(server);
-      const updated = await updateResourceRecord(server.id, {
+      const updated = await updateWorkflowResourceRecord(server.id, {
         name: resourceName.trim(),
         subtype: resourceSubtypeFor({
           kind: 'MCPServer',
@@ -3904,7 +3887,7 @@
         draft.accessMode === 'direct' || draft.connectionOverride
           ? await saveDockerCredential(docker)
           : null;
-      const updated = await updateResourceRecord(docker.id, {
+      const updated = await updateWorkflowResourceRecord(docker.id, {
         name: resourceName.trim(),
         subtype: draft.accessMode === 'agent' ? 'Agent' : 'Direct',
         agent_ref:
@@ -3939,7 +3922,7 @@
       const credentialDraft = Object.keys(credentialValues).length
         ? await saveKubernetesCredential(resource)
         : null;
-      const updated = await updateResourceRecord(resource.id, {
+      const updated = await updateWorkflowResourceRecord(resource.id, {
         name: resourceName.trim(),
         subtype: draft.isAgent ? 'Agent' : 'Direct',
         agent_ref: draft.isAgent ? kubernetesMCPServerResourceId : null,
@@ -3976,7 +3959,7 @@
       const credentialDraft = Object.keys(credentialValues).length
         ? await saveHostCredential(existing)
         : null;
-      const updated = await updateResourceRecord(existing.id, {
+      const updated = await updateWorkflowResourceRecord(existing.id, {
         name: resourceName.trim(),
         subtype: draft.accessMode === 'agent' ? 'Agent' : 'Direct',
         agent_ref:
@@ -4050,7 +4033,7 @@
       selectedResourceId = created.id;
       onNotice(`PostgreSQL 资源“${created.name}”已创建`);
     } else {
-      const updated = await updateResourceRecord(existing.id, body);
+      const updated = await updateWorkflowResourceRecord(existing.id, body);
       resources = resources.map((r) => (r.id === updated.id ? updated : r));
       selectedResourceId = updated.id;
       onNotice(`PostgreSQL 资源“${updated.name}”已更新`);
@@ -4112,7 +4095,7 @@
       selectedResourceId = c.id;
       onNotice(`Oracle 资源“${c.name}”已创建`);
     } else {
-      const u = await updateResourceRecord(existing.id, body);
+      const u = await updateWorkflowResourceRecord(existing.id, body);
       resources = resources.map((r) => (r.id === u.id ? u : r));
       selectedResourceId = u.id;
       onNotice(`Oracle 资源“${u.name}”已更新`);
@@ -4176,7 +4159,7 @@
       selectedResourceId = c.id;
       onNotice(`OceanBase 资源“${c.name}”已创建`);
     } else {
-      const u = await updateResourceRecord(existing.id, body);
+      const u = await updateWorkflowResourceRecord(existing.id, body);
       resources = resources.map((r) => (r.id === u.id ? u : r));
       selectedResourceId = u.id;
       onNotice(`OceanBase 资源“${u.name}”已更新`);
@@ -4231,7 +4214,7 @@
       selectedResourceId = c.id;
       onNotice(`MySQL 资源“${c.name}”已创建`);
     } else {
-      const u = await updateResourceRecord(existing.id, body);
+      const u = await updateWorkflowResourceRecord(existing.id, body);
       resources = resources.map((r) => (r.id === u.id ? u : r));
       selectedResourceId = u.id;
       onNotice(`MySQL 资源“${u.name}”已更新`);
@@ -4293,7 +4276,7 @@
       selectedResourceId = c.id;
       onNotice(`Kafka 资源“${c.name}”已创建`);
     } else {
-      const u = await updateResourceRecord(existing.id, body);
+      const u = await updateWorkflowResourceRecord(existing.id, body);
       resources = resources.map((r) => (r.id === u.id ? u : r));
       selectedResourceId = u.id;
       onNotice(`Kafka 资源“${u.name}”已更新`);
@@ -4355,7 +4338,7 @@
       selectedResourceId = c.id;
       onNotice(`Elasticsearch 资源“${c.name}”已创建`);
     } else {
-      const u = await updateResourceRecord(existing.id, body);
+      const u = await updateWorkflowResourceRecord(existing.id, body);
       resources = resources.map((r) => (r.id === u.id ? u : r));
       selectedResourceId = u.id;
       onNotice(`Elasticsearch 资源“${u.name}”已更新`);
@@ -4413,7 +4396,7 @@
       selectedResourceId = c.id;
       onNotice(`RabbitMQ 资源“${c.name}”已创建`);
     } else {
-      const u = await updateResourceRecord(existing.id, body);
+      const u = await updateWorkflowResourceRecord(existing.id, body);
       resources = resources.map((r) => (r.id === u.id ? u : r));
       selectedResourceId = u.id;
       onNotice(`RabbitMQ 资源“${u.name}”已更新`);
@@ -4472,7 +4455,7 @@
       selectedResourceId = created.id;
       onNotice(`MinIO 资源“${created.name}”已创建`);
     } else {
-      const updated = await updateResourceRecord(existing.id, body);
+      const updated = await updateWorkflowResourceRecord(existing.id, body);
       resources = resources.map((r) => (r.id === updated.id ? updated : r));
       selectedResourceId = updated.id;
       onNotice(`MinIO 资源“${updated.name}”已更新`);
@@ -4527,7 +4510,7 @@
       selectedResourceId = c.id;
       onNotice(`Redis 资源“${c.name}”已创建`);
     } else {
-      const u = await updateResourceRecord(existing.id, body);
+      const u = await updateWorkflowResourceRecord(existing.id, body);
       resources = resources.map((r) => (r.id === u.id ? u : r));
       selectedResourceId = u.id;
       onNotice(`Redis 资源“${u.name}”已更新`);
@@ -4587,7 +4570,7 @@
       selectedResourceId = c.id;
       onNotice(`Nacos 资源“${c.name}”已创建`);
     } else {
-      const u = await updateResourceRecord(existing.id, body);
+      const u = await updateWorkflowResourceRecord(existing.id, body);
       resources = resources.map((r) => (r.id === u.id ? u : r));
       selectedResourceId = u.id;
       onNotice(`Nacos 资源“${u.name}”已更新`);
@@ -4696,7 +4679,7 @@
       onNotice(`Repository“${created.name}”已创建`);
       return created;
     }
-    const updated = await updateResourceRecord(existing.id, body);
+    const updated = await updateWorkflowResourceRecord(existing.id, body);
     resources = resources.map((resource) =>
       resource.id === updated.id ? updated : resource
     );
@@ -5350,7 +5333,6 @@
             resourceKind,
             resourceAddSubtype
           )}
-          validationMessage={resourceAddStepValidationMessage()}
           onSelectStep={(step: number) => {
             resourceAddStep = step;
             autoSummaryTestKey = '';
@@ -5422,13 +5404,14 @@
               bind:name={resourceName}
               bind:labels={resourceLabels}
               scopeId={resourceCreateScopeId}
-              scopeOptions={resourceCreateScopeOptions}
+              scopeOptions={resourceWorkflowEditing()
+                ? resourceUpdateScopeOptions
+                : resourceCreateScopeOptions}
               categoryOptions={resourceCategoryOptions}
               subtypeOptions={resourceAddSubtypeOptions}
               bind:typeSelectionAttempted={resourceTypeSelectionAttempted}
               basicConfigurationAttempted={resourceBasicConfigurationAttempted}
               editing={resourceWorkflowEditing()}
-              scopeSummary={activeScopeSummary()}
               onSelectCategory={selectResourceAddCategory}
               onSelectSubtype={(subtype) => {
                 resourceKind = resourceKindForSelection(
@@ -5513,6 +5496,7 @@
                 bind:tlsKey={mcpTLSKey}
                 bind:skipTLSVerify={mcpTLSSkipVerify}
                 configurationAttempted={mcpConfigurationAttempted}
+                headersError={mcpHeadersError()}
               />
             </form>
           {:else if resourceKind === 'MCPServer' && resourceAddStep === 3}
@@ -5532,6 +5516,8 @@
           {:else if resourceKind === 'Docker' && resourceAddStep === 2}
             <DockerConnectionStep
               bind:accessMode={dockerAccessMode}
+              bind:daemonType={dockerDaemonType}
+              bind:namespace={dockerNamespace}
               bind:host={dockerHost}
               bind:timeoutSeconds={dockerTimeoutSeconds}
               bind:caBase64={dockerCABase64}
@@ -6036,7 +6022,11 @@
               }}
             />
             {#if resourceAddSubtype === 'Bundle'}
-              <section class="repository-upload-section">
+              <section
+                class="repository-upload-section"
+                class:invalid={repositoryConfigurationAttempted && !repositoryBundleConfigured && !repositoryBundleUploaded}
+                data-error={repositoryConfigurationAttempted && !repositoryBundleConfigured && !repositoryBundleUploaded ? '请上传 Bundle 文件。' : undefined}
+              >
                 <header>
                   <strong
                     >上传 Bundle<i class="required-mark" aria-hidden="true">*</i
@@ -6221,6 +6211,9 @@
       bind:mcpTLSSkipVerify
       bind:editResourceName
       bind:editResourceLabels
+      editScopeId={editResourceScopeId}
+      scopeOptions={resourceUpdateScopeOptions}
+      onSelectScope={(scopeId) => (editResourceScopeId = scopeId)}
       bind:editResourceConfig
       bind:resourceConfigValues
       bind:editResourceSensitiveValues
