@@ -204,28 +204,32 @@ type DiagnosticApplication struct {
 // selected application. IDs are retained for server-side correlation and are
 // stripped before the snapshot is sent to a model.
 type DiagnosticInstance struct {
-	ID                 string         `json:"id"`
-	Type               string         `json:"type"`
-	Name               string         `json:"name"`
-	RuntimeKind        string         `json:"runtime_kind"`
-	TargetResourceID   string         `json:"target_resource_id"`
-	TargetResourceName string         `json:"target_resource_name,omitempty"`
-	TargetResourceKind string         `json:"target_resource_kind,omitempty"`
-	Selector           map[string]any `json:"selector,omitempty"`
-	LogBinding         map[string]any `json:"log_binding,omitempty"`
-	Status             string         `json:"status"`
+	ID                   string         `json:"id"`
+	Type                 string         `json:"type"`
+	Name                 string         `json:"name"`
+	RuntimeKind          string         `json:"runtime_kind"`
+	TargetResourceID     string         `json:"target_resource_id"`
+	TargetResourceName   string         `json:"target_resource_name,omitempty"`
+	TargetResourceKind   string         `json:"target_resource_kind,omitempty"`
+	TargetResourceDomain string         `json:"target_resource_domain,omitempty"`
+	TargetResourceTags   []string       `json:"target_resource_tags,omitempty"`
+	Selector             map[string]any `json:"selector,omitempty"`
+	LogBinding           map[string]any `json:"log_binding,omitempty"`
+	Status               string         `json:"status"`
 }
 
 type DiagnosticDependency struct {
-	ID                 string         `json:"id"`
-	Type               string         `json:"type"`
-	TargetResourceID   string         `json:"target_resource_id"`
-	TargetResourceName string         `json:"target_resource_name,omitempty"`
-	TargetResourceKind string         `json:"target_resource_kind,omitempty"`
-	DependencyKind     string         `json:"dependency_kind"`
-	Binding            map[string]any `json:"binding,omitempty"`
-	Required           bool           `json:"required"`
-	Status             string         `json:"status"`
+	ID                   string         `json:"id"`
+	Type                 string         `json:"type"`
+	TargetResourceID     string         `json:"target_resource_id"`
+	TargetResourceName   string         `json:"target_resource_name,omitempty"`
+	TargetResourceKind   string         `json:"target_resource_kind,omitempty"`
+	TargetResourceDomain string         `json:"target_resource_domain,omitempty"`
+	TargetResourceTags   []string       `json:"target_resource_tags,omitempty"`
+	DependencyKind       string         `json:"dependency_kind"`
+	Binding              map[string]any `json:"binding,omitempty"`
+	Required             bool           `json:"required"`
+	Status               string         `json:"status"`
 }
 
 type DiagnosticProject struct {
@@ -241,6 +245,8 @@ type DiagnosticResource struct {
 	Type        string         `json:"type"`
 	Name        string         `json:"name"`
 	Kind        string         `json:"kind"`
+	Domain      string         `json:"domain,omitempty"`
+	Tags        []string       `json:"tags,omitempty"`
 	Relation    string         `json:"relation"`
 	RuntimeKind string         `json:"runtime_kind,omitempty"`
 	Status      string         `json:"status"`
@@ -251,21 +257,25 @@ type DiagnosticResource struct {
 func diagnosticResourceType(kind, displayName string) string {
 	switch kind {
 	case "Artifact":
-		return "制品仓库"
+		return "制品库"
 	case "Repository":
-		return "代码仓库"
+		return "代码库"
+	case "KnowledgeBase":
+		return "知识库"
 	case "Nacos":
 		return "注册配置"
 	case "Nginx", "TongHttpServer":
 		return "前端代理"
 	case "PostgreSQL", "Oracle", "MySQL", "OceanBase":
-		return "数据库"
+		return "关系库"
+	case "MongoDB":
+		return "文档库"
 	case "TongRDS", "Redis":
-		return "缓存库"
+		return "键值库"
 	case "Kafka", "RabbitMQ":
 		return "消息队列"
 	case "ElasticSearch", "Elasticsearch":
-		return "文档检索"
+		return "检索库"
 	case "MinIO":
 		return "对象存储"
 	case "MCPServer":
@@ -286,6 +296,31 @@ func diagnosticResourceType(kind, displayName string) string {
 		}
 		return kind
 	}
+}
+
+func diagnosticResourceDomain(kind string) string {
+	switch kind {
+	case "Host", "Docker", "Kubernetes":
+		return "运行时"
+	case "MCPServer":
+		return "大模型"
+	case "Artifact", "Repository", "KnowledgeBase":
+		return "物料仓"
+	case "PostgreSQL", "Oracle", "MySQL", "OceanBase", "Redis", "TongRDS", "MongoDB", "ElasticSearch", "Elasticsearch":
+		return "数据库"
+	case "MinIO":
+		return "存储池"
+	case "Nacos", "Nginx", "TongHttpServer", "Kafka", "RabbitMQ":
+		return "微服务"
+	case "Prometheus", "Loki", "Tempo", "Jaeger", "Skywalking", "Alertmanager":
+		return "可观测"
+	default:
+		return ""
+	}
+}
+
+func diagnosticResourceTags(kind, displayName string) []string {
+	return []string{diagnosticResourceType(kind, displayName)}
 }
 
 type DiagnosticApplicationReference struct {

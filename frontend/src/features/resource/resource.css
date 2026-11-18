@@ -274,6 +274,9 @@
 .resource-catalog-tag-code {
   --resource-catalog-tag-tone: #577894;
 }
+.resource-catalog-tag-knowledge {
+  --resource-catalog-tag-tone: #756b9a;
+}
 .resource-catalog-tag-runtime {
   --resource-catalog-tag-tone: #5c805f;
 }
@@ -286,7 +289,7 @@
 .resource-catalog-tag-database {
   --resource-catalog-tag-tone: #806c9b;
 }
-.resource-catalog-tag-cache {
+.resource-catalog-tag-kv {
   --resource-catalog-tag-tone: #51839e;
 }
 .resource-catalog-tag-message {
@@ -294,6 +297,9 @@
 }
 .resource-catalog-tag-search {
   --resource-catalog-tag-tone: #588493;
+}
+.resource-catalog-tag-document {
+  --resource-catalog-tag-tone: #8b8264;
 }
 .resource-catalog-tag-storage {
   --resource-catalog-tag-tone: #548575;

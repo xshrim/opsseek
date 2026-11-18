@@ -3,7 +3,6 @@
   import type { Resource } from '../../lib/api';
   import {
     Activity,
-    Blocks,
     Database,
     Filter,
     Box,
@@ -47,10 +46,9 @@
   const domainIcons = {
     运行时: Zap,
     大模型: Sparkle,
-    工程库: Package,
+    物料仓: Package,
     数据库: Database,
-    存储库: HardDrive,
-    中间件: Blocks,
+    存储池: HardDrive,
     微服务: VectorSquare,
     可观测: Activity
   };

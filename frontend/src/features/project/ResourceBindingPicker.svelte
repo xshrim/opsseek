@@ -9,6 +9,7 @@
     resourceCatalogTagClass,
     resourceCatalogTagsFor,
     resourceCategoryIcon,
+    resourceDomainFor,
     resourceSubtypeFor
   } from '../resource/resourceCatalog';
 
@@ -146,8 +147,8 @@
           )}
           <button
             class="resource-binding-picker-option"
-            class:runtime-binding-option={['Host', 'Docker', 'Kubernetes'].includes(resource.kind)}
-            class:resource-binding-option={!['Host', 'Docker', 'Kubernetes'].includes(resource.kind)}
+            class:runtime-binding-option={resourceDomainFor(resource.kind) === '运行时'}
+            class:resource-binding-option={resourceDomainFor(resource.kind) !== '运行时'}
             class:selected={resource.id === selectedResourceId}
             type="button"
             role="option"
@@ -155,8 +156,8 @@
             on:click|stopPropagation={() => select(resource.id)}
           >
             <span
-              class:project-runtime-icon={['Host', 'Docker', 'Kubernetes'].includes(resource.kind)}
-              class:project-resource-icon={!['Host', 'Docker', 'Kubernetes'].includes(resource.kind)}
+              class:project-runtime-icon={resourceDomainFor(resource.kind) === '运行时'}
+              class:project-resource-icon={resourceDomainFor(resource.kind) !== '运行时'}
             ><ResourceBrandIcon
               {resource}
               fallback={resourceCategoryIcon(resource.kind)}

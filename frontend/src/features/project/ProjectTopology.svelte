@@ -36,7 +36,8 @@
   import {
     resourceCategoryFor,
     resourceCategoryIcon,
-    resourceCategoryOptions
+    resourceCategoryOptions,
+    resourceDomainFor
   } from '../resource/resourceCatalog';
 
   export let project: Project;
@@ -76,7 +77,7 @@
   const NODE_HEIGHT = 60;
   const resourceKinds = Object.keys(resourceCategoryOptions).filter(
     (kind) =>
-      kind !== '全部' && !['Host', 'Docker', 'Kubernetes'].includes(kind)
+      kind !== '全部' && resourceDomainFor(kind) !== '运行时'
   );
   const applicationRuntimes = [
     { kind: 'virtual_machine', label: '虚拟机应用' },
@@ -204,9 +205,7 @@
       ? '应用'
       : pendingComponent?.kind === 'annotation'
         ? '实体'
-        : ['Host', 'Docker', 'Kubernetes'].includes(
-              pendingComponent?.resourceKind ?? ''
-            )
+        : resourceDomainFor(pendingComponent?.resourceKind ?? '') === '运行时'
           ? '运行时'
           : '资源';
   $: hoverDetailActive = Boolean(hoveredNodeID || hoveredEdgeID);
@@ -277,7 +276,7 @@
   function isRuntime(node: Node) {
     return (
       node.kind === 'resource' &&
-      ['Host', 'Docker', 'Kubernetes'].includes(node.resource_kind ?? '')
+      resourceDomainFor(node.resource_kind ?? '') === '运行时'
     );
   }
   function isExternal(node: Node) {
@@ -1231,7 +1230,7 @@
                   })}
                 ><span
                   class="topology-palette-category-icon resource-tone"
-                  class:runtime-tone={['Host', 'Docker', 'Kubernetes'].includes(kind)}
+                  class:runtime-tone={resourceDomainFor(kind) === '运行时'}
                   ><ResourceBrandIcon
                     resource={{ kind }}
                     fallback={resourceCategoryIcon(kind)}
@@ -1258,7 +1257,7 @@
                         : ''}
                 <button
                   class="topology-palette-item resource"
-                  class:runtime-tone={['Host', 'Docker', 'Kubernetes'].includes(resource.kind)}
+                  class:runtime-tone={resourceDomainFor(resource.kind) === '运行时'}
                   disabled={added}
                   draggable={!added}
                   on:dragstart={(event) =>

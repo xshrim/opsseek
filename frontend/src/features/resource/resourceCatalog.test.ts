@@ -19,6 +19,13 @@ import {
 } from '../../lib/iconifyIcons';
 
 describe('resource catalog types and tags', () => {
+  it('registers MongoDB with its brand icon and database endpoint', () => {
+    expect(resourceCategoryOptions.MongoDB).toEqual(['Direct']);
+    expect(resourceSubtypeFor({ kind: 'MongoDB' })).toBe('Direct');
+    expect(resourceCategoryIcon('MongoDB')).toBe('iconify:simple-icons:mongodb');
+    expect(resourceEndpointFor({ kind: 'MongoDB', config: { host: 'mongo', database: 'orders' } })).toBe('mongo:27017/orders');
+    expect(resourceEndpointFor({ kind: 'MongoDB', config: { host: 'mongo', port: 27018, database: 'orders' } })).toBe('mongo:27018/orders');
+  });
   it('formats OceanBase endpoints by compatibility mode and supports connection tests', () => {
     expect(
       resourceEndpointFor({
@@ -45,17 +52,23 @@ describe('resource catalog types and tags', () => {
   });
 
   it('uses the updated resource tags', () => {
-    expect(resourceCatalogTagsFor('Artifact')).toEqual(['制品仓库']);
-    expect(resourceCatalogTagsFor('Repository')).toEqual(['代码仓库']);
+    expect(resourceCatalogTagsFor('Artifact')).toEqual(['制品库']);
+    expect(resourceCatalogTagsFor('Repository')).toEqual(['代码库']);
+    expect(resourceCatalogTagsFor('KnowledgeBase')).toEqual(['知识库']);
     expect(resourceCatalogTagsFor('Nacos')).toEqual(['注册配置']);
     expect(resourceCatalogTagsFor('Nginx')).toEqual(['前端代理']);
     expect(resourceCatalogTagsFor('TongHttpServer')).toEqual(['前端代理']);
     expect(resourceCatalogTagsFor('RabbitMQ')).toEqual(['消息队列']);
     expect(resourceCatalogTagsFor('Kafka')).toEqual(['消息队列']);
-    expect(resourceCatalogTagsFor('Oracle')).toEqual(['数据库']);
-    expect(resourceCatalogTagsFor('Redis')).toEqual(['缓存库']);
-    expect(resourceCatalogTagsFor('TongRDS')).toEqual(['缓存库']);
-    expect(resourceCatalogTagsFor('ElasticSearch')).toEqual(['文档检索']);
+    for (const kind of ['PostgreSQL', 'MySQL', 'Oracle', 'OceanBase']) {
+      expect(resourceCatalogTagsFor(kind)).toEqual(['关系库']);
+      expect(resourceDomainFor(kind)).toBe('数据库');
+    }
+    expect(resourceCatalogTagsFor('Redis')).toEqual(['键值库']);
+    expect(resourceCatalogTagsFor('TongRDS')).toEqual(['键值库']);
+    expect(resourceCatalogTagsFor('ElasticSearch')).toEqual(['检索库']);
+    expect(resourceCatalogTagsFor('Elasticsearch')).toEqual(['检索库']);
+    expect(resourceCatalogTagsFor('MongoDB')).toEqual(['文档库']);
     expect(resourceCatalogTagsFor('MinIO')).toEqual(['对象存储']);
     expect(resourceCatalogTagsFor('MCPServer')).toEqual(['模型工具']);
     expect(resourceCatalogTagOptions).not.toContain('监控');
@@ -92,12 +105,17 @@ describe('resource catalog types and tags', () => {
       (kind) => kind !== '全部'
     );
     expect(Object.keys(resourceCatalogDomains).sort()).toEqual(kinds.sort());
-    expect(new Set(kinds.map((kind) => resourceDomainFor(kind))).size).toBe(8);
-    expect(resourceDomainFor('Artifact')).toBe('工程库');
-    expect(resourceDomainFor('Repository')).toBe('工程库');
-    expect(resourceDomainFor('ElasticSearch')).toBe('存储库');
-    expect(resourceDomainFor('MinIO')).toBe('存储库');
-    expect(resourceDomainFor('Redis')).toBe('中间件');
+    expect(new Set(kinds.map((kind) => resourceDomainFor(kind))).size).toBe(7);
+    expect(resourceDomainFor('Artifact')).toBe('物料仓');
+    expect(resourceDomainFor('Repository')).toBe('物料仓');
+    expect(resourceDomainFor('KnowledgeBase')).toBe('物料仓');
+    expect(resourceDomainFor('ElasticSearch')).toBe('数据库');
+    expect(resourceDomainFor('MongoDB')).toBe('数据库');
+    expect(resourceDomainFor('MinIO')).toBe('存储池');
+    expect(resourceDomainFor('Redis')).toBe('数据库');
+    expect(resourceDomainFor('TongRDS')).toBe('数据库');
+    expect(resourceDomainFor('Kafka')).toBe('微服务');
+    expect(resourceDomainFor('RabbitMQ')).toBe('微服务');
   });
 
   it('uses distinct group and brand icons for the resource rail', () => {
@@ -133,7 +151,10 @@ describe('resource catalog types and tags', () => {
     expect(resourceCategoryIcon('Nacos')).toBe('lucide:Infinity');
     for (const kind of Object.keys(resourceCategoryOptions).filter(
       (item) =>
-        item !== '全部' && item !== 'Nacos' && item !== 'Alertmanager'
+        item !== '全部' &&
+        item !== 'Nacos' &&
+        item !== 'Alertmanager' &&
+        item !== 'KnowledgeBase'
     )) {
       expect(
         iconifyIconForValue(iconifyValueForName(brandNameFor({ kind }))),

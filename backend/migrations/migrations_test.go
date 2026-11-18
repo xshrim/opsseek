@@ -1,6 +1,7 @@
 package migrations
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -10,14 +11,17 @@ func TestLoadOrdersEmbeddedMigrations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load() error = %v", err)
 	}
-	if len(items) != 2 {
-		t.Fatalf("load() returned %d migrations, want the initial baseline and one forward migration", len(items))
+	if len(items) != 3 {
+		t.Fatalf("load() returned %d migrations, want the initial baseline and two forward migrations", len(items))
 	}
 	if items[0].version != 1 || items[0].name != "initial" {
 		t.Fatalf("loaded migration = %#v, want version 1 initial", items[0])
 	}
 	if items[1].version != 2 || items[1].name != "oceanbase_default_port" {
 		t.Fatalf("loaded migration = %#v, want version 2 oceanbase_default_port", items[1])
+	}
+	if items[2].version != 3 || items[2].name != "mongodb_resource_and_document_database" {
+		t.Fatalf("unexpected MongoDB migration: %#v", items[2])
 	}
 	for _, item := range items {
 		if item.sql == "" || item.checksum == "" {
@@ -30,6 +34,36 @@ func TestLoadOrdersEmbeddedMigrations(t *testing.T) {
 	for index := 1; index < len(items); index++ {
 		if items[index-1].version >= items[index].version {
 			t.Fatalf("migrations are not ordered: %#v", items)
+		}
+	}
+}
+
+func TestMongoDBResourceSchema(t *testing.T) {
+	items, err := load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := items[2].sql
+	start, end := strings.Index(sql, "'{"), strings.Index(sql, "}'::jsonb")
+	if start < 0 || end < start {
+		t.Fatal("MongoDB schema missing")
+	}
+	var schema struct {
+		Required   []string `json:"required"`
+		Properties map[string]struct {
+			Default   any  `json:"default"`
+			Sensitive bool `json:"sensitive"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal([]byte(sql[start+1:end+1]), &schema); err != nil {
+		t.Fatal(err)
+	}
+	if len(schema.Required) != 1 || schema.Required[0] != "host" || schema.Properties["port"].Default != float64(27017) {
+		t.Fatalf("unexpected MongoDB schema: %#v", schema)
+	}
+	for _, key := range []string{"username", "password"} {
+		if !schema.Properties[key].Sensitive {
+			t.Errorf("%s must be encrypted", key)
 		}
 	}
 }

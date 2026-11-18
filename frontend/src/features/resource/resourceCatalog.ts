@@ -28,6 +28,7 @@ export const resourceCategoryOptions: Record<string, string[]> = {
   全部: [],
   Artifact: ['Generic', 'Docker', 'Helm'],
   Repository: ['Git', 'Bundle'],
+  KnowledgeBase: ['Document'],
   Host: ['Direct', 'Agent'],
   Docker: ['Direct', 'Agent'],
   Kubernetes: ['Direct', 'Agent'],
@@ -38,6 +39,7 @@ export const resourceCategoryOptions: Record<string, string[]> = {
   Oracle: ['Direct', 'Agent'],
   MySQL: ['Direct', 'Agent'],
   OceanBase: ['Direct', 'Agent'],
+  MongoDB: ['Direct'],
   Redis: ['Direct', 'Agent'],
   TongRDS: ['Direct', 'Agent'],
   Kafka: ['Direct', 'Agent'],
@@ -54,8 +56,9 @@ export const resourceCategoryOptions: Record<string, string[]> = {
 };
 
 export const resourceCatalogDomains: Record<string, string> = {
-  Artifact: '工程库',
-  Repository: '工程库',
+  Artifact: '物料仓',
+  Repository: '物料仓',
+  KnowledgeBase: '物料仓',
   Host: '运行时',
   Docker: '运行时',
   Kubernetes: '运行时',
@@ -66,12 +69,13 @@ export const resourceCatalogDomains: Record<string, string> = {
   MySQL: '数据库',
   Oracle: '数据库',
   OceanBase: '数据库',
-  Redis: '中间件',
-  Kafka: '中间件',
-  RabbitMQ: '中间件',
-  TongRDS: '中间件',
-  ElasticSearch: '存储库',
-  MinIO: '存储库',
+  MongoDB: '数据库',
+  Redis: '数据库',
+  Kafka: '微服务',
+  RabbitMQ: '微服务',
+  TongRDS: '数据库',
+  ElasticSearch: '数据库',
+  MinIO: '存储池',
   MCPServer: '大模型',
   Prometheus: '可观测',
   Loki: '可观测',
@@ -84,33 +88,34 @@ export const resourceCatalogDomains: Record<string, string> = {
 export const resourceCatalogDomainOrder = [
   '运行时',
   '大模型',
-  '工程库',
+  '物料仓',
   '数据库',
-  '存储库',
-  '中间件',
+  '存储池',
   '微服务',
   '可观测'
 ];
 
 export const resourceCatalogTags: Record<string, string[]> = {
-  Artifact: ['制品仓库'],
-  Repository: ['代码仓库'],
+  Artifact: ['制品库'],
+  Repository: ['代码库'],
+  KnowledgeBase: ['知识库'],
   Host: ['运行时'],
   Docker: ['运行时'],
   Kubernetes: ['运行时'],
   Nacos: ['注册配置'],
   Nginx: ['前端代理'],
   TongHttpServer: ['前端代理'],
-  PostgreSQL: ['数据库'],
-  Oracle: ['数据库'],
-  MySQL: ['数据库'],
-  OceanBase: ['数据库'],
-  TongRDS: ['缓存库'],
-  Redis: ['缓存库'],
+  PostgreSQL: ['关系库'],
+  Oracle: ['关系库'],
+  MySQL: ['关系库'],
+  OceanBase: ['关系库'],
+  MongoDB: ['文档库'],
+  TongRDS: ['键值库'],
+  Redis: ['键值库'],
   Kafka: ['消息队列'],
   RabbitMQ: ['消息队列'],
-  ElasticSearch: ['文档检索'],
-  Elasticsearch: ['文档检索'],
+  ElasticSearch: ['检索库'],
+  Elasticsearch: ['检索库'],
   MinIO: ['对象存储'],
   MCPServer: ['模型工具'],
   Prometheus: ['指标度量'],
@@ -135,15 +140,17 @@ export const resourceCatalogTagOptions = [
 
 export function resourceCatalogTagClass(tag: string) {
   const classes: Record<string, string> = {
-    制品仓库: 'artifact',
-    代码仓库: 'code',
+    制品库: 'artifact',
+    代码库: 'code',
+    知识库: 'knowledge',
     运行时: 'runtime',
     注册配置: 'registry',
     前端代理: 'gateway',
-    数据库: 'database',
-    缓存库: 'cache',
+    关系库: 'database',
+    键值库: 'kv',
     消息队列: 'message',
-    文档检索: 'search',
+    文档库: 'document',
+    检索库: 'search',
     对象存储: 'storage',
     模型工具: 'ai',
     指标度量: 'metric',
@@ -191,10 +198,12 @@ export function resourceCategoryFor(resource: ResourceShape) {
 export function resourceSubtypeFor(resource: ResourceShape) {
   const fallback: Record<string, string> = {
     Artifact: 'Generic',
+    KnowledgeBase: 'Document',
     Kubernetes: 'Direct',
     Nacos: 'Direct',
     Nginx: 'Direct',
     TongHttpServer: 'Direct',
+    MongoDB: 'Direct',
     ElasticSearch: 'Direct',
     Host: 'Direct',
     Docker: 'Direct',
@@ -226,6 +235,7 @@ export function resourceSubtypeFor(resource: ResourceShape) {
       'Nacos',
       'Nginx',
       'TongHttpServer',
+      'MongoDB',
       'Redis',
       'TongRDS',
       'Kafka',
@@ -265,6 +275,7 @@ export function resourceCategoryIcon(category: string) {
     全部: 'lucide:Circle',
     Artifact: 'iconify:simple-icons:artifacthub',
     Repository: 'iconify:simple-icons:git',
+    KnowledgeBase: 'lucide:BookOpen',
     Nacos: 'lucide:Infinity',
     Host: 'lucide:Server',
     Docker: 'iconify:simple-icons:docker',
@@ -275,6 +286,7 @@ export function resourceCategoryIcon(category: string) {
     RabbitMQ: 'iconify:simple-icons:rabbitmq',
     Elasticsearch: 'iconify:simple-icons:elasticsearch',
     ElasticSearch: 'iconify:simple-icons:elasticsearch',
+    MongoDB: 'iconify:simple-icons:mongodb',
     OceanBase: 'iconify:brand:oceanbase',
     Oracle: 'iconify:brand:oracle',
     MySQL: 'iconify:simple-icons:mysql',
@@ -403,6 +415,16 @@ export function resourceEndpointFor(resource: ResourceShape) {
       ? resource.config.brokers.map(String).filter(Boolean)
       : [];
     return brokers.length ? brokers.join(', ') : '未设置 Kafka Broker';
+  }
+  if (resource.kind === 'MongoDB') {
+    if (String(resource.subtype ?? '').toLowerCase() === 'agent')
+      return 'MCPServer 代理';
+    const host = String(resource.config?.host ?? '').trim();
+    const port = Number(resource.config?.port ?? 27017);
+    const database = String(resource.config?.database ?? '').trim();
+    return host
+      ? `${host}:${port}/${database || '未设置数据库'}`
+      : '未设置 MongoDB 地址';
   }
   if (resource.kind === 'Elasticsearch' || resource.kind === 'ElasticSearch') {
     if (String(resource.subtype ?? '').toLowerCase() === 'agent')

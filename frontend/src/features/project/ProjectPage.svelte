@@ -50,7 +50,8 @@
   import { randomId } from '../../lib/randomId';
   import {
     resourceCategoryFor,
-    resourceCategoryIcon
+    resourceCategoryIcon,
+    resourceDomainFor
   } from '../resource/resourceCatalog';
   import TagList from '../../components/TagList.svelte';
   import ApplicationWizard from './ApplicationWizard.svelte';
@@ -1943,8 +1944,8 @@
                   <span class="relationship-resource-name">
                     <button
                       class="text-link"
-                      class:runtime-resource-link={['Host', 'Docker', 'Kubernetes'].includes(row.resource.kind)}
-                      class:regular-resource-link={!['Host', 'Docker', 'Kubernetes'].includes(row.resource.kind)}
+                      class:runtime-resource-link={resourceDomainFor(row.resource.kind) === '运行时'}
+                      class:regular-resource-link={resourceDomainFor(row.resource.kind) !== '运行时'}
                       type="button"
                       on:click={() => {
                         const resource = availableResources.find(

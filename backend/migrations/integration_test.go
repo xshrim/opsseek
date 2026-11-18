@@ -334,7 +334,11 @@ func TestLegacyHistoryConsolidatesWithoutRebuildingTables(t *testing.T) {
 		t.Fatalf("second apply: %v", err)
 	}
 	var count int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM schema_migrations`).Scan(&count); err != nil || count != 1 {
+	current, err := load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM schema_migrations`).Scan(&count); err != nil || count != len(current) {
 		t.Fatalf("history count=%d err=%v", count, err)
 	}
 	var value string

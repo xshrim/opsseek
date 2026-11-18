@@ -776,6 +776,7 @@ func (s *store) DiagnosticContext(ctx context.Context, scopeID, applicationID st
 		}
 		resources = append(resources, DiagnosticResource{
 			ID: instance.TargetResourceID, Type: diagnosticResourceType(resource.Kind, resource.DisplayName), Name: resource.Name, Kind: resource.Kind,
+			Domain: diagnosticResourceDomain(resource.Kind), Tags: diagnosticResourceTags(resource.Kind, resource.DisplayName),
 			Relation: "runtime", RuntimeKind: instance.RuntimeKind, Status: instance.Status,
 			Binding: sanitizeInstanceSelector(instance.RuntimeKind, instance.Selector), LogBinding: sanitizeInstanceLogBinding(instance.LogBinding),
 		})
@@ -787,6 +788,7 @@ func (s *store) DiagnosticContext(ctx context.Context, scopeID, applicationID st
 		}
 		resources = append(resources, DiagnosticResource{
 			ID: dependency.TargetResourceID, Type: diagnosticResourceType(resource.Kind, resource.DisplayName), Name: resource.Name, Kind: resource.Kind,
+			Domain: diagnosticResourceDomain(resource.Kind), Tags: diagnosticResourceTags(resource.Kind, resource.DisplayName),
 			Relation: "association", Status: dependency.Status, Binding: sanitizeBinding(dependency.DependencyKind, dependency.Binding),
 		})
 	}
@@ -818,6 +820,7 @@ func diagnosticInstances(items []Instance, allowed map[string]diagnosticResource
 		result = append(result, DiagnosticInstance{
 			ID: item.ID, Type: diagnosticResourceType(allowed[item.TargetResourceID].Kind, allowed[item.TargetResourceID].DisplayName), Name: item.Name, RuntimeKind: item.RuntimeKind, TargetResourceID: item.TargetResourceID,
 			TargetResourceName: item.TargetResourceName, TargetResourceKind: item.TargetResourceKind,
+			TargetResourceDomain: diagnosticResourceDomain(allowed[item.TargetResourceID].Kind), TargetResourceTags: diagnosticResourceTags(allowed[item.TargetResourceID].Kind, allowed[item.TargetResourceID].DisplayName),
 			Selector: sanitizeInstanceSelector(item.RuntimeKind, item.Selector), LogBinding: sanitizeInstanceLogBinding(item.LogBinding), Status: item.Status,
 		})
 	}
@@ -832,7 +835,7 @@ func diagnosticDependencies(items []Dependency, allowed map[string]diagnosticRes
 		}
 		result = append(result, DiagnosticDependency{
 			ID: item.ID, Type: diagnosticResourceType(allowed[item.TargetResourceID].Kind, allowed[item.TargetResourceID].DisplayName), TargetResourceID: item.TargetResourceID, TargetResourceName: item.TargetResourceName,
-			TargetResourceKind: item.TargetResourceKind, DependencyKind: item.DependencyKind,
+			TargetResourceKind: item.TargetResourceKind, TargetResourceDomain: diagnosticResourceDomain(allowed[item.TargetResourceID].Kind), TargetResourceTags: diagnosticResourceTags(allowed[item.TargetResourceID].Kind, allowed[item.TargetResourceID].DisplayName), DependencyKind: item.DependencyKind,
 			Binding: sanitizeBinding(item.DependencyKind, item.Binding), Required: item.Required, Status: item.Status,
 		})
 	}

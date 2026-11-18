@@ -16,10 +16,12 @@ import (
 type applicationResourceFocus struct {
 	// ResourceID is an internal join key. The model selects the already-bound
 	// tool by name and must not receive database identities as evidence.
-	ResourceID   string                        `json:"-"`
-	ResourceName string                        `json:"resource_name,omitempty"`
-	ResourceKind string                        `json:"resource_kind,omitempty"`
-	Relations    []applicationResourceRelation `json:"relations"`
+	ResourceID     string                        `json:"-"`
+	ResourceName   string                        `json:"resource_name,omitempty"`
+	ResourceKind   string                        `json:"resource_kind,omitempty"`
+	ResourceDomain string                        `json:"resource_domain,omitempty"`
+	ResourceTags   []string                      `json:"resource_tags,omitempty"`
+	Relations      []applicationResourceRelation `json:"relations"`
 }
 
 type applicationResourceRelation struct {
@@ -28,6 +30,8 @@ type applicationResourceRelation struct {
 	ProjectID       string         `json:"-"`
 	ProjectName     string         `json:"project_name,omitempty"`
 	Type            string         `json:"type,omitempty"`
+	Domain          string         `json:"domain,omitempty"`
+	Tags            []string       `json:"tags,omitempty"`
 	Relation        string         `json:"relation"`
 	RuntimeKind     string         `json:"runtime_kind,omitempty"`
 	Status          string         `json:"status,omitempty"`
@@ -107,6 +111,8 @@ type rawResourceInfo struct {
 	Name        string         `json:"name"`
 	Kind        string         `json:"kind"`
 	Type        string         `json:"type"`
+	Domain      string         `json:"domain,omitempty"`
+	Tags        []string       `json:"tags,omitempty"`
 	Relation    string         `json:"relation"`
 	RuntimeKind string         `json:"runtime_kind,omitempty"`
 	Status      string         `json:"status"`
@@ -266,7 +272,7 @@ func buildApplicationResourceFocus(raw json.RawMessage) applicationResourceFocus
 			}
 			focus, ok := byResource[resourceID]
 			if !ok {
-				focus = &applicationResourceFocus{ResourceID: resourceID, ResourceName: resource.Name, ResourceKind: resource.Kind}
+				focus = &applicationResourceFocus{ResourceID: resourceID, ResourceName: resource.Name, ResourceKind: resource.Kind, ResourceDomain: resource.Domain, ResourceTags: resource.Tags}
 				byResource[resourceID] = focus
 			} else {
 				// Prefer the first non-empty metadata when a snapshot contains
@@ -277,11 +283,17 @@ func buildApplicationResourceFocus(raw json.RawMessage) applicationResourceFocus
 				if focus.ResourceKind == "" {
 					focus.ResourceKind = resource.Kind
 				}
+				if focus.ResourceDomain == "" {
+					focus.ResourceDomain = resource.Domain
+				}
+				if len(focus.ResourceTags) == 0 {
+					focus.ResourceTags = resource.Tags
+				}
 			}
 			focus.Relations = append(focus.Relations, applicationResourceRelation{
 				ApplicationID: selected.Application.ID, ApplicationName: selected.Application.Name,
 				ProjectID: selected.Project.ID, ProjectName: selected.Project.Name,
-				Type: resource.Type, Relation: resource.Relation, RuntimeKind: resource.RuntimeKind,
+				Type: resource.Type, Domain: resource.Domain, Tags: resource.Tags, Relation: resource.Relation, RuntimeKind: resource.RuntimeKind,
 				Status: resource.Status, Binding: resource.Binding, LogBinding: resource.LogBinding,
 			})
 		}

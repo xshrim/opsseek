@@ -150,14 +150,42 @@ func TestDiagnosticResourceTypeUsesCatalogLabel(t *testing.T) {
 	for _, test := range []struct {
 		kind, want string
 	}{
-		{kind: "Repository", want: "代码仓库"},
+		{kind: "Artifact", want: "制品库"},
+		{kind: "Repository", want: "代码库"},
+		{kind: "KnowledgeBase", want: "知识库"},
+		{kind: "Redis", want: "键值库"},
+		{kind: "TongRDS", want: "键值库"},
+		{kind: "MongoDB", want: "文档库"},
+		{kind: "Elasticsearch", want: "检索库"},
+		{kind: "ElasticSearch", want: "检索库"},
 		{kind: "Kafka", want: "消息队列"},
-		{kind: "Oracle", want: "数据库"},
+		{kind: "PostgreSQL", want: "关系库"},
+		{kind: "MySQL", want: "关系库"},
+		{kind: "Oracle", want: "关系库"},
+		{kind: "OceanBase", want: "关系库"},
 		{kind: "Prometheus", want: "指标度量"},
 		{kind: "MCPServer", want: "模型工具"},
 	} {
 		if got := diagnosticResourceType(test.kind, "fallback"); got != test.want {
 			t.Errorf("diagnosticResourceType(%q) = %q, want %q", test.kind, got, test.want)
+		}
+	}
+}
+
+func TestDiagnosticResourceDomainUsesCatalogGrouping(t *testing.T) {
+	for _, test := range []struct {
+		kind, want string
+	}{
+		{kind: "Artifact", want: "物料仓"},
+		{kind: "Redis", want: "数据库"},
+		{kind: "MongoDB", want: "数据库"},
+		{kind: "Elasticsearch", want: "数据库"},
+		{kind: "Kafka", want: "微服务"},
+		{kind: "MinIO", want: "存储池"},
+		{kind: "Host", want: "运行时"},
+	} {
+		if got := diagnosticResourceDomain(test.kind); got != test.want {
+			t.Errorf("diagnosticResourceDomain(%q) = %q, want %q", test.kind, got, test.want)
 		}
 	}
 }
