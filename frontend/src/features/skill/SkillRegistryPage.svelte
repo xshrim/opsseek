@@ -21,7 +21,7 @@
     Wrench,
     X
   } from 'lucide-svelte';
-  import { api, type SkillCatalogItem, type SkillVersion } from '../../lib/api';
+  import { api, type SkillCatalogItem, type SkillImportItem, type SkillVersion } from '../../lib/api';
   import { errorMessage as formatErrorMessage } from '../../lib/errorMessage';
   import SearchInput from '../../components/SearchInput.svelte';
   import FormField from '../../components/FormField.svelte';
@@ -161,6 +161,17 @@
   let busy = false;
   let copied = false;
   let versionsLoading = false;
+
+  let importOpen = false;
+  let importMode: 'paste' | 'upload' = 'paste';
+  let importFormat = 'markdown';
+  let importCategory = 'diagnosis';
+  let importText = '';
+  let importFileName = '';
+  let importFileBase64 = '';
+  let importBusy = false;
+  let importResults: SkillImportItem[] = [];
+  let publishConfirmOpen = false;
 
   $: filteredSkills = skills.filter((skill) => {
     const text =
@@ -340,6 +351,88 @@
     versions = [];
     editing = false;
   }
+
+  function openImport() {
+    importOpen = true;
+    importResults = [];
+    importText = '';
+    importFileName = '';
+    importFileBase64 = '';
+    importMode = 'paste';
+    importFormat = 'markdown';
+  }
+
+  function onImportFileChange(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      importFileName = '';
+      importFileBase64 = '';
+      return;
+    }
+    importFileName = file.name;
+    importFormat = 'zip';
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result ?? '');
+      importFileBase64 = result.slice(result.indexOf(',') + 1);
+    };
+    reader.onerror = () => onError('无法读取所选文件。');
+    reader.readAsDataURL(file);
+  }
+
+  async function submitImport() {
+    if (!scopeId) {
+      onError('请先选择一个项目范围。');
+      return;
+    }
+    let contentBase64 = '';
+    if (importMode === 'upload') {
+      if (!importFileBase64) {
+        onError('请选择要导入的 zip 包。');
+        return;
+      }
+      contentBase64 = importFileBase64;
+    } else {
+      if (!importText.trim()) {
+        onError('请粘贴要导入的文档内容。');
+        return;
+      }
+      contentBase64 = btoa(unescape(encodeURIComponent(importText)));
+    }
+    importBusy = true;
+    onError('');
+    try {
+      const result = await api.importSkills({
+        scope_id: scopeId,
+        format: importMode === 'upload' ? 'zip' : importFormat,
+        category: importCategory,
+        content_base64: contentBase64
+      });
+      importResults = result.items;
+      if (result.items.some((item) => item.status !== 'failed')) {
+        await onReload();
+      }
+    } catch (error) {
+      onError(describeError(error, '导入 Skill 失败'));
+    } finally {
+      importBusy = false;
+    }
+  }
+
+  function importStatusLabel(status: string) {
+    if (status === 'imported') return '已导入（草稿）';
+    if (status === 'skipped') return '已跳过（内容相同）';
+    return '失败';
+  }
+  function requestPublish() {
+    if (!selectedVersionId) return;
+    publishConfirmOpen = true;
+  }
+  async function confirmPublish() {
+    publishConfirmOpen = false;
+    await publishVersion();
+  }
 </script>
 
 <section class="skill-page">
@@ -353,6 +446,11 @@
     <div class="skill-header-actions">
       <button class="secondary" type="button" on:click={onReload}
         ><RefreshCw size={15} />刷新</button
+      ><button
+        class="secondary"
+        type="button"
+        on:click={openImport}
+        disabled={!scopeId}><ShieldCheck size={16} aria-hidden="true" />导入</button
       ><button
         class="primary skill-create-button"
         type="button"
@@ -687,7 +785,7 @@
           >{#if selectedVersion?.status !== 'published'}<button
               class="secondary"
               type="button"
-              on:click={publishVersion}
+              on:click={requestPublish}
               disabled={busy || !selectedVersionId}>发布版本</button
             >{/if}<button class="primary" type="button" on:click={startEdit}
             ><Edit3 size={14} />编辑 Skill</button
@@ -762,4 +860,128 @@
       </aside>
     {/if}
   </div>
+
+  {#if publishConfirmOpen}<ModalDialog
+      title="发布前确认"
+      description={`发布“${selectedSkill?.name ?? ''}”v${selectedVersion?.version ?? ''} 前，请完整审查以下正文、工具清单与风险级别。`}
+      confirmLabel="确认发布"
+      busy={busy}
+      onCancel={() => (publishConfirmOpen = false)}
+      onConfirm={confirmPublish}
+    >
+      <div class="skill-import-results">
+        <section class="skill-detail-section">
+          <h3>风险级别</h3>
+          <p>{selectedVersion?.risk_level ?? 'read_only'}</p>
+        </section>
+        <section class="skill-detail-section">
+          <h3>工具清单（{selectedVersion?.tools.length ?? 0}）</h3>
+          <div class="skill-tool-summary">
+            {#each selectedVersion?.tools ?? [] as tool}<span
+                ><Wrench size={12} />{tool.name}</span
+              >{:else}<em>当前版本未声明工具</em>{/each}
+          </div>
+        </section>
+        <section class="skill-detail-section">
+          <h3>正文全文</h3>
+          <div class="skill-body-preview">
+            <pre>{selectedVersion?.manifest.instruction || '暂无正文内容'}</pre>
+          </div>
+        </section>
+      </div>
+    </ModalDialog>{/if}
+
+  {#if importOpen}<ModalDialog
+      title="导入 Skill"
+      description="支持 OpsSeek 导出文档（JSON/YAML/Markdown）、粘贴 SKILL.md 与 Agent Skills zip 包。导入版本一律为草稿，需人工审查后发布。"
+      confirmLabel="导入"
+      confirmForm="skill-import-form"
+      busy={importBusy}
+      onCancel={() => (importOpen = false)}
+    >
+      <form
+        id="skill-import-form"
+        class="skill-editor-form"
+        on:submit|preventDefault={submitImport}
+      >
+        <div class="skill-editor-grid">
+          <FormField label="来源"
+            ><select
+              class="skill-import-select"
+              bind:value={importMode}
+              aria-label="导入来源"
+            >
+              <option value="paste">粘贴文档</option>
+              <option value="upload">上传 zip 包</option>
+            </select></FormField
+          >
+          {#if importMode === 'paste'}
+            <FormField label="格式"
+              ><select
+                class="skill-import-select"
+                bind:value={importFormat}
+                aria-label="文档格式"
+              >
+                <option value="markdown">Markdown（opsseek.skill/v1）</option>
+                <option value="json">JSON</option>
+                <option value="yaml">YAML</option>
+                <option value="skillmd">SKILL.md（Agent Skills）</option>
+              </select></FormField
+            >
+          {:else}
+            <FormField label="zip 包（≤10MB，含 SKILL.md 目录）"
+              ><input
+                class="skill-import-file"
+                type="file"
+                accept=".zip"
+                on:change={onImportFileChange}
+              /></FormField
+            >
+          {/if}
+        </div>
+        {#if importMode === 'paste'}
+          <FormField label="文档内容" required
+            ><TextArea
+              bind:value={importText}
+              rows={12}
+              spellcheck={false}
+              placeholder={importFormat === 'skillmd'
+                ? '---\nname: my-skill\ndescription: ...\n---\n正文…'
+                : 'api_version: opsseek.skill/v1 …'}
+          /></FormField>
+        {:else if importFileName}
+          <p class="skill-import-file-name">已选择：{importFileName}</p>
+        {/if}
+        <FormField label="类别（SKILL.md / zip 导入时使用）"
+          ><select
+            class="skill-import-select"
+            bind:value={importCategory}
+            aria-label="技能类别"
+          >
+            {#each Object.entries(categoryLabels) as [key, label]}
+              <option value={key}>{label}</option>
+            {/each}
+          </select></FormField
+        >
+        {#if importResults.length}
+          <div class="skill-import-results">
+            <h4>导入结果</h4>
+            {#each importResults as item}
+              <article class="skill-import-result" data-status={item.status}>
+                <header>
+                  <strong>{item.identifier || '未命名'}</strong>
+                  <span>{importStatusLabel(item.status)}</span>
+                </header>
+                {#if item.error}<p class="skill-import-error">{item.error}</p>{/if}
+                {#if item.warnings?.length}
+                  <ul class="skill-import-warnings">
+                    {#each item.warnings as warning}<li>{warning}</li>{/each}
+                  </ul>
+                {/if}
+              </article>
+            {/each}
+          </div>
+        {/if}
+      </form>
+    </ModalDialog>{/if}
 </section>

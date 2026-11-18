@@ -404,6 +404,7 @@ export interface SkillVersion {
     name: string;
     description: string;
     instruction: string;
+    version?: string;
   };
   input_schema: Record<string, unknown>;
   output_schema: Record<string, unknown>;
@@ -414,8 +415,20 @@ export interface SkillVersion {
   }>;
   risk_level: string;
   status: string;
+  source_type?: string;
+  source_digest?: string;
   created_at: string;
   published_at?: string;
+}
+
+export interface SkillImportItem {
+  status: 'imported' | 'skipped' | 'failed';
+  identifier: string;
+  skill_id?: string;
+  version_id?: string;
+  source_digest?: string;
+  warnings?: string[];
+  error?: string;
 }
 
 export interface PersonaVersion {
@@ -1336,6 +1349,13 @@ export const api = {
   }) => request<AIConnectionResult>('api/v1/providers/test-draft', json(body)),
   skillVersions: (skillId: string) =>
     request<SkillVersion[]>(`api/v1/skills/${skillId}/versions`),
+  importSkills: (body: {
+    scope_id: string;
+    format: string;
+    category?: string;
+    content_base64: string;
+  }) =>
+    request<{ items: SkillImportItem[] }>('api/v1/skills/import', json(body)),
   createSkillVersion: (skillId: string, body: Record<string, unknown>) =>
     request<SkillVersion>(`api/v1/skills/${skillId}/versions`, json(body)),
   publishSkillVersion: (skillId: string, versionId: string) =>

@@ -70,6 +70,10 @@ type Manifest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Instruction string `json:"instruction"`
+	// Version carries the portable document's semantic version for imported
+	// Skills so re-imports can be rejected on exact string matches. Built-in
+	// and manually authored versions leave it empty.
+	Version string `json:"version,omitempty"`
 }
 
 type Version struct {
@@ -82,6 +86,8 @@ type Version struct {
 	Tools        []ToolSpec      `json:"tools"`
 	RiskLevel    string          `json:"risk_level"`
 	Status       string          `json:"status"`
+	SourceType   string          `json:"source_type"`
+	SourceDigest string          `json:"source_digest,omitempty"`
 	CreatedBy    *string         `json:"created_by,omitempty"`
 	CreatedAt    time.Time       `json:"created_at"`
 	PublishedAt  *time.Time      `json:"published_at,omitempty"`
@@ -95,6 +101,12 @@ type CreateVersionInput struct {
 	Tools        []ToolSpec
 	RiskLevel    string
 	CreatedBy    string
+	// SourceType records how the version entered the system (builtin/imported/
+	// manual); SourceDigest is the SHA-256 of the imported payload and powers
+	// import idempotency together with the partial unique index from migration
+	// 0006. Both stay empty for the legacy manual creation path.
+	SourceType   string
+	SourceDigest string
 }
 
 type Default struct {
