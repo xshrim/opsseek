@@ -11,8 +11,11 @@ func TestLoadOrdersEmbeddedMigrations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load() error = %v", err)
 	}
-	if len(items) != 5 {
-		t.Fatalf("load() returned %d migrations, want the initial baseline and four forward migrations", len(items))
+	if len(items) != 6 {
+		t.Fatalf("load() returned %d migrations, want the initial baseline and five forward migrations", len(items))
+	}
+	if items[3].version != 4 || items[3].name != "engine_runtime" {
+		t.Fatalf("unexpected engine runtime migration: %#v", items[3])
 	}
 	if items[0].version != 1 || items[0].name != "initial" {
 		t.Fatalf("loaded migration = %#v, want version 1 initial", items[0])

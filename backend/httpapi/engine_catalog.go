@@ -22,19 +22,25 @@ type engineCatalogService interface {
 }
 
 type createEngineRequest struct {
-	ScopeID     string         `json:"scope_id"`
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Icon        string         `json:"icon"`
-	Config      map[string]any `json:"config"`
-	Status      string         `json:"status"`
+	ScopeID        string         `json:"scope_id"`
+	Name           string         `json:"name"`
+	Description    string         `json:"description"`
+	Icon           string         `json:"icon"`
+	Config         map[string]any `json:"config"`
+	Status         string         `json:"status"`
+	RuntimeKind    string         `json:"runtime_kind"`
+	RuntimeVersion string         `json:"runtime_version"`
+	Experimental   bool           `json:"experimental"`
 }
 type updateEngineRequest struct {
-	Name        *string         `json:"name"`
-	Description *string         `json:"description"`
-	Icon        *string         `json:"icon"`
-	Config      *map[string]any `json:"config"`
-	Status      *string         `json:"status"`
+	Name           *string         `json:"name"`
+	Description    *string         `json:"description"`
+	Icon           *string         `json:"icon"`
+	Config         *map[string]any `json:"config"`
+	Status         *string         `json:"status"`
+	RuntimeKind    *string         `json:"runtime_kind"`
+	RuntimeVersion *string         `json:"runtime_version"`
+	Experimental   *bool           `json:"experimental"`
 }
 type engineBindingRequest struct {
 	EngineID string `json:"engine_id"`
@@ -75,7 +81,7 @@ func registerEngineCatalogRoutes(router chi.Router, service engineCatalogService
 		if !decodeRequest(w, r, &body) {
 			return
 		}
-		item, err := service.Create(r.Context(), engine.EngineInput{ScopeID: body.ScopeID, Name: body.Name, Description: body.Description, Icon: body.Icon, Config: body.Config, Status: body.Status})
+		item, err := service.Create(r.Context(), engine.EngineInput{ScopeID: body.ScopeID, Name: body.Name, Description: body.Description, Icon: body.Icon, Config: body.Config, Status: body.Status, RuntimeKind: body.RuntimeKind, RuntimeVersion: body.RuntimeVersion, Experimental: body.Experimental})
 		if err != nil {
 			writeAIError(w, r, err)
 			return
@@ -87,7 +93,7 @@ func registerEngineCatalogRoutes(router chi.Router, service engineCatalogService
 		if !decodeRequest(w, r, &body) {
 			return
 		}
-		item, err := service.Update(r.Context(), chi.URLParam(r, "engineID"), engine.EnginePatch{Name: body.Name, Description: body.Description, Icon: body.Icon, Config: body.Config, Status: body.Status})
+		item, err := service.Update(r.Context(), chi.URLParam(r, "engineID"), engine.EnginePatch{Name: body.Name, Description: body.Description, Icon: body.Icon, Config: body.Config, Status: body.Status, RuntimeKind: body.RuntimeKind, RuntimeVersion: body.RuntimeVersion, Experimental: body.Experimental})
 		if err != nil {
 			writeAIError(w, r, err)
 			return

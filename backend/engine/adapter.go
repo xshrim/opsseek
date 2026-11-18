@@ -148,6 +148,10 @@ type AdapterRequest struct {
 	Stream        bool         `json:"stream,omitempty"`
 	// Model describes the selected provider model in framework-neutral terms.
 	Model ModelDescription `json:"model,omitempty"`
+	// Credential is the additive (I008 C1-3), one-shot provider credential for
+	// this execution. It is never serialized, logged or audited; adapters that
+	// need a provider client inject it into their runtime exactly once.
+	Credential ModelCredential `json:"-"`
 }
 
 // Validate checks the invariants an adapter request must satisfy before an

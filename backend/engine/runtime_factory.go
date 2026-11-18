@@ -10,13 +10,39 @@ import (
 const DefaultAdapterID = ADKAdapterID
 
 // DefaultAdapterRegistry returns the registry holding every runtime adapter
-// compiled into this binary.
+// compiled into this binary. The Pi subprocess adapter is registered only when
+// its feature flag is enabled (OPSK_ENABLE_PI_RUNTIME=1, I008 C1-4); with the
+// flag off the Pi layer is entirely disabled and the registry is identical to
+// the pre-I008-M3 rollout (NFR-004).
 func DefaultAdapterRegistry(buildModel ModelBuilder) (*AdapterRegistry, error) {
 	registry := NewAdapterRegistry()
 	if err := registry.Register(NewADKAdapter(buildModel)); err != nil {
 		return nil, fmt.Errorf("register adk engine adapter: %w", err)
 	}
+	if PiRuntimeEnabled() {
+		// Startup orphan sweep (FR-013): any process group left registered by a
+		// previous crashed process is force-killed before new work starts.
+		ReapPiOrphans()
+		if err := registry.Register(NewPiAdapter(PiProcessDefaults())); err != nil {
+			return nil, fmt.Errorf("register pi engine adapter: %w", err)
+		}
+	}
 	return registry, nil
+}
+
+// ExperimentalAdapter reports whether the adapter is registered behind an
+// explicit feature flag and must never become a scenario default runtime.
+type ExperimentalAdapter interface {
+	Experimental() bool
+}
+
+// AdapterIsExperimental reports whether the given adapter declared itself
+// experimental.
+func AdapterIsExperimental(adapter EngineAdapter) bool {
+	if experimental, ok := adapter.(ExperimentalAdapter); ok {
+		return experimental.Experimental()
+	}
+	return false
 }
 
 // RunnerProvider lets an adapter expose the platform Runner implementation the

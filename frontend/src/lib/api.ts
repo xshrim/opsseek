@@ -371,6 +371,9 @@ export interface EngineCatalogItem {
   icon: string;
   config: Record<string, unknown>;
   status: string;
+  runtime_kind: string;
+  runtime_version?: string;
+  experimental?: boolean;
   tags?: string[];
 }
 
@@ -1443,6 +1446,9 @@ export const api = {
     icon?: string;
     config?: Record<string, unknown>;
     status?: string;
+    runtime_kind?: string;
+    runtime_version?: string;
+    experimental?: boolean;
   }) =>
     request<EngineCatalogItem>('api/v1/engines', {
       method: 'POST',
@@ -1456,6 +1462,9 @@ export const api = {
       icon?: string;
       config?: Record<string, unknown>;
       status?: string;
+      runtime_kind?: string;
+      runtime_version?: string;
+      experimental?: boolean;
     }
   ) =>
     request<EngineCatalogItem>(`api/v1/engines/${encodeURIComponent(id)}`, {
