@@ -283,7 +283,8 @@
               )}
               placeholder="选择专家"
               ariaLabel="成员专家"
-              onChange={(value: string) => {
+              on:change={(event) => {
+                const value = event.detail as string;
                 memberRows[index] = { ...row, persona_id: value };
                 memberRows = memberRows;
               }}
@@ -295,11 +296,9 @@
                 { value: 'assistant', label: '辅诊 assistant' }
               ]}
               ariaLabel="席位"
-              onChange={(value: string) => {
-                memberRows[index] = {
-                  ...row,
-                  seat: value as ExpertGroupMember['seat']
-                };
+              on:change={(event) => {
+                const value = event.detail as ExpertGroupMember['seat'];
+                memberRows[index] = { ...row, seat: value };
                 memberRows = memberRows;
               }}
             />
@@ -313,7 +312,8 @@
               multiple
               placeholder="全部场景"
               ariaLabel="生效场景"
-              onChange={(value: string[]) => {
+              on:change={(event) => {
+                const value = event.detail as string[];
                 memberRows[index] = { ...row, scene_tags: value };
                 memberRows = memberRows;
               }}

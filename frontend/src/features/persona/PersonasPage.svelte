@@ -1,6 +1,5 @@
 <script lang="ts">
   import Tabs from '../../components/Tabs.svelte';
-  // @ts-expect-error Svelte component without type declarations
   import ExpertGroupsPanel from './ExpertGroupsPanel.svelte';
   import FormActions from '../../components/FormActions.svelte';
   import ModalDialog from '../../components/ModalDialog.svelte';
