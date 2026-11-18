@@ -4,12 +4,14 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"opsseek/backend/skill"
 )
 
 func TestDefinitionsAreReadOnlyAndBounded(t *testing.T) {
 	items := Definitions()
-	if len(items) != 9 {
-		t.Fatalf("definition count = %d, want 9", len(items))
+	if len(items) != 10 {
+		t.Fatalf("definition count = %d, want 10", len(items))
 	}
 	for _, item := range items {
 		if item.Key == "" || item.Manifest.Instruction == "" || len(item.Tools) == 0 || item.Capability == "" || item.Timeout <= 0 {
@@ -18,9 +20,29 @@ func TestDefinitionsAreReadOnlyAndBounded(t *testing.T) {
 		if len(strings.Fields(item.Manifest.Name)) != 1 {
 			t.Fatalf("definition %q has whitespace in its name", item.Key)
 		}
+		if len(item.OutputSchema) == 0 {
+			t.Fatalf("definition %q has no output schema", item.Key)
+		}
 		for _, tool := range item.Tools {
 			if len(tool.InputSchema) == 0 {
 				t.Fatalf("%s has tool without schema", item.Key)
+			}
+		}
+	}
+}
+
+// TestDefinitionToolsAreWhitelisted keeps the builtin declarations aligned
+// with the platform tool whitelist, which is itself derived from the
+// backend/tool registries.
+func TestDefinitionToolsAreWhitelisted(t *testing.T) {
+	allowed := make(map[string]struct{})
+	for _, name := range skill.AllowedTools() {
+		allowed[name] = struct{}{}
+	}
+	for _, item := range Definitions() {
+		for _, tool := range item.Tools {
+			if _, ok := allowed[tool.Name]; !ok {
+				t.Fatalf("definition %q declares non-whitelisted tool %q", item.Key, tool.Name)
 			}
 		}
 	}
