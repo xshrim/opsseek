@@ -2,7 +2,7 @@
 
 **迭代编号：** I008
 **目录标识：** I008-engine-runtime-pi
-**状态：** 已批准（待实施）
+**状态：** 实施完成（待运行环境验收）
 **计划开始：** 2026-11-18
 **计划封板：** 待定
 
@@ -68,7 +68,7 @@
 
 | 需求 | 名称 | 任务 | 状态 | 需求文档 | 验收报告 |
 |---|---|---:|---|---|---|
-| R001 | Runtime Adapter 契约与 Pi 集成方案 | 已分解（A2/B3/C1，见 §9） | 已批准 | [R001-requirement.md](R001-requirement.md) | 待补充 |
+| R001 | Runtime Adapter 契约与 Pi 集成方案 | 已分解（A2/B3/C1，见 §9） | 实施完成 | [R001-requirement.md](R001-requirement.md) | [R001-requirement-acceptance.md](R001-requirement-acceptance.md) |
 
 ## 8. 裁定记录
 

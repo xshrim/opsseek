@@ -2,7 +2,7 @@
 
 **迭代编号：** I009
 **目录标识：** I009-expert-groups
-**状态：** 已批准（待实施）
+**状态：** 实施完成（待运行环境验收）
 **计划开始：** 2026-11-18
 **计划封板：** 待定
 
@@ -34,7 +34,7 @@
 
 | 需求 | 名称 | 任务 | 状态 | 需求文档 | 验收报告 |
 |---|---|---|---|---|---|
-| R001 | 专家组领域与应用绑定 | T01-T06 | 已批准（待实施） | [R001-requirement.md](R001-requirement.md) | 待补充 |
+| R001 | 专家组领域与应用绑定 | T01-T06 | 实施完成 | [R001-requirement.md](R001-requirement.md) | [R001-requirement-acceptance.md](R001-requirement-acceptance.md) |
 
 ## 5. 任务和依赖
 

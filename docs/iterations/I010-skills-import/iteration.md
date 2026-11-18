@@ -2,7 +2,7 @@
 
 **迭代编号：** I010  
 **目录标识：** I010-skills-import  
-**状态：** 已批准（待实施）——设计评审（[R001-design-review.md](R001-design-review.md)，2026-11-18）阻塞项 B1-B3 已返修合入，裁定记录见 §9  
+**状态：** 实施完成（待运行环境验收）——设计评审（[R001-design-review.md](R001-design-review.md)，2026-11-18）阻塞项 B1-B3 已返修合入，裁定记录见 §9  
 **计划开始：** 2026-11-18  
 **计划封板：** 待定
 
@@ -45,7 +45,7 @@
 
 | 需求 | 名称 | 任务 | 状态 | 需求文档 | 验收报告 |
 |---|---|---|---|---|---|
-| R001 | Skills 导入与技能库整理 | A1-1~A1-3、A2-1、B2-1~B2-5 | 已批准（待实施） | [R001-requirement.md](R001-requirement.md) | 待补充 |
+| R001 | Skills 导入与技能库整理 | A1-1~A1-3、A2-1、B2-1~B2-5 | 实施完成 | [R001-requirement.md](R001-requirement.md) | [R001-requirement-acceptance.md](R001-requirement-acceptance.md) |
 
 ## 5. 任务和依赖
 
