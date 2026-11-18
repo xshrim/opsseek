@@ -227,7 +227,15 @@ func run(logger *slog.Logger, cfg config.Config) error {
 		}
 		return engine.ModelBuildResult{Client: client, ProviderID: resolved.Provider.ID, ModelName: resolved.Model.Name, Capabilities: resolved.Model.Capabilities, ContextWindowTokens: resolved.Model.ContextWindowTokens, MaxOutputTokens: resolved.Model.MaxOutputTokens, Temperature: resolved.Model.Temperature}, nil
 	}
-	engineRuntime := engine.NewWithContextAndStore(engine.NewAgentRunner(modelBuilder), contextTooling.Resolver, contextTooling.Gateway, aiStore).
+	adapterRegistry, registryErr := engine.DefaultAdapterRegistry(modelBuilder)
+	if registryErr != nil {
+		return errors.Join(errors.New("register engine runtime adapters"), registryErr)
+	}
+	engineRunner, runtimeAdapter, runtimeFallbackNote := engine.ResolveEngineRunner(adapterRegistry, cfg.EngineRuntimeKind, modelBuilder)
+	if runtimeFallbackNote != "" {
+		logger.Warn("engine runtime configuration fell back to default", "kind", "configuration", "requested", cfg.EngineRuntimeKind, "runtime", runtimeAdapter.ID(), "detail", runtimeFallbackNote)
+	}
+	engineRuntime := engine.NewWithContextAndStore(engineRunner, contextTooling.Resolver, contextTooling.Gateway, aiStore).
 		WithPersonaResolver(personaResolver).
 		WithPlanResolver(skillService)
 	engineCatalog := engine.NewCatalogService(engine.NewCatalogStore(pool))

@@ -102,7 +102,16 @@ func main() {
 		}
 		return engine.ModelBuildResult{Client: client, ProviderID: resolved.Provider.ID, ModelName: resolved.Model.Name, Capabilities: resolved.Model.Capabilities, ContextWindowTokens: resolved.Model.ContextWindowTokens, MaxOutputTokens: resolved.Model.MaxOutputTokens, Temperature: resolved.Model.Temperature}, nil
 	}
-	engineRuntime := engine.NewWithContextAndStore(engine.NewAgentRunner(modelBuilder), contextTooling.Resolver, contextTooling.Gateway, aiStore).
+	adapterRegistry, registryErr := engine.DefaultAdapterRegistry(modelBuilder)
+	if registryErr != nil {
+		logger.Error("register engine runtime adapters", "kind", "error", "error_type", "engine-runtime", "error", registryErr)
+		os.Exit(1)
+	}
+	engineRunner, runtimeAdapter, runtimeFallbackNote := engine.ResolveEngineRunner(adapterRegistry, cfg.EngineRuntimeKind, modelBuilder)
+	if runtimeFallbackNote != "" {
+		logger.Warn("engine runtime configuration fell back to default", "kind", "configuration", "requested", cfg.EngineRuntimeKind, "runtime", runtimeAdapter.ID(), "detail", runtimeFallbackNote)
+	}
+	engineRuntime := engine.NewWithContextAndStore(engineRunner, contextTooling.Resolver, contextTooling.Gateway, aiStore).
 		WithPersonaResolver(personaResolver).
 		WithPlanResolver(skillService)
 	worker := inspection.NewWorker(store, connectorChecker{resources: resourceService, service: connectors}, inspectionExplainer{engine: engineRuntime, store: store, applications: applicationService}, serviceName+":"+hostname(), cfg.InspectionLeaseDuration)

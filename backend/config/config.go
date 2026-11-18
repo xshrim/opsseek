@@ -72,6 +72,9 @@ type Config struct {
 	StorageS3UseSSL               bool
 	StorageS3Provider             string
 	RepositoryMaxBundleBytes      int64
+	// EngineRuntimeKind selects the engine runtime adapter. Unknown values fall
+	// back to the default adapter at wiring time with a logged trace.
+	EngineRuntimeKind string
 }
 
 func Load() (Config, error) {
@@ -101,6 +104,7 @@ func Load() (Config, error) {
 		StorageS3AccessKey:   strings.TrimSpace(os.Getenv("OPSK_STORAGE_S3_ACCESS_KEY")),
 		StorageS3SecretKey:   strings.TrimSpace(os.Getenv("OPSK_STORAGE_S3_SECRET_KEY")),
 		StorageS3Provider:    envOrDefault("OPSK_STORAGE_S3_PROVIDER", "minio"),
+		EngineRuntimeKind:    envOrDefault("OPSK_ENGINE_RUNTIME", "adk"),
 	}
 	var databaseErr error
 	cfg.DatabaseURL, databaseErr = databaseURLFromEnv()
