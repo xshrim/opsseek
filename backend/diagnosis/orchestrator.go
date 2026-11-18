@@ -13,6 +13,7 @@ import (
 
 	"opsseek/backend/application"
 	"opsseek/backend/engine"
+	"opsseek/backend/expertgroup"
 )
 
 type Orchestrator struct {
@@ -27,6 +28,54 @@ type Orchestrator struct {
 
 // This is shared by the main agent and every child agent in one diagnosis run.
 const diagnosisMaxToolCalls = 256
+
+// ExpertGroupSnapshot decodes the frozen expert group member snapshot.
+func ExpertGroupSnapshot(session Session) (expertgroup.Snapshot, error) {
+	if len(session.ExpertGroupSnapshot) == 0 || session.ExpertGroupID == "" {
+		return expertgroup.Snapshot{}, nil
+	}
+	var snapshot expertgroup.Snapshot
+	if err := json.Unmarshal(session.ExpertGroupSnapshot, &snapshot); err != nil {
+		return expertgroup.Snapshot{}, invalid("expert group snapshot is invalid")
+	}
+	return snapshot, nil
+}
+
+// ExpertGroupSnapshotLead returns the frozen lead persona id, or "".
+func (s Session) ExpertGroupSnapshotLead() string {
+	snapshot, err := ExpertGroupSnapshot(s)
+	if err != nil || snapshot.Lead.PersonaID == "" {
+		return ""
+	}
+	return snapshot.Lead.PersonaID
+}
+
+// expertGroupExperts resolves the frozen assistant personas for the session.
+// An explicit per-turn persona still wins in the engine request; the group
+// experts are only injected when no persona overrides this round.
+func (o *Orchestrator) expertGroupExperts(ctx context.Context, session Session, resolver interface {
+	ResolvePersona(context.Context, string, string) (engine.Persona, error)
+}, hasResolver bool) ([]engine.Persona, error) {
+	if session.ExpertGroupID == "" {
+		return nil, nil
+	}
+	snapshot, err := ExpertGroupSnapshot(session)
+	if err != nil {
+		return nil, err
+	}
+	if !hasResolver {
+		return nil, invalid("persona resolver is unavailable")
+	}
+	experts := make([]engine.Persona, 0, len(snapshot.Assistants))
+	for _, member := range snapshot.Assistants {
+		profile, resolveErr := resolver.ResolvePersona(ctx, session.ScopeID, member.PersonaID)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		experts = append(experts, profile)
+	}
+	return experts, nil
+}
 
 type diagnosticScopeContextReader interface {
 	DiagnosticScopeContext(context.Context, string) (application.DiagnosticScopeContext, error)
@@ -414,7 +463,7 @@ func (o *Orchestrator) run(ctx context.Context, sessionID string) {
 			}
 		}
 	}
-	result, err := o.engine.Execute(ctx, engine.Request{ExecutionID: diagnosisExecutionID(session.ID), ActorID: dereference(session.ActorUserID), ScopeID: session.ScopeID, ProviderID: session.ProviderID, ModelName: session.ModelName, Purpose: engine.PurposeDiagnosis, Profile: engine.ProfileInteractive, Instruction: instruction, Messages: engineMessages, Context: engine.ContextRequest{ResourceIDs: targetIDs, ResourceBindings: buildApplicationResourceBindings(session.ApplicationContext)}, LocatorHints: buildApplicationLocatorHints(session.ApplicationContext), SkillID: latestMessage.SkillID, PersonaID: latestMessage.PersonaID, Input: input, InternalTools: scopeTools, Budget: engine.Budget{MaxIterations: 100, MaxToolCalls: diagnosisMaxToolCalls, MaxTokens: 1000000, MaxOutputBytes: 64 << 10, Timeout: o.timeout, NoExecutionTimeout: o.timeout <= 0}, Stream: true, EventSink: func(event engine.Event) error {
+	result, err := o.engine.Execute(ctx, engine.Request{ExecutionID: diagnosisExecutionID(session.ID), ActorID: dereference(session.ActorUserID), ScopeID: session.ScopeID, ProviderID: session.ProviderID, ModelName: session.ModelName, Purpose: engine.PurposeDiagnosis, Profile: engine.ProfileInteractive, Instruction: instruction, Messages: engineMessages, Context: engine.ContextRequest{ResourceIDs: targetIDs, ResourceBindings: buildApplicationResourceBindings(session.ApplicationContext)}, LocatorHints: buildApplicationLocatorHints(session.ApplicationContext), SkillID: latestMessage.SkillID, PersonaID: latestMessage.PersonaID, ExpertGroupID: session.ExpertGroupID, Input: input, InternalTools: scopeTools, Budget: engine.Budget{MaxIterations: 100, MaxToolCalls: diagnosisMaxToolCalls, MaxTokens: 1000000, MaxOutputBytes: 64 << 10, Timeout: o.timeout, NoExecutionTimeout: o.timeout <= 0}, Stream: true, EventSink: func(event engine.Event) error {
 		if event.Type == "assistant.delta" {
 			if text, ok := event.Payload["text"].(string); ok && text != "" {
 				assistantMu.Lock()

@@ -167,6 +167,7 @@ type Request struct {
 	SkillID        string          `json:"skill_id,omitempty"`
 	SkillVersionID string          `json:"skill_version_id,omitempty"`
 	PersonaID      string          `json:"persona_id,omitempty"`
+	ExpertGroupID  string          `json:"expert_group_id,omitempty"`
 	WorkflowID     string          `json:"workflow_id,omitempty"`
 	Instruction    string          `json:"instruction,omitempty"`
 	InputSchema    json.RawMessage `json:"input_schema,omitempty"`
@@ -212,6 +213,7 @@ func (r *Request) Normalize() error {
 	r.SkillID = strings.TrimSpace(r.SkillID)
 	r.SkillVersionID = strings.TrimSpace(r.SkillVersionID)
 	r.PersonaID = strings.TrimSpace(r.PersonaID)
+	r.ExpertGroupID = strings.TrimSpace(r.ExpertGroupID)
 	r.WorkflowID = strings.TrimSpace(r.WorkflowID)
 	if r.ScopeID == "" {
 		return &ValidationError{Message: "scope_id is required"}

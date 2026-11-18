@@ -31,6 +31,7 @@ type Policy struct {
 	TargetApplicationIDs []string            `json:"target_application_ids"`
 	TargetLabels         map[string]string   `json:"target_labels"`
 	PersonaID            string              `json:"persona_id,omitempty"`
+	ExpertGroupID        string              `json:"expert_group_id,omitempty"`
 	Timeout              time.Duration       `json:"timeout"`
 	TimeoutSeconds       int                 `json:"timeout_seconds"`
 	Retries              int                 `json:"retries"`

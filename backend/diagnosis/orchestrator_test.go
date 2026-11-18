@@ -687,6 +687,9 @@ func (s *recordingStore) SetCollaboration(_ context.Context, _ string, value int
 	s.session.Collaboration = value
 	return s.session, nil
 }
+func (*recordingStore) SetExpertGroupSnapshot(context.Context, string, string, json.RawMessage) error {
+	return nil
+}
 func (*recordingStore) Delete(context.Context, string) error                { return nil }
 func (s *recordingStore) Targets(context.Context, string) ([]Target, error) { return s.targets, nil }
 func (s *recordingStore) AddTarget(context.Context, string, string) (Target, error) {

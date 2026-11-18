@@ -1,5 +1,7 @@
 <script lang="ts">
   import Tabs from '../../components/Tabs.svelte';
+  // @ts-expect-error Svelte component without type declarations
+  import ExpertGroupsPanel from './ExpertGroupsPanel.svelte';
   import FormActions from '../../components/FormActions.svelte';
   import ModalDialog from '../../components/ModalDialog.svelte';
   import {
@@ -51,6 +53,7 @@
   let profileInputSchema = '{"type":"object","additionalProperties":true}';
   let profileOutputSchema = '{"type":"object","additionalProperties":true}';
   let detailTab: 'overview' | 'versions' | 'contract' = 'overview';
+  let pageTab: 'library' | 'groups' = 'library';
   let editorOpen = false;
   let busy = false;
   let loading = false;
@@ -358,6 +361,24 @@
 </script>
 
 <section class="persona-page">
+  <Tabs
+    className="persona-page-tabs"
+    value={pageTab}
+    ariaLabel="专家管理"
+    items={[
+      { value: 'library', label: '专家库' },
+      { value: 'groups', label: '专家组' }
+    ]}
+    onChange={(value) => (pageTab = value as typeof pageTab)}
+  />
+  {#if pageTab === 'groups'}
+    <ExpertGroupsPanel
+      scopeId={scopeId}
+      {profiles}
+      onNotice={(message: string) => onNotice(message)}
+      onError={(message: string) => onError(message)}
+    />
+  {:else}
   <header class="persona-page-header">
     <div>
       <div class="persona-title">
@@ -851,4 +872,5 @@
           </form>
         </ModalDialog>{/if}
     </aside>{/if}
+  {/if}
 </section>

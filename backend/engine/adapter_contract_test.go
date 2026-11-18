@@ -26,7 +26,7 @@ func TestContractRequestSerializationWhitelist(t *testing.T) {
 	requestFieldWhitelist := []string{
 		"execution_id", "actor_id", "scope_id", "purpose", "provider_id",
 		"model_name", "profile", "task", "messages", "input", "context",
-		"skill_id", "skill_version_id", "persona_id", "workflow_id",
+		"skill_id", "skill_version_id", "persona_id", "expert_group_id", "workflow_id",
 		"instruction", "input_schema", "output_schema", "allowed_tools",
 		"restrict_tools", "requirements", "budget", "stream",
 	}
@@ -41,7 +41,7 @@ func TestContractRequestSerializationWhitelist(t *testing.T) {
 		Purpose: PurposeDiagnosis, ProviderID: "provider-1", ModelName: "model-a",
 		Profile: ProfileDiagnosis, Task: "inspect", Messages: []Message{{Role: "user", Content: "hi"}},
 		Input:   map[string]any{"key": "value"},
-		SkillID: "skill-1", SkillVersionID: "v1", PersonaID: "persona-1", WorkflowID: "wf-1",
+		SkillID: "skill-1", SkillVersionID: "v1", PersonaID: "persona-1", ExpertGroupID: "group-1", WorkflowID: "wf-1",
 		Instruction: "instruction", InputSchema: json.RawMessage(`{}`), OutputSchema: json.RawMessage(`{}`),
 		AllowedTools: []string{"tool-a"}, RestrictTools: true,
 		Requirements: Requirements{Capabilities: []string{"tool_calling"}, Streaming: true, StructuredOut: true},

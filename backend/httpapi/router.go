@@ -31,6 +31,7 @@ type Options struct {
 	LLMs                     llmService
 	Skills                   skillService
 	Personas                 personaService
+	ExpertGroups             expertGroupService
 	Engine                   engine.Engine
 	EngineCatalog            engineCatalogService
 	EngineEvents             engine.EventStore
@@ -132,6 +133,7 @@ func NewRouter(logger *slog.Logger, healthService *health.Service, build version
 					connectionChecks = recorder
 				}
 				registerAIRoutes(aiRouter, options.LLMs, options.Skills, options.Personas, options.Authorization, options.Auditor, connectionChecks, requirePermission)
+				registerExpertGroupRoutes(aiRouter, options.ExpertGroups, options.Applications, requirePermission)
 				registerEngineCatalogRoutes(aiRouter, options.EngineCatalog, requirePermission)
 				registerEngineRoutes(aiRouter, options.Engine, requirePermission)
 				registerEngineEventRoutes(aiRouter, options.EngineEvents, requirePermission)

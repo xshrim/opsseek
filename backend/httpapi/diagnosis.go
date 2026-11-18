@@ -70,6 +70,7 @@ type startDiagnosisRequest struct {
 	ModelName         string                 `json:"model_name,omitempty"`
 	SkillID           string                 `json:"skill_id,omitempty"`
 	PersonaID         string                 `json:"persona_id,omitempty"`
+	ExpertGroupID     string                 `json:"expert_group_id,omitempty"`
 	Links             []string               `json:"links,omitempty"`
 	Attachments       []diagnosis.Attachment `json:"attachments,omitempty"`
 	ScopeShared       bool                   `json:"scope_shared"`
@@ -83,11 +84,12 @@ type addDiagnosisTargetRequest struct {
 	ResourceID string `json:"resource_id"`
 }
 type askDiagnosisRequest struct {
-	Content     string                 `json:"content"`
-	SkillID     string                 `json:"skill_id,omitempty"`
-	PersonaID   string                 `json:"persona_id,omitempty"`
-	Links       []string               `json:"links,omitempty"`
-	Attachments []diagnosis.Attachment `json:"attachments,omitempty"`
+	Content       string                 `json:"content"`
+	SkillID       string                 `json:"skill_id,omitempty"`
+	PersonaID     string                 `json:"persona_id,omitempty"`
+	ExpertGroupID string                 `json:"expert_group_id,omitempty"`
+	Links         []string               `json:"links,omitempty"`
+	Attachments   []diagnosis.Attachment `json:"attachments,omitempty"`
 }
 
 func registerDiagnosisRoutes(router chi.Router, service diagnosisService, auditor audit.Logger, requirePermission func(authorization.Permission) func(http.Handler) http.Handler) {
@@ -187,7 +189,7 @@ func (h diagnosisHandler) start(w http.ResponseWriter, r *http.Request) {
 	if !decodeRequest(w, r, &body) {
 		return
 	}
-	item, err := h.service.Start(r.Context(), diagnosis.StartInput{Collaboration: body.Collaboration, ScopeID: body.ScopeID, ApplicationID: body.ApplicationID, ApplicationIDs: body.ApplicationIDs, ActorUserID: currentUser(r).ID, Title: body.Title, Question: body.Question, TargetResourceIDs: body.TargetResourceIDs, ProviderID: body.ProviderID, ModelName: body.ModelName, SkillID: body.SkillID, PersonaID: body.PersonaID, Links: body.Links, Attachments: body.Attachments, ScopeShared: body.ScopeShared})
+	item, err := h.service.Start(r.Context(), diagnosis.StartInput{Collaboration: body.Collaboration, ScopeID: body.ScopeID, ApplicationID: body.ApplicationID, ApplicationIDs: body.ApplicationIDs, ActorUserID: currentUser(r).ID, Title: body.Title, Question: body.Question, TargetResourceIDs: body.TargetResourceIDs, ProviderID: body.ProviderID, ModelName: body.ModelName, SkillID: body.SkillID, PersonaID: body.PersonaID, ExpertGroupID: body.ExpertGroupID, Links: body.Links, Attachments: body.Attachments, ScopeShared: body.ScopeShared})
 	if err != nil {
 		writeDiagnosisError(w, r, err)
 		return
@@ -253,7 +255,7 @@ func (h diagnosisHandler) ask(w http.ResponseWriter, r *http.Request) {
 	if !decodeRequest(w, r, &body) {
 		return
 	}
-	input := diagnosis.AppendMessageInput{Content: body.Content, SkillID: body.SkillID, PersonaID: body.PersonaID, Links: body.Links, Attachments: body.Attachments}
+	input := diagnosis.AppendMessageInput{Content: body.Content, SkillID: body.SkillID, PersonaID: body.PersonaID, ExpertGroupID: body.ExpertGroupID, Links: body.Links, Attachments: body.Attachments}
 	var item diagnosis.Message
 	var err error
 	if asker, ok := h.service.(diagnosisMessageAsker); ok {

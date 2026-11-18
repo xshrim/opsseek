@@ -20,6 +20,7 @@ type Store interface {
 	List(context.Context, string, string, int) ([]Session, error)
 	SetScopeShared(context.Context, string, bool) (Session, error)
 	SetCollaboration(context.Context, string, int) (Session, error)
+	SetExpertGroupSnapshot(context.Context, string, string, json.RawMessage) error
 	Delete(context.Context, string) error
 	Targets(context.Context, string) ([]Target, error)
 	AddTarget(context.Context, string, string) (Target, error)
@@ -92,7 +93,7 @@ func (s *store) Start(ctx context.Context, input StartInput) (Session, error) {
 	if len(applicationIDs) > 0 {
 		input.ApplicationID = applicationIDs[0]
 	}
-	err = tx.QueryRow(ctx, `INSERT INTO diagnosis_sessions (scope_id, application_id, application_ids, actor_user_id, scope_shared, provider_id, model_name, application_context, status, title, collaboration) VALUES ($1::uuid, NULLIF($2, '')::uuid, $3::uuid[], NULLIF($4, '')::uuid, $5, NULLIF($6, '')::uuid, NULLIF($7, ''), $8::jsonb, 'queued', $9, $10) RETURNING id::text`, input.ScopeID, input.ApplicationID, applicationIDs, input.ActorUserID, input.ScopeShared, input.ProviderID, input.ModelName, contextJSON, input.Title, collaborationOrDefault(input.Collaboration)).Scan(&id)
+	err = tx.QueryRow(ctx, `INSERT INTO diagnosis_sessions (scope_id, application_id, application_ids, actor_user_id, scope_shared, provider_id, model_name, application_context, expert_group_id, status, title, collaboration) VALUES ($1::uuid, NULLIF($2, '')::uuid, $3::uuid[], NULLIF($4, '')::uuid, $5, NULLIF($6, '')::uuid, NULLIF($7, ''), $8::jsonb, NULLIF($9, '')::uuid, 'queued', $10, $11) RETURNING id::text`, input.ScopeID, input.ApplicationID, applicationIDs, input.ActorUserID, input.ScopeShared, input.ProviderID, input.ModelName, contextJSON, input.ExpertGroupID, input.Title, collaborationOrDefault(input.Collaboration)).Scan(&id)
 	if err != nil {
 		return Session{}, mapStoreError(err)
 	}
@@ -658,6 +659,20 @@ func (s *store) SetStatus(ctx context.Context, sessionID string, status Status) 
 	return s.Get(ctx, sessionID)
 }
 
+func (s *store) SetExpertGroupSnapshot(ctx context.Context, sessionID, groupID string, snapshot json.RawMessage) error {
+	if len(snapshot) == 0 {
+		snapshot = json.RawMessage(`{}`)
+	}
+	tag, err := s.pool.Exec(ctx, `UPDATE diagnosis_sessions SET expert_group_id = NULLIF($2, '')::uuid, expert_group_snapshot = $3::jsonb, updated_at = now() WHERE id = $1::uuid`, sessionID, groupID, snapshot)
+	if err != nil {
+		return mapStoreError(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (s *store) Reopen(ctx context.Context, sessionID string) (Session, error) {
 	tag, err := s.pool.Exec(ctx, `UPDATE diagnosis_sessions SET status='queued',error_code='',error_message='',completed_at=NULL,lease_owner='',lease_expires_at=NULL,updated_at=now() WHERE id=$1::uuid AND status IN ('succeeded','failed','cancelled')`, sessionID)
 	if err != nil {
@@ -698,14 +713,14 @@ func (s *store) Plan(ctx context.Context, sessionID string) (Plan, error) {
 	return s.plan(ctx, sessionID)
 }
 
-const sessionFields = `id::text, scope_id::text, COALESCE(application_id::text, ''), application_ids::text[], actor_user_id::text, scope_shared, COALESCE(provider_id::text, ''), COALESCE(model_name, ''), application_context, status, title, error_code, error_message, started_at, completed_at, created_at, updated_at, collaboration`
+const sessionFields = `id::text, scope_id::text, COALESCE(application_id::text, ''), application_ids::text[], actor_user_id::text, scope_shared, COALESCE(provider_id::text, ''), COALESCE(model_name, ''), application_context, COALESCE(expert_group_id::text, ''), COALESCE(expert_group_snapshot, '{}'::jsonb), status, title, error_code, error_message, started_at, completed_at, created_at, updated_at, collaboration`
 const sessionSelect = `SELECT ` + sessionFields + ` FROM diagnosis_sessions`
 
 type rowScanner interface{ Scan(...any) error }
 
 func scanSession(row rowScanner) (Session, error) {
 	var item Session
-	if err := row.Scan(&item.ID, &item.ScopeID, &item.ApplicationID, &item.ApplicationIDs, &item.ActorUserID, &item.ScopeShared, &item.ProviderID, &item.ModelName, &item.ApplicationContext, &item.Status, &item.Title, &item.ErrorCode, &item.ErrorMessage, &item.StartedAt, &item.CompletedAt, &item.CreatedAt, &item.UpdatedAt, &item.Collaboration); err != nil {
+	if err := row.Scan(&item.ID, &item.ScopeID, &item.ApplicationID, &item.ApplicationIDs, &item.ActorUserID, &item.ScopeShared, &item.ProviderID, &item.ModelName, &item.ApplicationContext, &item.ExpertGroupID, &item.ExpertGroupSnapshot, &item.Status, &item.Title, &item.ErrorCode, &item.ErrorMessage, &item.StartedAt, &item.CompletedAt, &item.CreatedAt, &item.UpdatedAt, &item.Collaboration); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Session{}, ErrNotFound
 		}

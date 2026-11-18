@@ -18,24 +18,26 @@ const (
 )
 
 type Session struct {
-	Collaboration      int             `json:"collaboration"`
-	ID                 string          `json:"id"`
-	ScopeID            string          `json:"scope_id"`
-	ApplicationID      string          `json:"application_id,omitempty"`
-	ApplicationIDs     []string        `json:"application_ids,omitempty"`
-	ProviderID         string          `json:"provider_id,omitempty"`
-	ModelName          string          `json:"model_name,omitempty"`
-	Title              string          `json:"title"`
-	ErrorCode          string          `json:"error_code"`
-	ErrorMessage       string          `json:"error_message"`
-	ActorUserID        *string         `json:"actor_user_id,omitempty"`
-	ScopeShared        bool            `json:"scope_shared"`
-	Status             Status          `json:"status"`
-	StartedAt          time.Time       `json:"started_at"`
-	CompletedAt        *time.Time      `json:"completed_at,omitempty"`
-	CreatedAt          time.Time       `json:"created_at"`
-	UpdatedAt          time.Time       `json:"updated_at"`
-	ApplicationContext json.RawMessage `json:"-"`
+	Collaboration       int             `json:"collaboration"`
+	ID                  string          `json:"id"`
+	ScopeID             string          `json:"scope_id"`
+	ApplicationID       string          `json:"application_id,omitempty"`
+	ApplicationIDs      []string        `json:"application_ids,omitempty"`
+	ProviderID          string          `json:"provider_id,omitempty"`
+	ModelName           string          `json:"model_name,omitempty"`
+	Title               string          `json:"title"`
+	ErrorCode           string          `json:"error_code"`
+	ErrorMessage        string          `json:"error_message"`
+	ActorUserID         *string         `json:"actor_user_id,omitempty"`
+	ScopeShared         bool            `json:"scope_shared"`
+	Status              Status          `json:"status"`
+	StartedAt           time.Time       `json:"started_at"`
+	CompletedAt         *time.Time      `json:"completed_at,omitempty"`
+	CreatedAt           time.Time       `json:"created_at"`
+	UpdatedAt           time.Time       `json:"updated_at"`
+	ApplicationContext  json.RawMessage `json:"-"`
+	ExpertGroupID       string          `json:"expert_group_id,omitempty"`
+	ExpertGroupSnapshot json.RawMessage `json:"-"`
 }
 
 type Target struct {
@@ -209,6 +211,7 @@ type StartInput struct {
 	ProviderID, ModelName                 string
 	TargetResourceIDs                     []string
 	SkillID, PersonaID                    string
+	ExpertGroupID                         string
 	Links                                 []string
 	Attachments                           []Attachment
 	ApplicationContext                    json.RawMessage
@@ -218,6 +221,7 @@ type StartInput struct {
 type AppendMessageInput struct {
 	Role, Content      string
 	SkillID, PersonaID string
+	ExpertGroupID      string
 	Links              []string
 	Attachments        []Attachment
 }
