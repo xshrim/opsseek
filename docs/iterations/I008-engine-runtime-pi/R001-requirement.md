@@ -1,6 +1,6 @@
 # R001 Runtime Adapter 契约与 Pi 集成方案
 
-**所属迭代：** [I008](iteration.md) | **状态：** 设计评审中
+**所属迭代：** [I008](iteration.md) | **状态：** 已批准（待实施）
 
 ## 1. 现状与问题
 
@@ -52,17 +52,20 @@
 | FR-003 | ADK Adapter 化 | `runner.go` 的 ADK 创建、回调、事件转换迁入 `adk` Adapter；平台层（runtime.go）逻辑不变；行为等价回归全绿 |
 | FR-004 | 框架无关模型入口 | `ModelBuildResult` 扩展统一模型描述（Provider/Model/协议/能力/上下文窗口/输出上限/温度/一次性凭据），各 Adapter 自建模型客户端；保留 `model.LLM` 兼容字段直至双 Adapter 契约测试通过 |
 | FR-005 | Pi 适配器（子进程 RPC） | Go 侧 `pi` Adapter 通过 JSONL stdin/stdout 驱动 Pi 子进程；事件（`agent_start`…`agent_end`、`text_delta`、`tool_execution_*`）映射为统一事件；`prompt` 后以 `agent_settled` 判定完成 |
-| FR-006 | 工具网关转发 | Pi 侧工具全部由适配器注册为 Tool Gateway 转发桩：Pi 发起工具调用→适配器转 `PolicyGateway.Invoke`→结果回写 Pi；禁用 Pi 内置 bash/edit/MCP 直连 |
-| FR-007 | 取消/预算/超时传递 | Go context 取消→stdin 关闭/进程终止兜底；迭代、工具数、Token、输出、超时预算在适配器内强制执行并产生规范终止事件 |
+| FR-006 | 工具网关转发 | Pi 侧工具全部由适配器注册为 Tool Gateway 转发桩：Pi 发起工具调用→适配器转 `PolicyGateway.Invoke`→结果回写 Pi；禁用 Pi 内置 bash/edit/MCP 直连。事件时序合成规则（已裁定，源自评审 P2）：`tool_execution_start`（含 toolName/args）映射 `tool.requested`；转发桩在收到 Go 侧 `PolicyGateway.Invoke` 授权通过并开始执行时合成 `tool.started`；`tool_execution_end` 映射 `tool.completed/failed`。工具体为适配器受控转发桩，合成点确定，不依赖 Pi 暴露额外信号 |
+| FR-007 | 取消/预算/超时传递 | 适配器执行平台下发的预算并只产生规范终止事件（预算判定权在平台，适配器不下放）；迭代、工具数、Token、输出、超时预算在适配器内强制执行。取消采用分层协议（见 FR-012） |
 | FR-008 | Engine 目录 runtime 配置 | Engine 实例支持 `runtime: {kind, version, experimental}`；同一 Scope 场景标签互斥与向上继承规则不变；执行选择快照记录 runtime 与版本 |
-| FR-009 | 结构化输出与能力校验 | Pi Engine 同样支持 OutputSchema 校验；能力矩阵不满足的请求被拒绝并说明缺失能力 |
+| FR-009 | 结构化输出与能力校验 | Pi Engine 同样支持 OutputSchema 校验；能力矩阵不满足的请求被拒绝并说明缺失能力。pi-ai 结构化输出能力待 M3 实测验证；若不支持，降级策略为 Go 侧终态 JSON Schema 校验，校验失败按既有重试/失败语义处理，不得静默放行 |
 | FR-010 | 双引擎一致性测试 | 相同 Mock Model、工具 Fixture、Request 下，adk/pi 两个 Adapter 的事件顺序、权限拒绝、工具纠错、超时、取消、终态幂等逐项对比 |
+| FR-011 | 子进程沙箱与资源约束 | Pi 子进程以独立进程组（`Setpgid`）启动，容器内施加 CPU/内存/cgroup 级资源上限并收敛 capability；根文件系统只读 + 专用临时工作目录；stdout/stdin 双向管道必须由 Go 侧并发排水（写入命令与读取事件分属独立 goroutine），防止大体积工具结果超出管道缓冲（~64KB）导致双向 JSONL 死锁；上述各项纳入验收 4 的故障注入矩阵 |
+| FR-012 | 分层取消协议与终态合并 | 取消按三级执行：①Go context 取消优先映射为 RPC 级中断命令（以 rpc.md 原文核验到的 interrupt/abort 类命令为准，M3 前逐字核验）；②超时未退出则关闭 stdin 触发 Pi 优雅终止；③再超时（默认宽限时限，M3 定值写入契约测试）对整个进程组 `SIGKILL`（依赖 FR-011 进程组）。取消/崩溃后 Pi 侧已发出的 `tool_execution_end` 与平台终态必须幂等合并：适配器按事件 ID 去重，乱序迟到事件不覆盖已写入的平台终态，规则以契约测试锁定 |
+| FR-013 | 孤儿进程回收 | Pi 子进程启动握手阶段必须上报自身 PID；Go 侧维护"执行↔进程组"登记表；API/Worker 启动时清扫残留（stale pidfile/PID 复用校验，按进程组回收），确保 Go 侧崩溃后不残留持有凭据环境变量的 Pi 进程；该场景纳入验收 4 故障注入 |
 
 ## 4. 非功能需求
 
 - **NFR-001 安全**：凭据仅内存传递、不落 Pi 持久化状态；Pi 子进程以受限用户运行；所有工具调用经 Tool Gateway 审计；适配器不得接收原始 API Key 的可变句柄。
 - **NFR-002 可观测**：适配器层结构化日志（进程 PID、版本、事件映射失败计数）；执行事件含 runtime kind/version。
-- **NFR-003 资源**：Pi 子进程池受 `maxConcurrentExecutions` 约束（runtime.go:25），进程内存/启动时间有上限；镜像增量可控并记录。
+- **NFR-003 资源**：Pi 子进程池受 `maxConcurrentExecutions` 约束（runtime.go:25）；PoC 阶段采用每执行一进程（已裁定，见 §10 问题 2），进程数上限即执行槽位数（8），不引入独立进程池限流，避免双重限流死锁；进程内存/启动时间有上限；镜像增量 ≤150MB（已裁定，见 §10 问题 6）；镜像增量实测写入 PoC 报告。
 - **NFR-004 兼容与回滚**：默认 Runtime 保持 ADK；`runtime.kind` 配置可一键回退；已发生模型输出或工具副作用的执行不自动切换 Runtime（§19.6 规则）。
 - **NFR-005 可维护**：Pi npm 依赖 lockfile 固定、版本锁定写入注册表；上游破坏性变更在升级评审中处理。
 
@@ -71,7 +74,7 @@
 1. FR-002 基线契约测试合入并在 main 通过；ADK Adapter 化后同套测试无需修改语义即通过（行为等价）。
 2. 测试 Scope 下创建 Pi Engine 并显式选择执行诊断：SSE 事件序列与 ADK 基线在事件类型、顺序、关键字段上对齐（表格逐项比对）。
 3. Pi 工具调用 100% 经 `PolicyGateway`，`engine_execution_tool_calls` 记录完整；直连/未注册工具调用被拒绝且产生 `tool.failed` 事件。
-4. 取消、超时、各预算上限、进程崩溃四类故障下，执行产生规范终态事件，无僵尸进程、无事件丢失、断线续读正常。
+4. 取消、超时、各预算上限、Pi 进程崩溃、Go 侧崩溃后孤儿进程回收、管道背压（大体积工具结果）六类故障注入下，执行产生规范终态事件，无僵尸进程、无事件丢失、断线续读正常；含显式用例：客户端 SSE 断线 ≠ 执行取消，Pi 链路下事件在进程存活期间持续入 Store，续读完整。
 5. 同一 Scope 场景标签只解析到一个默认 Engine；执行记录可回答"哪个 Runtime 的哪个版本 + 哪个 Provider 的哪个模型"。
 6. 默认链路（未显式选择 Pi 的所有执行）与改造前完全一致；回滚到仅 ADK 注册表后系统行为不变。
 
@@ -106,7 +109,7 @@ Pi 背景（调研于 2026-11，来源见 §10）：badlogic/pi-mono 现为 eare
 
 - Engine 目录增加 `runtime_kind`/`runtime_version`/`experimental`（对齐 §19.4 示例 JSON）；适配器注册表为代码内静态注册（`adk`、`pi`），不落库。
 - 执行选择快照（执行记录）增加 runtime kind/version，满足可追溯验收（§19.6 规则 7）。
-- 迁移：新增迁移只加列，不改既有 ADK 执行数据；回滚保留默认 `adk`。
+- 迁移：新增迁移只加列，不改既有 ADK 执行数据；回滚保留默认 `adk`。**迁移编号预分配为 0004**（依据 I008-I010 联合评审 §5.1：当前 `backend/migrations/sql/` 非归档迁移最大编号 0003，`archive/` 子目录旧编号不复用；0005/0006 分别预留给 I009/I010，若实际合入顺序变化由后合入者重排号）。
 
 ## 8. API 与前端影响
 
@@ -122,14 +125,40 @@ Pi 背景（调研于 2026-11，来源见 §10）：badlogic/pi-mono 现为 eare
 4. 回滚：取消 Pi Engine 注册或将场景标签指回 ADK Engine 即可，无数据迁移；Pi 子进程层可整体禁用（feature flag）。
 5. 执行中不切换 Runtime；默认关闭自动回退，回退仅允许发生在模型调用开始前且记录原因（§19.6）。
 
-## 10. 开放问题
+## 10. 开放问题（已裁定）
 
-1. Pi 模型调用是否完全绕过 `pi-ai`、由适配器把 OpsSeek 统一模型端口以自定义 provider 形式注入？（推荐后者，凭据单向）
-2. Pi 进程池策略：每执行一进程 vs 常驻池（涉及冷启动 ~Node 进程启动耗时实测）。
-3. `tool_execution_*` 与 OpsSeek `tool.requested→tool.started` 的时序合成规则（Pi 是否暴露"工具被模型请求"与"开始执行"的可区分信号）。
-4. Pi `message_update` 中思考/文本区分是否足以执行现有"不暴露隐藏推理"策略（runner.go:726-741 同等语义）。
-5. 观察分页（`read_observation`）在 Pi 侧的等价实现方式。
-6. Node 运行时在目标部署镜像中的引入方式与体积预算。
+以下问题已于 2026-11-18 依据 [R001-design-review.md](R001-design-review.md) §6 裁定建议，经用户批准落档：
+
+| # | 问题 | 裁定结论 |
+|---|---|---|
+| 1 | Pi 模型调用是否完全绕过 `pi-ai`、由适配器注入？ | **自定义 provider 注入统一模型端口**，凭据单向。若 pi-ai 无 custom provider 扩展点（M3 待验证），fallback：适配器起本地 loopback OpenAI-compatible endpoint 指向 Pi，凭据仍只存在于 Go 侧 |
+| 2 | 每执行一进程 vs 常驻池 | **PoC 阶段每执行一进程**（进程数=执行槽位，见 NFR-003）；冷启动/内存实测写入 PoC 报告。方案一升级为方案二的触发条件量化为：单执行冷启动 > 2s 或 Node 常驻 RSS > 512MB 才评估池化/sidecar（PoC 实测后可修订） |
+| 3 | `tool_execution_*` 与 `tool.requested→tool.started` 时序合成 | **转发桩模式下可确定性合成**：`tool_execution_start`→`tool.requested`，桩获 Gateway 授权并开始执行→`tool.started`，`tool_execution_end`→`tool.completed/failed`；规则已写入 FR-006，移出开放问题 |
+| 4 | `message_update` 思考/文本区分是否足够 | **可区分则映射，不可区分则丢弃该 delta**（安全默认，宁可丢流不可泄推理，对齐 runner.go:726-741 语义），并以契约测试锁定 |
+| 5 | 观察分页（`read_observation`）在 Pi 侧的等价实现 | **注册为平台转发桩工具**，与上下文工具同一机制（FR-006）；observation 索引/分页状态由适配器持有（对齐 executionState 语义），不依赖 Pi 内置能力 |
+| 6 | Node 运行时引入方式与体积预算 | **独立 Docker layer + npm ci 锁定 + 多阶段构建的精简 Node 运行时**；镜像增量 ≤150MB，PoC 报告实测；预先写明进程内子进程与 sidecar 容器的边界，防止无设计滑向 sidecar |
+
+**残留待验证项（不阻塞实施，B3/C1 执行中核验）：** ① Node ≥ 22.19 以 package.json `engines` 实测为准；② rpc.md 取消/中断命令原文逐字核验（FR-012 第一级取消依赖）；③ pi-ai 结构化输出能力实测（FR-009 降级路径）。验证结果写入 PoC 报告；如与裁定前提冲突，回溯本节更新并知会用户（owner=用户）。
+
+## 11. 返修说明（2026-11-18）
+
+依据 [R001-design-review.md](R001-design-review.md) 主要/次要问题与 [I008-I010-joint-review.md](../I008-I010-joint-review.md) 跨迭代裁定，经用户批准合入：
+
+**主要问题：**
+- P1 → 新增 **FR-011**（容器内子进程沙箱/资源上限/进程组/管道并发排水背压），并纳入验收 4 六类故障注入矩阵。
+- P2 → 时序合成规则直接写入 **FR-006**，开放问题 3 移出并裁定。
+- P3 → 新增 **FR-012**（三级分层取消协议 + 取消后终态/乱序事件幂等合并规则）。
+- P4 → 新增 **FR-013**（启动握手 PID 上报、进程组登记表、启动清扫孤儿进程），纳入验收 4。
+
+**次要问题逐条裁定：**
+- P-minor-1（结构化输出降级）：**采纳**，FR-009 增加 Go 侧终态校验降级路径。
+- P-minor-2（Node 版本/--no-session 原文核验）：**采纳**，作为 §10 残留待验证项①②，C1 子任务验收项，不阻塞设计封板。
+- P-minor-3（预算判定权措辞）：**采纳**，FR-007 改为"适配器执行平台下发的预算并只产生规范终止事件"。
+- P-minor-4（隐藏推理安全默认）：**采纳**，裁定入 §10 问题 4（不可区分则丢弃 delta）。
+- P-minor-5（进程池与槽位关系）：**采纳**，NFR-003 明确 PoC 每执行一进程、进程数=执行槽位（8），不设独立池限流。
+- P-minor-6（Result 行号核对）：**不采纳修改**，属低风险事实核验项，评审本身确认 Event 行号属实、Result 风险低；留给 A2 契约文档编写时顺带核对，不构成文档缺陷。
+
+**跨迭代协调（joint-review §5.1/§6/§7）：** 迁移编号预分配 **0004**（写入 §7）；I008-M1 契约冻结先行合入 main，I009 的 Request/事件扩展必须基于冻结后基线并补录契约用例（联合评审裁定事项 1）；`expert_group.resolved` 类平台生命周期事件以扩展类目方式登记，不改 I008 基线（裁定事项 2）；基线断言对 Request 序列化采用字段存在性白名单（joint-review §5.2）。
 
 ## 附：调研来源
 
