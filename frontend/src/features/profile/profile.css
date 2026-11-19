@@ -24,8 +24,8 @@
   width: 56px;
   height: 56px;
   flex: 0 0 auto;
-  color: var(--theme-teal);
-  background: var(--theme-bg-accent-soft);
+  color: var(--theme-icon-fg);
+  background: var(--theme-icon-bg);
   border: 1px solid var(--theme-border-strong);
   border-radius: 50%;
   font-size: 19px;

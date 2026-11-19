@@ -55,30 +55,14 @@
 
   .tag.tag-independent.tag-has-value {
     color: var(--theme-fg-strong);
-    background: color-mix(
-      in srgb,
-      var(--theme-info) 12%,
-      var(--theme-bg-subtle)
-    );
-    border-color: color-mix(
-      in srgb,
-      var(--theme-info) 30%,
-      var(--theme-border)
-    );
+    background: var(--theme-tag-independent-value-bg);
+    border-color: var(--theme-tag-independent-value-border);
   }
 
   .tag.tag-independent.tag-key-only {
     color: var(--theme-fg-strong);
-    background: color-mix(
-      in srgb,
-      var(--theme-success) 10%,
-      var(--theme-bg-subtle)
-    );
-    border-color: color-mix(
-      in srgb,
-      var(--theme-success) 28%,
-      var(--theme-border)
-    );
+    background: var(--theme-tag-independent-key-bg);
+    border-color: var(--theme-tag-independent-key-border);
   }
 
   .tag-text-full {

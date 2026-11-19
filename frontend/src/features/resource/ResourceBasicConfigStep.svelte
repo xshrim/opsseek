@@ -67,6 +67,7 @@
         bind:value={category}
         options={categoryDropdownOptions}
         showIcons
+        iconTone="resource"
         disabled={editing}
         placeholder="请选择资源类型"
         ariaLabel="资源类型"
@@ -86,6 +87,7 @@
         bind:value={subtype}
         options={subtypeDropdownOptions}
         showIcons
+        iconTone="resource"
         disabled={!category || editing}
         placeholder="请选择资源子类型"
         ariaLabel="资源子类型"
@@ -121,6 +123,7 @@
         value={scopeId}
         options={scopeDropdownOptions}
         showIcons
+        iconTone="scope"
         placeholder="请选择资源级别"
         ariaLabel="资源级别"
         invalid={basicConfigurationAttempted && !scopeId}

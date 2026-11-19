@@ -133,10 +133,11 @@
 .avatar {
   display: grid;
   place-items: center;
+  flex: 0 0 auto;
   width: 28px;
   height: 28px;
-  color: var(--theme-fg-muted);
-  background: var(--theme-bg-surface);
+  color: var(--theme-icon-fg);
+  background: var(--theme-icon-bg);
   border-radius: 50%;
   font-size: 12px;
   font-weight: 700;
@@ -912,12 +913,6 @@
   .check-grid {
     grid-template-columns: 1fr;
   }
-}
-.avatar {
-  width: 28px;
-  height: 28px;
-  color: var(--theme-icon-fg);
-  background: var(--theme-icon-bg);
 }
 .avatar-image {
   display: block;

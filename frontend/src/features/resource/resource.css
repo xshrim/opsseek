@@ -1,5 +1,6 @@
 /* Resource page layout. Theme tokens and shared controls remain in app.css. */
-.resources-layout {
+.resources-layout,
+.resource-workflow-dialog {
   min-width: 0;
 }
 
@@ -20,8 +21,8 @@
   place-items: center;
   width: 27px;
   height: 27px;
-  color: var(--theme-fg-muted);
-  background: var(--theme-bg-surface);
+  color: var(--resource-catalog-icon-fg);
+  background: var(--resource-catalog-icon-bg);
   border-radius: 5px;
   font-size: 15px;
 }
@@ -48,9 +49,15 @@
   font-size: 15px;
   font-weight: 650;
 }
-.resource-icon {
-  color: var(--theme-fg-muted);
-  background: var(--theme-bg-surface);
+.resources-layout .resource-icon,
+.resource-workflow-dialog .resource-icon {
+  color: var(--resource-catalog-icon-fg);
+  background: var(--resource-catalog-icon-bg);
+}
+.resources-layout .catalog-icon,
+.resource-workflow-dialog .catalog-icon {
+  color: var(--resource-catalog-icon-fg);
+  background: var(--resource-catalog-icon-bg);
 }
 .resource-type-picker {
   display: grid;
@@ -86,6 +93,8 @@
 .resource-type-card .type-icon {
   width: 31px;
   height: 31px;
+  color: var(--resource-catalog-icon-fg);
+  background: var(--resource-catalog-icon-bg);
   font-size: 16px;
 }
 .resource-type-card strong,
@@ -137,7 +146,7 @@
 .resource-catalog-rail button:hover,
 .resource-catalog-rail button.active {
   color: var(--theme-fg-strong);
-  background: var(--theme-bg-success-soft);
+  background: var(--theme-bg-selected);
 }
 .resource-catalog-rail button span:last-child {
   color: var(--theme-fg-subtle);
@@ -177,7 +186,7 @@
   gap: 6px;
   min-height: 29px;
   padding: 0 5px;
-  color: color-mix(in srgb, var(--theme-fg-muted) 56%, transparent);
+  color: var(--theme-fg-subtle);
   background: transparent;
   border: 0;
   border-bottom: 0;
@@ -200,17 +209,17 @@
   background: linear-gradient(
     90deg,
     var(--theme-divider),
-    color-mix(in srgb, var(--theme-divider) 40%, transparent),
+    var(--theme-resource-domain-divider),
     transparent
   );
   content: '';
   pointer-events: none;
 }
 .catalog-domain-heading:hover {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
 }
 .catalog-domain-heading.expanded {
-  color: color-mix(in srgb, var(--theme-teal) 72%, var(--theme-fg-muted));
+  color: var(--theme-resource-domain-fg);
 }
 .resource-catalog-rail .catalog-domain-heading:hover {
   background: transparent !important;
@@ -233,34 +242,20 @@
   width: 26px;
   height: 26px;
   flex: 0 0 auto;
-  color: #fff;
+  color: var(--resource-catalog-icon-fg);
   background: var(--theme-bg-selected);
   border-radius: 4px;
   font-size: 13px;
   font-weight: 700;
 }
 .resource-catalog-tag {
-  --resource-catalog-tag-tone: var(--theme-fg-muted);
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
   padding: 2px 5px;
-  color: color-mix(
-    in srgb,
-    var(--resource-catalog-tag-tone) 74%,
-    var(--theme-fg-strong)
-  );
-  background: color-mix(
-    in srgb,
-    var(--resource-catalog-tag-tone) 11%,
-    var(--theme-bg-surface)
-  );
-  border: 1px solid
-    color-mix(
-      in srgb,
-      var(--resource-catalog-tag-tone) 27%,
-      var(--theme-divider)
-    );
+  color: var(--theme-fg-muted);
+  background: var(--theme-bg-subtle);
+  border: 1px solid var(--theme-border);
   border-radius: 4px;
   font-size: 10px;
   font-style: normal;
@@ -269,75 +264,89 @@
   white-space: nowrap;
 }
 .resource-catalog-tag-artifact {
-  --resource-catalog-tag-tone: #b97555;
+  color: var(--theme-resource-tag-artifact-fg);
+  background: var(--theme-resource-tag-artifact-bg);
+  border-color: var(--theme-resource-tag-artifact-border);
 }
 .resource-catalog-tag-code {
-  --resource-catalog-tag-tone: #577894;
+  color: var(--theme-resource-tag-code-fg);
+  background: var(--theme-resource-tag-code-bg);
+  border-color: var(--theme-resource-tag-code-border);
 }
 .resource-catalog-tag-knowledge {
-  --resource-catalog-tag-tone: #756b9a;
+  color: var(--theme-resource-tag-knowledge-fg);
+  background: var(--theme-resource-tag-knowledge-bg);
+  border-color: var(--theme-resource-tag-knowledge-border);
 }
 .resource-catalog-tag-runtime {
-  --resource-catalog-tag-tone: #5c805f;
+  color: var(--theme-resource-tag-runtime-fg);
+  background: var(--theme-resource-tag-runtime-bg);
+  border-color: var(--theme-resource-tag-runtime-border);
 }
 .resource-catalog-tag-registry {
-  --resource-catalog-tag-tone: #4f8580;
+  color: var(--theme-resource-tag-registry-fg);
+  background: var(--theme-resource-tag-registry-bg);
+  border-color: var(--theme-resource-tag-registry-border);
 }
 .resource-catalog-tag-gateway {
-  --resource-catalog-tag-tone: #a86979;
+  color: var(--theme-resource-tag-gateway-fg);
+  background: var(--theme-resource-tag-gateway-bg);
+  border-color: var(--theme-resource-tag-gateway-border);
 }
 .resource-catalog-tag-database {
-  --resource-catalog-tag-tone: #806c9b;
+  color: var(--theme-resource-tag-database-fg);
+  background: var(--theme-resource-tag-database-bg);
+  border-color: var(--theme-resource-tag-database-border);
 }
 .resource-catalog-tag-kv {
-  --resource-catalog-tag-tone: #51839e;
+  color: var(--theme-resource-tag-kv-fg);
+  background: var(--theme-resource-tag-kv-bg);
+  border-color: var(--theme-resource-tag-kv-border);
 }
 .resource-catalog-tag-message {
-  --resource-catalog-tag-tone: #978141;
+  color: var(--theme-resource-tag-message-fg);
+  background: var(--theme-resource-tag-message-bg);
+  border-color: var(--theme-resource-tag-message-border);
 }
 .resource-catalog-tag-search {
-  --resource-catalog-tag-tone: #588493;
+  color: var(--theme-resource-tag-search-fg);
+  background: var(--theme-resource-tag-search-bg);
+  border-color: var(--theme-resource-tag-search-border);
 }
 .resource-catalog-tag-document {
-  --resource-catalog-tag-tone: #8b8264;
+  color: var(--theme-resource-tag-document-fg);
+  background: var(--theme-resource-tag-document-bg);
+  border-color: var(--theme-resource-tag-document-border);
 }
 .resource-catalog-tag-storage {
-  --resource-catalog-tag-tone: #548575;
+  color: var(--theme-resource-tag-storage-fg);
+  background: var(--theme-resource-tag-storage-bg);
+  border-color: var(--theme-resource-tag-storage-border);
 }
 .resource-catalog-tag-ai {
-  --resource-catalog-tag-tone: #976984;
+  color: var(--theme-resource-tag-ai-fg);
+  background: var(--theme-resource-tag-ai-bg);
+  border-color: var(--theme-resource-tag-ai-border);
 }
 .resource-catalog-tag-metric {
-  --resource-catalog-tag-tone: #6279a4;
+  color: var(--theme-resource-tag-metric-fg);
+  background: var(--theme-resource-tag-metric-bg);
+  border-color: var(--theme-resource-tag-metric-border);
 }
 .resource-catalog-tag-log {
-  --resource-catalog-tag-tone: #697985;
+  color: var(--theme-resource-tag-log-fg);
+  background: var(--theme-resource-tag-log-bg);
+  border-color: var(--theme-resource-tag-log-border);
 }
 .resource-catalog-tag-trace {
-  --resource-catalog-tag-tone: #82749f;
+  color: var(--theme-resource-tag-trace-fg);
+  background: var(--theme-resource-tag-trace-bg);
+  border-color: var(--theme-resource-tag-trace-border);
 }
 .resource-catalog-tag-alarm {
-  --resource-catalog-tag-tone: #b66c5a;
-}
-.resource-catalog-tag-default {
-  --resource-catalog-tag-tone: var(--theme-fg-muted);
-}
-:root[data-theme='dark'] .resource-catalog-tag {
-  color: color-mix(
-    in srgb,
-    var(--resource-catalog-tag-tone) 70%,
-    var(--theme-fg-strong)
-  );
-  background: color-mix(
-    in srgb,
-    var(--resource-catalog-tag-tone) 20%,
-    var(--theme-bg-surface)
-  );
-  border-color: color-mix(
-    in srgb,
-    var(--resource-catalog-tag-tone) 43%,
-    var(--theme-divider)
-  );
+  color: var(--theme-resource-tag-alarm-fg);
+  background: var(--theme-resource-tag-alarm-bg);
+  border-color: var(--theme-resource-tag-alarm-border);
 }
 .resource-catalog-tags {
   display: inline-flex;
@@ -594,20 +603,20 @@
   tbody
   > tr.resource-catalog-row
   > td.expandable-table-toggle-cell {
-  width: 30px;
+  width: 24px;
   padding: 0;
   text-align: center;
 }
 .resource-expandable-table
   .expandable-table
   col.expandable-table-toggle-column {
-  width: 30px;
+  width: 24px;
 }
 .resource-expandable-table .expandable-table col.expandable-table-select-column,
 .resource-expandable-table
   .expandable-table
   :is(th, td).expandable-table-select-cell {
-  width: 30px;
+  width: 24px;
   padding-right: 0;
   padding-left: 0;
 }
@@ -648,7 +657,6 @@
   > tr.expandable-table-details-row
   > td {
   padding: 0;
-  background: var(--theme-bg-raised);
   border-bottom: 1px solid var(--theme-divider);
 }
 .resource-expandable-table .entity-summary {
@@ -797,7 +805,7 @@
 }
 .resource-connection-cell .status-label.disabled,
 .resource-connection-cell .status-label.unknown {
-  color: var(--resource-connection-status-fg);
+  color: var(--theme-fg-muted);
   background: var(--theme-bg-warning-soft);
 }
 .resource-row-details > div {
@@ -878,7 +886,7 @@
   display: grid;
   gap: 12px;
   padding: 14px 20px 16px;
-  background: var(--theme-bg-raised);
+  background: var(--theme-bg-table-row-selected);
 }
 .resource-application-references,
 .resource-tool-table {
@@ -886,7 +894,7 @@
   overflow: hidden;
   border: 1px solid var(--theme-border);
   border-radius: 5px;
-  background: var(--theme-bg-raised);
+  background: var(--theme-bg-table-row-selected);
 }
 .resource-application-references .provider-resource-models-heading,
 .resource-tool-table .provider-resource-models-heading {
@@ -971,8 +979,20 @@
   font-size: 0;
 }
 .resource-row-actions .icon-button:hover {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-hover);
+}
+:root:not([data-theme='dark'])
+  .resource-row-actions
+  .icon-button.edit-action:hover,
+:root:not([data-theme='dark'])
+  .resource-row-actions
+  .icon-button.edit-action:focus-visible,
+:root:not([data-theme='dark'])
+  .resource-row-actions
+  .icon-button.edit-action:active {
+  color: var(--theme-icon-fg) !important;
+  background: var(--theme-bg-edit-hover) !important;
 }
 .resource-row-actions .icon-button.danger-action {
   color: var(--theme-danger);
@@ -1044,7 +1064,7 @@
 .resource-add-menu-group button {
   min-height: 28px;
   padding: 0 9px;
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-success-soft);
   border: 1px solid var(--theme-border);
   border-radius: 4px;
@@ -2419,7 +2439,7 @@
 }
 .docker-tool-summary code {
   padding: 3px 5px;
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-subtle);
   border: 1px solid var(--theme-border);
   border-radius: 3px;
@@ -2431,7 +2451,7 @@
   padding: 11px 0 13px;
 }
 .docker-resource-row .resource-category-cell strong {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
 }
 @media (max-width: 720px) {
   .resource-add-workflow {
@@ -2612,8 +2632,7 @@
 :root[data-theme='dark'] .resource-catalog-rail button.active,
 :root[data-theme='dark'] .catalog-subtypes button:hover,
 :root[data-theme='dark'] .catalog-subtypes button.active {
-  color: var(--theme-teal);
-  background: var(--theme-bg-selected);
+  color: var(--theme-icon-fg);
 }
 :root[data-theme='dark'] .resource-catalog-rail button span:last-child,
 :root[data-theme='dark'] .resource-catalog-title small,
@@ -2628,18 +2647,10 @@
 :root[data-theme='dark'] .catalog-subtypes {
   border-color: var(--theme-border);
 }
-:root[data-theme='dark'] .catalog-icon {
-  color: #fff;
-  background: var(--theme-bg-selected);
-}
 :root[data-theme='dark'] .resource-catalog-title h2,
 :root[data-theme='dark'] .resource-cell strong,
 :root[data-theme='dark'] .resource-row-details strong {
   color: var(--theme-fg-strong);
-}
-:root[data-theme='dark'] .resource-icon {
-  color: var(--theme-teal);
-  background: var(--theme-bg-selected);
 }
 :root[data-theme='dark'] .resource-tag-overflow {
   color: var(--theme-fg-muted);
@@ -2648,23 +2659,23 @@
 }
 :root[data-theme='dark'] .provider-resource-row .provider-purpose-tag,
 :root[data-theme='dark'] .provider-resource-row .provider-capability-tag {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-selected);
 }
 :root[data-theme='dark'] .resource-connection-cell .status-label {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-selected);
 }
 :root[data-theme='dark'] .resource-connection-cell .status-label.disabled,
 :root[data-theme='dark'] .resource-connection-cell .status-label.unknown {
-  color: var(--resource-connection-status-fg);
+  color: var(--theme-fg-muted);
   background: var(--theme-bg-surface);
 }
 :root[data-theme='dark'] .resource-row-actions .icon-button {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
 }
 :root[data-theme='dark'] .resource-row-actions .icon-button:hover {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-selected);
 }
 :root[data-theme='dark'] .resource-row-actions .icon-button.danger-action {
@@ -2693,12 +2704,12 @@
   color: var(--theme-fg-muted);
 }
 :root[data-theme='dark'] .resource-add-menu-group button {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-selected);
   border-color: var(--theme-border);
 }
 :root[data-theme='dark'] .resource-add-menu-group button:hover {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-hover);
   border-color: var(--theme-border-strong);
 }
@@ -2757,8 +2768,8 @@
   border-bottom-color: var(--theme-divider);
 }
 :root[data-theme='dark'] .resource-kind-icon {
-  color: var(--theme-fg-muted);
-  background: var(--theme-bg-selected);
+  color: var(--resource-catalog-icon-fg);
+  background: var(--resource-catalog-icon-bg);
 }
 
 /* Feature styles migrated from app.css. */
@@ -2787,8 +2798,8 @@
 .subtype-icon {
   width: 15px;
   height: 15px;
-  color: var(--theme-fg-muted);
-  background: var(--theme-bg-subtle);
+  color: var(--resource-catalog-icon-fg);
+  background: var(--resource-catalog-icon-bg);
   font-size: 9px;
 }
 .capability-list {
@@ -2799,7 +2810,7 @@
 }
 .capability-list span {
   padding: 3px 6px;
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-selected);
   border: 1px solid var(--theme-border);
   border-radius: 3px;
@@ -2922,10 +2933,6 @@
   .relation-form button {
     width: 100%;
   }
-}
-:root[data-theme='dark'] .subtype-icon {
-  color: var(--theme-fg-muted);
-  background: var(--theme-bg-subtle);
 }
 
 /* Remaining feature selectors migrated from app.css. */

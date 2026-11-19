@@ -261,7 +261,7 @@
   width: min(490px, 100vw);
   border-radius: 0;
   background: var(--theme-bg-surface);
-  box-shadow: -10px 0 30px color-mix(in srgb, var(--theme-fg) 10%, transparent);
+  box-shadow: -10px 0 30px var(--theme-shadow-panel);
 }
 .persona-detail-header {
   padding: 18px 20px;
@@ -638,17 +638,13 @@
 }
 .persona-card-type.manager {
   color: var(--theme-info);
-  background: var(--theme-info-soft);
-  border-color: color-mix(in srgb, var(--theme-info) 30%, var(--theme-border));
+  background: var(--theme-bg-info-soft);
+  border-color: var(--theme-persona-info-border);
 }
 .persona-card-type.worker {
   color: var(--theme-success);
-  background: var(--theme-success-soft);
-  border-color: color-mix(
-    in srgb,
-    var(--theme-success) 30%,
-    var(--theme-border)
-  );
+  background: var(--theme-bg-success-soft);
+  border-color: var(--theme-persona-success-border);
 }
 .persona-card-body {
   display: grid;

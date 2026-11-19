@@ -274,20 +274,33 @@
     border-bottom: 1px solid var(--theme-divider);
   }
 
-  .expandable-table tbody > tr:not(.expandable-table-details-row):hover > td,
-  .expandable-table tbody > tr.selected > td {
-    background: var(--theme-bg-hover);
+  :global(:root) .expandable-table tbody > tr:not(.expandable-table-details-row):hover > td,
+  :global(:root) .expandable-table tbody > tr.selected > td,
+  :global(:root) .expandable-table tbody > tr.selected:hover > td,
+  :global(:root) .expandable-table tbody > tr.expandable-table-details-row > td {
+    background: var(--theme-bg-table-row-selected);
+  }
+
+  :global(:root .expandable-table tbody > tr.expandable-table-details-row .readonly-table),
+  :global(:root .expandable-table tbody > tr.expandable-table-details-row .readonly-table tbody > tr > td) {
+    background: var(--theme-bg-table-row-selected);
   }
 
   .expandable-table-toggle-column,
   .expandable-table-toggle-cell {
-    width: 26px;
+    width: 24px;
   }
 
   .expandable-table-select-column,
   .expandable-table-select-cell {
-    width: 32px;
+    width: 24px;
     text-align: center !important;
+  }
+
+  .expandable-table :is(th, td).expandable-table-toggle-cell,
+  .expandable-table :is(th, td).expandable-table-select-cell {
+    padding-right: 0;
+    padding-left: 0;
   }
 
   .expandable-table-toggle {
@@ -315,7 +328,6 @@
 
   .expandable-table-details-row > td {
     padding: 0;
-    background: var(--theme-bg-raised);
     border-bottom: 1px solid var(--theme-divider);
   }
 

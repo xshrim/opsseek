@@ -282,7 +282,7 @@
     padding: 10px 12px;
     border: 1px solid var(--theme-border);
     border-radius: 4px;
-    background: var(--theme-bg-sunken);
+    background: var(--theme-bg-subtle);
     list-style: none;
   }
   .preview-empty {
@@ -291,7 +291,7 @@
     padding: 12px;
     border: 1px solid var(--theme-border);
     border-radius: 4px;
-    background: var(--theme-bg-sunken);
+    background: var(--theme-bg-subtle);
   }
   .repository-file-list li,
   .repository-file-tree li {

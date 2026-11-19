@@ -4,6 +4,9 @@
   --color-primary-active: var(--theme-action-active);
   --color-primary-focus: var(--theme-focus);
   --color-primary-focus-strong: var(--theme-focus-strong);
+  --resource-catalog-icon-bg: var(--theme-resource-icon-bg);
+  --resource-catalog-icon-fg: var(--theme-resource-icon-fg);
+  --theme-checkbox-check-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m3.2 8.2 3 3 6.6-6.6' fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.2'/%3E%3C/svg%3E");
   font-family:
     Inter,
     ui-sans-serif,
@@ -77,7 +80,7 @@ input[type='checkbox'] {
 input[type='checkbox']:checked {
   background-color: var(--color-primary);
   border-color: var(--color-primary);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m3.2 8.2 3 3 6.6-6.6' fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.2'/%3E%3C/svg%3E");
+  background-image: var(--theme-checkbox-check-image);
   background-position: center;
   background-repeat: no-repeat;
   background-size: 13px;
@@ -669,10 +672,6 @@ textarea:focus {
   --theme-role-viewer: #a9c7df;
   color-scheme: dark;
 }
-:root[data-theme='dark'] body {
-  background: var(--theme-bg-page);
-}
-
 /* Reusable semantic primitives for new pages. */
 .theme-surface {
   color: var(--theme-fg);

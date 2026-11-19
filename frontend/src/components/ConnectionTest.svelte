@@ -143,16 +143,12 @@
     color: var(--theme-danger);
   }
   .connection-test.testing {
-    color: var(--theme-teal);
+    color: var(--theme-icon-fg);
     cursor: progress;
   }
   .connection-test.testing .connection-test-label {
     background: var(--theme-bg-accent-soft);
-    border-color: color-mix(
-      in srgb,
-      var(--theme-teal) 35%,
-      var(--theme-border)
-    );
+    border-color: var(--theme-icon-border-soft);
     font-weight: 700;
   }
   .connection-test:hover:not([aria-disabled='true']) .connection-test-label,

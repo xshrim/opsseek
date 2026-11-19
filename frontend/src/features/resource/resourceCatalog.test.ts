@@ -20,7 +20,7 @@ import {
 
 describe('resource catalog types and tags', () => {
   it('registers MongoDB with its brand icon and database endpoint', () => {
-    expect(resourceCategoryOptions.MongoDB).toEqual(['Direct', 'Agent']);
+    expect(resourceCategoryOptions.MongoDB).toEqual(['Direct']);
     expect(resourceSubtypeFor({ kind: 'MongoDB' })).toBe('Direct');
     expect(resourceCategoryIcon('MongoDB')).toBe('iconify:simple-icons:mongodb');
     expect(resourceEndpointFor({ kind: 'MongoDB', config: { host: 'mongo', database: 'orders' } })).toBe('mongo:27017/orders');

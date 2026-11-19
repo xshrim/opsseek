@@ -33,6 +33,7 @@
   export let taggedSelection = false;
   export let reorderableSelection = false;
   export let variant: 'standard' | 'underline' | 'pill' | 'soft' = 'standard';
+  export let iconTone: 'default' | 'scope' | 'resource' = 'default';
   export let menuClass = '';
 
   const dispatch = createEventDispatcher<{
@@ -224,6 +225,8 @@
   class:disabled
   class:invalid
   class:bubble={invalid && invalidMode === 'bubble'}
+  class:icon-tone-scope={iconTone === 'scope'}
+  class:icon-tone-resource={iconTone === 'resource'}
   data-error={invalid && invalidMode === 'bubble' ? invalidMessage : undefined}
   bind:this={root}
 >
@@ -297,8 +300,13 @@
         aria-label={ariaLabel}
         on:click|preventDefault|stopPropagation={toggle}
       >
-        {#if showIcons && selected?.icon}<span class="dropdown-select-icon" style:filter={selected.monochromeIcon ? 'brightness(0) invert(1)' : undefined}
-            ><IconValue value={selected.icon} size={14} /></span
+        {#if showIcons && selected?.icon}<span class="dropdown-select-icon"
+            ><span
+              class="dropdown-select-icon-glyph"
+              style:filter={selected.monochromeIcon
+                ? 'brightness(0) invert(1)'
+                : undefined}><IconValue value={selected.icon} size={14} /></span
+            ></span
           >{/if}
         <span class:placeholder={!displayValue} class="dropdown-select-value"
           >{displayValue || placeholder}</span
@@ -356,8 +364,13 @@
             data-tooltip={option.tooltip || undefined}
             on:click={() => select(option.value)}
           >
-            {#if showIcons && option.icon}<span class="dropdown-select-icon" style:filter={option.monochromeIcon ? 'brightness(0) invert(1)' : undefined}
-                ><IconValue value={option.icon} size={14} /></span
+            {#if showIcons && option.icon}<span class="dropdown-select-icon"
+                ><span
+                  class="dropdown-select-icon-glyph"
+                  style:filter={option.monochromeIcon
+                    ? 'brightness(0) invert(1)'
+                    : undefined}><IconValue value={option.icon} size={14} /></span
+                ></span
               >{/if}
             <span class="dropdown-select-option-copy"
               ><strong
@@ -604,6 +617,18 @@
     height: 20px;
     flex: 0 0 20px;
     color: var(--theme-fg-muted);
+  }
+  .dropdown-select-icon-glyph {
+    display: inline-flex;
+    line-height: 0;
+  }
+  .dropdown-select.icon-tone-scope .dropdown-select-icon {
+    color: var(--theme-icon-fg);
+  }
+  .dropdown-select.icon-tone-resource .dropdown-select-icon {
+    color: var(--resource-catalog-icon-fg);
+    background: var(--resource-catalog-icon-bg);
+    border-radius: 4px;
   }
   .dropdown-select-option-copy {
     display: grid;

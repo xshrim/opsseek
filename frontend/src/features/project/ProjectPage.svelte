@@ -1657,7 +1657,7 @@
                 onRowClick={inspectApplication}
                 rowClass={(row) =>
                   row.id === inspectedApplicationID
-                    ? 'inspected-application-row'
+                    ? 'inspected-application-row selected'
                     : ''}
                 emptyText="当前项目暂无匹配应用"
               >

@@ -146,11 +146,8 @@
     overflow-wrap: normal;
     word-break: normal;
   }
-  .tooltip-portal.top {
-    transform: none;
-  }
   :global(:root[data-theme='dark']) .tooltip-portal {
-    color: var(--theme-teal);
+    color: var(--theme-icon-fg);
     border-color: var(--theme-border-focus);
   }
 </style>

@@ -164,16 +164,6 @@
   gap: 9px;
   min-width: 0;
 }
-.access-user-main > span:last-child {
-  min-width: 0;
-}
-.access-user-main strong,
-.access-user-main small {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .access-user-main small {
   margin-top: 3px;
   color: var(--theme-fg-muted);
@@ -474,6 +464,11 @@
   color: var(--theme-fg-muted);
   font-size: 11px;
 }
+.access-scope-tree-head .primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
 .access-user-desk-title-line {
   display: flex;
   align-items: baseline;
@@ -506,6 +501,16 @@
 .access-scope-project-row.active {
   color: var(--theme-accent-contrast);
   background: var(--theme-bg-selected);
+}
+.access-scope-root:hover,
+.access-scope-root.active {
+  color: var(--theme-fg);
+}
+:root:not([data-theme='dark'])
+  .access-scope-team-row.active
+  .scope-tree-select,
+:root:not([data-theme='dark']) .access-scope-project-row.active {
+  color: var(--theme-fg);
 }
 .access-scope-root > span:last-of-type,
 .scope-tree-select > span,
@@ -546,6 +551,15 @@
 .scope-tree-icon {
   display: grid;
   place-items: center;
+}
+.access-scope-root .scope-tree-icon,
+.scope-tree-select .scope-tree-icon {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  color: var(--theme-icon-fg);
+  background: var(--theme-icon-bg);
+  border-radius: 5px;
 }
 .access-scope-team-list {
   padding: 7px 8px 12px;
@@ -934,12 +948,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
-}
-.access-user-permissions span,
-.permission-list span {
-  color: var(--theme-fg-muted);
-  background: var(--theme-bg-surface);
-  border-color: var(--theme-border);
 }
 .access-binding-panel {
   overflow: hidden;
@@ -1553,6 +1561,10 @@
 :root[data-theme='dark'] .access-team-trigger {
   color: var(--theme-fg-strong);
 }
+:root[data-theme='dark'] .access-scope-root .scope-tree-icon {
+  color: var(--theme-fg-muted);
+  background: var(--theme-bg-selected);
+}
 :root[data-theme='dark'] .new-user-grant-row,
 :root[data-theme='dark'] .new-user-resource-grants,
 :root[data-theme='dark'] .scope-viewer-resource-item {
@@ -1595,7 +1607,7 @@
   border-color: var(--theme-border-strong);
 }
 :root[data-theme='dark'] .access-page .secondary:hover {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-hover);
   border-color: var(--theme-border-focus);
 }
@@ -1694,7 +1706,7 @@
   background: var(--theme-bg-surface);
 }
 :root[data-theme='dark'] .team-directory-item.expanded .team-directory-trigger {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-selected);
   border-color: var(--theme-border);
 }
@@ -1840,8 +1852,8 @@
   border-radius: 5px;
 }
 .team-icon {
-  color: var(--theme-fg-muted);
-  background: var(--theme-bg-surface);
+  color: var(--theme-icon-fg);
+  background: var(--theme-icon-bg);
 }
 
 @media (max-width: 720px) {
@@ -1860,7 +1872,9 @@
   color: var(--theme-fg-strong);
 }
 :root[data-theme='dark'] .role-preview,
-:root[data-theme='dark'] .created-credentials-inline > span:not(.user-password-label) {
+:root[data-theme='dark']
+  .created-credentials-inline
+  > span:not(.user-password-label) {
   background: var(--theme-bg-surface);
   border-color: var(--theme-border);
 }
@@ -1874,7 +1888,7 @@
   color: var(--theme-fg-muted);
 }
 :root[data-theme='dark'] .role-chip {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-selected);
   border-color: var(--theme-border);
 }
@@ -1938,7 +1952,7 @@
   padding: 0;
 }
 .expandable-table-container.access-member-table .expandable-table-toggle {
-  width: 30px;
+  width: 24px;
   color: var(--theme-fg-subtle);
   opacity: 0.72;
 }
@@ -1948,7 +1962,7 @@
 }
 .access-member-table .expandable-table-toggle-cell,
 .access-member-table .expandable-table-toggle-column {
-  width: 30px;
+  width: 24px;
 }
 .access-member-table
   .expandable-table
@@ -1958,7 +1972,7 @@
 }
 .access-member-table .expandable-table-select-cell,
 .access-member-table .expandable-table-select-column {
-  width: 30px;
+  width: 24px;
 }
 .access-member-table
   .expandable-table
@@ -2035,7 +2049,7 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   padding: 14px 20px 16px;
-  background: var(--theme-bg-raised);
+  background: var(--theme-bg-table-row-selected);
 }
 .access-user-details-section {
   min-width: 0;
@@ -2140,24 +2154,22 @@
 }
 .permission-card.permission-role-admin {
   --permission-role-color: var(--theme-role-admin);
+  --permission-role-bg: var(--theme-role-admin-bg);
+  --permission-role-border: var(--theme-role-admin-border);
 }
 .permission-card.permission-role-operator {
   --permission-role-color: var(--theme-role-operator);
+  --permission-role-bg: var(--theme-role-operator-bg);
+  --permission-role-border: var(--theme-role-operator-border);
 }
 .permission-card.permission-role-viewer {
   --permission-role-color: var(--theme-role-viewer);
+  --permission-role-bg: var(--theme-role-viewer-bg);
+  --permission-role-border: var(--theme-role-viewer-border);
 }
 .permission-card[class*='permission-role-'] {
-  background: color-mix(
-    in srgb,
-    var(--permission-role-color) 11%,
-    var(--theme-bg-surface)
-  );
-  border-color: color-mix(
-    in srgb,
-    var(--permission-role-color) 42%,
-    var(--theme-border)
-  );
+  background: var(--permission-role-bg);
+  border-color: var(--permission-role-border);
 }
 .permission-card.permission-role-admin .permission-card-role {
   color: var(--permission-role-color);

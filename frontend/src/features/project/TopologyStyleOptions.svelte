@@ -18,90 +18,60 @@
     {
       name: '清晰描边',
       note: '中性边框 + 关系类型着色',
-      app: '#536fc4',
-      resource: '#087f8c',
-      entity: '#a46719',
       edge: 'solid',
       node: 'outline'
     },
     {
       name: '柔和底色',
       note: '低饱和填充 + 轻量曲线',
-      app: '#536fc4',
-      resource: '#087f8c',
-      entity: '#a46719',
       edge: 'curve',
       node: 'soft'
     },
     {
       name: '分类色轨',
       note: '左侧色轨强化类别识别',
-      app: '#536fc4',
-      resource: '#087f8c',
-      entity: '#a46719',
       edge: 'rail',
       node: 'rail'
     },
     {
       name: '分层标签',
       note: '紧凑图标块 + 标题/类型分层',
-      app: '#536fc4',
-      resource: '#087f8c',
-      entity: '#a46719',
       edge: 'arrow',
       node: 'label'
     },
     {
       name: '纯线框',
       note: '无底色平面节点 + 直角连线',
-      app: '#536fc4',
-      resource: '#087f8c',
-      entity: '#a46719',
       edge: 'orthogonal',
       node: 'flat'
     },
     {
       name: '状态圆点',
       note: '节点状态点与关系端点呼应',
-      app: '#536fc4',
-      resource: '#087f8c',
-      entity: '#a46719',
       edge: 'dots',
       node: 'status'
     },
     {
       name: '虚实层级',
       note: '外部实体虚线，纳管节点实线',
-      app: '#536fc4',
-      resource: '#087f8c',
-      entity: '#a46719',
       edge: 'dashed',
       node: 'dashed'
     },
     {
       name: '分组容器',
       note: '类型提示收进小型标签胶囊',
-      app: '#536fc4',
-      resource: '#087f8c',
-      entity: '#a46719',
       edge: 'thin',
       node: 'grouped'
     },
     {
       name: '工程网格',
       note: '细网格画布 + 直线连接',
-      app: '#536fc4',
-      resource: '#087f8c',
-      entity: '#a46719',
       edge: 'grid',
       node: 'engineering'
     },
     {
       name: '强调焦点',
       note: '更强轮廓 + 轻微选中光环',
-      app: '#536fc4',
-      resource: '#087f8c',
-      entity: '#a46719',
       edge: 'focus',
       node: 'focus'
     }
@@ -144,7 +114,6 @@
         type="button"
         class:selected={selected === index}
         class={`scheme scheme-${plan.node}`}
-        style={`--app:${plan.app};--resource:${plan.resource};--entity:${plan.entity}`}
         aria-pressed={selected === index}
         on:click={() => select(index)}
       >
@@ -240,7 +209,9 @@
     background: var(--theme-bg-page);
   }
   .options-page {
-    --app: var(--theme-application);
+    --app: var(--theme-topology-preview-app);
+    --resource: var(--theme-topology-preview-resource);
+    --entity: var(--theme-topology-preview-entity);
     min-height: 100vh;
     padding: 28px 32px 40px;
     color: var(--theme-fg);
@@ -330,8 +301,7 @@
   }
   .scheme.selected {
     border-color: var(--theme-action);
-    box-shadow: 0 0 0 2px
-      color-mix(in srgb, var(--theme-action) 13%, transparent);
+    box-shadow: 0 0 0 2px var(--theme-focus-soft);
   }
   .scheme-heading {
     display: flex;
@@ -562,18 +532,18 @@
     box-shadow: none;
   }
   .scheme-soft .mini-node {
-    background: color-mix(in srgb, var(--app) 7%, var(--theme-bg-raised));
-    border-color: color-mix(in srgb, var(--app) 26%, var(--theme-border));
+    background: var(--theme-topology-preview-app-bg);
+    border-color: var(--theme-topology-preview-app-border);
     border-radius: 7px;
-    box-shadow: 0 2px 7px color-mix(in srgb, var(--theme-fg) 8%, transparent);
+    box-shadow: var(--theme-shadow-card);
   }
   .scheme-soft .node-db {
-    background: color-mix(in srgb, var(--resource) 8%, var(--theme-bg-raised));
-    border-color: color-mix(in srgb, var(--resource) 26%, var(--theme-border));
+    background: var(--theme-topology-preview-resource-bg);
+    border-color: var(--theme-topology-preview-resource-border);
   }
   .scheme-soft .node-entity {
-    background: color-mix(in srgb, var(--entity) 8%, var(--theme-bg-raised));
-    border-color: color-mix(in srgb, var(--entity) 26%, var(--theme-border));
+    background: var(--theme-topology-preview-entity-bg);
+    border-color: var(--theme-topology-preview-entity-border);
   }
   .scheme-rail .mini-node {
     border-left: 3px solid currentColor;
@@ -590,7 +560,7 @@
     width: 20px;
     height: 20px;
     padding: 3px;
-    background: color-mix(in srgb, currentColor 12%, var(--theme-bg-raised));
+    background: var(--theme-topology-preview-icon-bg);
     border-radius: 4px;
   }
   .scheme-flat .mini-node {
@@ -632,19 +602,19 @@
     max-width: 100%;
     padding: 1px 3px;
     color: currentColor;
-    background: color-mix(in srgb, currentColor 10%, var(--theme-bg-raised));
+    background: var(--theme-bg-subtle);
     border-radius: 3px;
   }
   .scheme-engineering .mini-canvas {
     background-image:
       linear-gradient(
         to right,
-        color-mix(in srgb, var(--theme-border) 45%, transparent) 1px,
+        var(--theme-topology-preview-grid-line) 1px,
         transparent 1px
       ),
       linear-gradient(
         to bottom,
-        color-mix(in srgb, var(--theme-border) 45%, transparent) 1px,
+        var(--theme-topology-preview-grid-line) 1px,
         transparent 1px
       );
     background-size: 14px 14px;
@@ -656,7 +626,7 @@
   .scheme-focus .mini-node {
     border-width: 1.5px;
     border-radius: 6px;
-    box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 10%, transparent);
+    box-shadow: 0 0 0 2px var(--theme-focus-soft);
   }
   .preview-curve .edge-app,
   .preview-curve .edge-resource,

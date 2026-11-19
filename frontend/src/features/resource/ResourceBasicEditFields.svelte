@@ -57,6 +57,7 @@
         value={categoryValue}
         options={categoryOptions}
         showIcons
+        iconTone="resource"
         disabled
         ariaLabel="资源类型"
       /></FormField
@@ -66,6 +67,7 @@
         value={subtypeValue}
         options={subtypeOptions}
         showIcons
+        iconTone="resource"
         disabled
         ariaLabel="资源子类型"
       /></FormField
@@ -75,11 +77,12 @@
     <FormField label="资源名称" required
       ><TextInput bind:value={name} required /></FormField
     >
-    <FormField label="资源级别" required
+    <FormField label="资源级别" className="resource-basic-level" required
       ><DropdownSelect
         value={scopeId}
         options={scopeDropdownOptions}
         showIcons
+        iconTone="scope"
         placeholder="请选择资源级别"
         ariaLabel="资源级别"
         on:change={(event) => onSelectScope(String(event.detail))}

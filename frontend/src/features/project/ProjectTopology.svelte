@@ -1834,7 +1834,7 @@
   }
   .topology-palette-category-icon.resource-tone,
   .topology-palette-item.resource {
-    --topology-tone: var(--theme-resource);
+    --topology-tone: var(--theme-topology-resource);
   }
   .topology-palette-category-icon.runtime-tone,
   .topology-palette-item.runtime-tone {
@@ -1887,7 +1887,7 @@
     --topology-tone: var(--theme-action);
   }
   .topology-palette-item.resource {
-    --topology-tone: var(--theme-resource);
+    --topology-tone: var(--theme-topology-resource);
   }
   .topology-palette-item.runtime-tone {
     --topology-tone: var(--theme-runtime);
@@ -1909,7 +1909,7 @@
     min-width: 0;
     min-height: 0;
     overflow: hidden;
-    background: var(--theme-bg);
+    background: var(--theme-bg-page);
     touch-action: none;
   }
   .topology-legend {
@@ -1935,13 +1935,13 @@
     border-radius: 50%;
   }
   .topology-legend .application-key i {
-    background: var(--theme-application);
+    background: var(--theme-action);
   }
   .topology-legend .runtime-key i {
     background: var(--theme-runtime);
   }
   .topology-legend .resource-key i {
-    background: var(--theme-resource);
+    background: var(--theme-topology-resource);
   }
   .topology-legend .entity-key i {
     background: var(--theme-warning);
@@ -2011,7 +2011,10 @@
   }
   .topology-node-card {
     --topology-tone: var(--theme-accent);
-    --topology-soft: var(--theme-bg-accent-soft);
+    --topology-border: var(--theme-border);
+    --topology-selected: var(--theme-topology-app-selected);
+    --topology-divider: var(--theme-topology-app-divider);
+    --topology-anchor: var(--theme-topology-app-anchor);
     position: absolute;
     z-index: 1;
     display: flex;
@@ -2019,14 +2022,9 @@
     width: 180px;
     height: 60px;
     overflow: hidden;
-    border: 1px solid
-      color-mix(in srgb, var(--topology-tone) 38%, var(--theme-border));
+    border: 1px solid var(--topology-border);
     border-radius: 5px;
-    background: color-mix(
-      in srgb,
-      var(--topology-soft) 72%,
-      var(--theme-bg-raised)
-    );
+    background: var(--topology-background);
     box-shadow: var(--theme-shadow-soft);
   }
   .topology-workspace.editing .topology-node-card {
@@ -2038,54 +2036,46 @@
   }
   .topology-node-card.application-node {
     --topology-tone: var(--theme-action);
-    --topology-soft: color-mix(
-      in srgb,
-      var(--theme-application) 14%,
-      var(--theme-bg-raised)
-    );
+    --topology-background: var(--theme-topology-app-bg);
+    --topology-border: var(--theme-topology-app-border);
+    --topology-selected: var(--theme-topology-app-selected);
+    --topology-divider: var(--theme-topology-app-divider);
+    --topology-anchor: var(--theme-topology-app-anchor);
   }
   .topology-node-card.runtime-node {
-    --topology-tone: var(--theme-success);
-    --topology-soft: color-mix(
-      in srgb,
-      var(--theme-success) 14%,
-      var(--theme-bg-subtle)
-    );
+    --topology-tone: var(--theme-runtime);
+    --topology-background: var(--theme-topology-runtime-bg);
+    --topology-border: var(--theme-topology-runtime-border);
+    --topology-selected: var(--theme-topology-runtime-selected);
+    --topology-divider: var(--theme-topology-runtime-divider);
+    --topology-anchor: var(--theme-topology-runtime-anchor);
   }
   .topology-node-card.resource-node {
-    --topology-tone: var(--theme-resource);
-    --topology-soft: color-mix(
-      in srgb,
-      var(--theme-resource) 14%,
-      var(--theme-bg-subtle)
-    );
+    --topology-tone: var(--theme-topology-resource);
+    --topology-background: var(--theme-topology-resource-bg);
+    --topology-border: var(--theme-topology-resource-border);
+    --topology-selected: var(--theme-topology-resource-selected);
+    --topology-divider: var(--theme-topology-resource-divider);
+    --topology-anchor: var(--theme-topology-resource-anchor);
   }
   .topology-node-card.entity-node {
     --topology-tone: var(--theme-warning);
-    --topology-soft: var(--theme-bg-warning-soft);
+    --topology-background: var(--theme-topology-entity-bg);
+    --topology-border: var(--theme-topology-entity-border);
+    --topology-selected: var(--theme-topology-entity-selected);
+    --topology-divider: var(--theme-topology-entity-divider);
+    --topology-anchor: var(--theme-topology-entity-anchor);
   }
   .topology-node-card.pending-node {
-    border: 1px dashed
-      color-mix(in srgb, var(--topology-tone) 65%, var(--theme-border));
+    border: 1px dashed var(--topology-border);
     opacity: 0.62;
     box-shadow: none;
     pointer-events: none;
   }
   .topology-node-card.selected {
     box-shadow:
-      0 0 0 2px color-mix(in srgb, var(--topology-tone) 22%, transparent),
+      0 0 0 2px var(--topology-selected),
       var(--theme-shadow-soft);
-  }
-  .topology-node-card.runtime-node {
-    --topology-tone: var(--theme-runtime);
-    --topology-soft: color-mix(
-      in srgb,
-      var(--theme-runtime) 14%,
-      var(--theme-bg-subtle)
-    );
-  }
-  .topology-legend .runtime-key i {
-    background: var(--theme-runtime);
   }
   .topology-node-main {
     display: flex;
@@ -2157,7 +2147,7 @@
     background: linear-gradient(
       90deg,
       transparent,
-      color-mix(in srgb, var(--topology-tone) 22%, var(--theme-border)),
+      var(--topology-divider),
       transparent
     );
   }
@@ -2232,7 +2222,7 @@
     border: 1px solid var(--theme-bg-raised);
     border-radius: 50%;
     box-shadow: 0 0 0 1px
-      color-mix(in srgb, var(--topology-tone) 60%, transparent);
+      var(--topology-anchor);
   }
   .anchor-top {
     top: -8px;
@@ -2384,7 +2374,7 @@
     min-height: 30px;
     padding: 5px 7px;
     color: var(--theme-fg);
-    background: var(--theme-bg);
+    background: var(--theme-bg-input);
     border: 1px solid var(--theme-border-strong);
     border-radius: 4px;
   }

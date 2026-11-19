@@ -18,11 +18,7 @@
   z-index: 1;
 }
 .login-brand {
-  --login-brand-fg: color-mix(
-    in srgb,
-    var(--color-primary) 70%,
-    var(--theme-fg-muted)
-  );
+  --login-brand-fg: var(--theme-login-brand);
   --theme-logo-fg: var(--login-brand-fg);
   position: absolute;
   top: 52px;
@@ -76,7 +72,7 @@
   background-image: url('../../assets/login-background-dark.jpeg');
 }
 :root[data-theme='dark'] .login-kicker {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
 }
 .login-intro {
   margin: 8px 0 0;
@@ -244,6 +240,6 @@
   color: var(--theme-fg-muted);
 }
 :root[data-theme='dark'] .password-toggle:hover {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-selected);
 }

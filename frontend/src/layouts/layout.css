@@ -232,7 +232,7 @@
   color: var(--theme-fg);
   background: var(--theme-bg-surface);
   border-right: 1px solid var(--theme-border);
-  box-shadow: 1px 0 4px color-mix(in srgb, var(--theme-fg) 3%, transparent);
+  box-shadow: 1px 0 4px var(--theme-shadow-sidebar);
   transition: padding 180ms ease;
 }
 .sidebar.sidebar-compact {
@@ -302,7 +302,7 @@
 }
 .nav-item:hover,
 .nav-item.active {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-hover);
 }
 .nav-item.active svg {
@@ -474,7 +474,7 @@
   font-size: 12px;
 }
 .user-menu button:hover {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-hover);
 }
 .user-menu-name {
@@ -539,9 +539,6 @@
   background: var(--theme-bg-surface);
   border-color: var(--theme-border-strong);
 }
-:root[data-theme='dark'] .app-shell {
-  background: var(--theme-bg-page);
-}
 :root[data-theme='dark'] .user-menu,
 :root[data-theme='dark'] .scope-picker select,
 :root[data-theme='dark'] .user-menu button {
@@ -554,9 +551,6 @@
 :root[data-theme='dark'] .sidebar-footer {
   border-color: var(--theme-border);
 }
-:root[data-theme='dark'] .brand {
-  color: var(--theme-fg-strong);
-}
 :root[data-theme='dark'] .nav-item,
 :root[data-theme='dark'] .user-menu-trigger,
 :root[data-theme='dark'] .sidebar-toggle {
@@ -567,14 +561,14 @@
 :root[data-theme='dark'] .user-menu-trigger:hover,
 :root[data-theme='dark'] .sidebar-toggle:hover,
 :root[data-theme='dark'] .user-menu button:hover {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-hover);
 }
 :root[data-theme='dark'] .nav-item.active svg {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
 }
 :root[data-theme='dark'] .nav-item.active .nav-item-label {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
 }
 @media (max-width: 720px) {
   .app-shell,
@@ -676,7 +670,7 @@
 :root[data-theme='dark'] .sidebar {
   background: var(--theme-bg-page);
   border-color: var(--theme-border);
-  box-shadow: 1px 0 4px color-mix(in srgb, var(--theme-fg) 10%, transparent);
+  box-shadow: 1px 0 4px var(--theme-shadow-panel);
 }
 :root[data-theme='dark'] .brand {
   color: var(--theme-fg-strong);
@@ -697,7 +691,7 @@
 :root[data-theme='dark'] .nav-item.active,
 :root[data-theme='dark'] .nav-submenu button:hover,
 :root[data-theme='dark'] .nav-submenu button.active {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-selected);
 }
 :root[data-theme='dark'] .nav-item.active svg,
@@ -714,7 +708,7 @@
 :root[data-theme='dark'] .user-menu-trigger:hover,
 :root[data-theme='dark'] .sidebar-toggle:hover,
 :root[data-theme='dark'] .user-menu button:hover {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-selected);
 }
 :root[data-theme='dark'] .sidebar-toggle,
@@ -750,7 +744,7 @@ nav {
   border-color: var(--theme-border);
 }
 :root[data-theme='dark'] .user-menu .secondary:hover {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-hover);
   border-color: var(--color-primary);
 }
@@ -776,8 +770,8 @@ nav {
 }
 .global-scope-trigger:hover,
 .global-scope-trigger[aria-expanded='true'] {
-  border-color: var(--theme-teal);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-teal) 12%, transparent);
+  border-color: var(--theme-icon-fg);
+  box-shadow: 0 0 0 2px var(--theme-border-icon-soft);
 }
 .global-scope-trigger:focus-visible,
 .global-scope-menu button:focus-visible {
@@ -790,8 +784,8 @@ nav {
   flex: 0 0 auto;
   width: 24px;
   height: 24px;
-  color: var(--theme-teal);
-  background: var(--theme-bg-selected);
+  color: var(--theme-icon-fg);
+  background: var(--theme-icon-bg);
   border-radius: 6px;
 }
 .global-scope-copy {
@@ -853,7 +847,7 @@ nav {
   max-height: min(390px, calc(100vh - 240px));
   overflow-y: auto;
   padding: 2px 8px 8px;
-  scrollbar-color: var(--theme-border-strong) transparent;
+  scrollbar-color: var(--theme-scrollbar-thumb) var(--theme-scrollbar-track);
   scrollbar-width: thin;
 }
 .global-scope-section-label {
@@ -890,7 +884,7 @@ nav {
   background: var(--theme-bg-hover);
 }
 .global-scope-option.current {
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
   background: var(--theme-bg-selected);
 }
 .global-scope-all {
@@ -904,17 +898,13 @@ nav {
   flex: 0 0 auto;
   width: 25px;
   height: 25px;
-  color: var(--theme-fg-subtle);
-  background: var(--theme-bg-raised);
+  color: var(--theme-icon-fg);
+  background: var(--theme-icon-bg);
   border-radius: 5px;
 }
 .global-scope-option.current .global-scope-option-icon {
-  color: var(--theme-teal);
-  background: color-mix(
-    in srgb,
-    var(--theme-teal) 12%,
-    var(--theme-bg-surface)
-  );
+  color: var(--theme-icon-fg);
+  background: var(--theme-icon-bg-soft);
 }
 .global-scope-option-copy {
   display: grid;
@@ -940,7 +930,7 @@ nav {
 .global-scope-check {
   flex: 0 0 auto;
   margin-left: auto;
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
 }
 .global-scope-divider {
   height: 1px;
@@ -965,7 +955,7 @@ nav {
 }
 .global-scope-team-icon {
   flex: 0 0 auto;
-  color: var(--theme-teal);
+  color: var(--theme-icon-fg);
 }
 .global-scope-team-name {
   min-width: 0;

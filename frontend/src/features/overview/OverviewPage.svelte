@@ -627,31 +627,10 @@
 
 <style>
   .overview-dashboard {
-    --overview-accent: color-mix(
-      in srgb,
-      var(--theme-teal) 86%,
-      var(--theme-fg-strong)
-    );
-    --overview-success: color-mix(
-      in srgb,
-      var(--theme-success) 86%,
-      var(--theme-fg-strong)
-    );
-    --overview-warning: color-mix(
-      in srgb,
-      var(--theme-warning) 80%,
-      var(--theme-fg-strong)
-    );
-    --overview-danger: color-mix(
-      in srgb,
-      var(--theme-danger) 86%,
-      var(--theme-fg-strong)
-    );
-    --overview-info: color-mix(
-      in srgb,
-      var(--theme-info) 86%,
-      var(--theme-fg-strong)
-    );
+    --overview-accent: var(--resource-catalog-icon-bg);
+    --overview-success: var(--theme-overview-success);
+    --overview-warning: var(--theme-overview-warning);
+    --overview-danger: var(--theme-overview-danger);
     display: grid;
     gap: 14px;
     padding-top: 18px;
@@ -815,8 +794,7 @@
   }
   .orbit-ring {
     position: absolute;
-    border: 1px solid
-      color-mix(in srgb, var(--overview-accent) 44%, var(--theme-border));
+    border: 1px solid var(--theme-overview-ring);
     border-radius: 50%;
   }
   .ring-one {
@@ -828,11 +806,7 @@
   }
   .ring-three {
     inset: 35%;
-    border-color: color-mix(
-      in srgb,
-      var(--overview-accent) 66%,
-      var(--theme-border)
-    );
+    border-color: var(--theme-overview-ring-strong);
   }
   .orbit-center {
     z-index: 1;
@@ -862,8 +836,7 @@
     background: var(--overview-accent);
     border: 2px solid var(--theme-bg-raised);
     border-radius: 50%;
-    box-shadow: 0 0 0 3px
-      color-mix(in srgb, var(--overview-accent) 26%, transparent);
+    box-shadow: 0 0 0 3px var(--theme-overview-glow);
   }
   .node-one {
     top: 12%;
@@ -872,17 +845,17 @@
   .node-two {
     bottom: 18%;
     right: 13%;
-    background: var(--overview-info);
+    background: var(--overview-accent);
   }
   .node-three {
     bottom: 13%;
     left: 25%;
-    background: var(--overview-warning);
+    background: var(--overview-accent);
   }
   .node-four {
     top: 30%;
     left: 8%;
-    background: var(--overview-success);
+    background: var(--overview-accent);
   }
   .resource-kind-list {
     display: grid;
@@ -910,8 +883,8 @@
     width: 26px;
     height: 26px;
     flex: 0 0 auto;
-    color: #fff;
-    background: var(--theme-bg-selected);
+    color: var(--theme-resource-icon-fg);
+    background: var(--overview-accent);
     border-radius: 4px;
   }
   .kind-copy {

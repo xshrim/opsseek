@@ -110,7 +110,7 @@ git bundle verify opsseek.bundle</code
     border-radius: 8px;
     background: var(--theme-bg-surface);
     color: var(--theme-fg);
-    box-shadow: var(--theme-shadow-lg);
+    box-shadow: var(--theme-shadow);
   }
   .guide-modal {
     display: grid;
@@ -169,7 +169,7 @@ git bundle verify opsseek.bundle</code
     padding: 10px 12px;
     border: 1px solid var(--theme-border);
     border-radius: 5px;
-    background: var(--theme-bg-sunken);
+    background: var(--theme-bg-subtle);
     color: var(--theme-fg-strong);
     font:
       11px/1.6 ui-monospace,

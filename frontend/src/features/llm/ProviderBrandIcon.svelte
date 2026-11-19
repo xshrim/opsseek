@@ -39,8 +39,8 @@
     width: var(--brand-size);
     height: var(--brand-size);
     overflow: hidden;
-    color: var(--theme-accent);
-    background: var(--theme-bg-accent-soft);
+    color: var(--theme-icon-fg);
+    background: var(--theme-icon-bg);
     border-radius: 4px;
     font-size: 7px;
     font-weight: 800;
