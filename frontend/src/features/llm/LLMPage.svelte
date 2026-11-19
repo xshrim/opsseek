@@ -273,6 +273,17 @@
       )[type] ?? '当前级别'
     );
   }
+  function scopeLevelIcon(type: string) {
+    return (
+      (
+        {
+          platform: 'lucide:PanelsTopLeft',
+          team: 'lucide:Building',
+          project: 'lucide:Boxes'
+        } as Record<string, string>
+      )[type] ?? 'lucide:PanelsTopLeft'
+    );
+  }
   function providerScopeDropdownOptions(currentScopeId: string) {
     const scopes = providerManageScopeOptions.some(
       (item) => item.id === currentScopeId
@@ -284,7 +295,8 @@
         ];
     return scopes.map((scope) => ({
       value: scope.id,
-      label: `${scopeLevelLabel(scope.type)} · ${scope.name}`
+      label: `${scopeLevelLabel(scope.type)} · ${scope.name}`,
+      icon: scopeLevelIcon(scope.type)
     }));
   }
   $: if (providers !== sourceProviders) {
@@ -1252,14 +1264,16 @@
               </span>
               <span class="provider-row-models">
                 {#each modelSummary.visible as model}
-                  <span class="model-chip">
-                    {model.name}<em
-                      >{(provider.config.default_model ||
-                        provider.config.models?.[0]?.name) === model.name
-                        ? '默认'
-                        : ''}</em
-                    >
-                  </span>
+                  {@const isDefaultModel =
+                    (provider.config.default_model ||
+                      provider.config.models?.[0]?.name) === model.name}
+                  <span
+                    class:default-model={isDefaultModel}
+                    class="model-chip"
+                    ><span class="model-chip-name">{model.name}</span>{#if isDefaultModel}<em
+                        >默认</em
+                      >{/if}</span
+                  >
                 {/each}
                 {#if modelSummary.hidden > 0}<span
                     class="model-chip model-overflow"
@@ -1396,6 +1410,8 @@
                           options={providerScopeDropdownOptions(
                             providerDraft.scopeId || scopeId
                           )}
+                          showIcons
+                          iconTone="scope"
                           placeholder="请选择级别"
                           ariaLabel="渠道级别"
                           disabled={!canManageProvider || busy}
@@ -1801,13 +1817,15 @@
                   <div class="provider-preview-field">
                     <FieldLabel text="类型" required /><strong
                       class="provider-preview-value provider-preview-type"
-                      ><ProviderBrandIcon
-                        providerType={selectedProvider.config.provider_type}
-                        label={providerTypeLabel(
-                          selectedProvider.config.provider_type
-                        )}
-                        size={16}
-                      /><span
+                      ><span class="provider-preview-provider-icon"
+                        ><ProviderBrandIcon
+                          providerType={selectedProvider.config.provider_type}
+                          label={providerTypeLabel(
+                            selectedProvider.config.provider_type
+                          )}
+                          size={16}
+                        /></span
+                      ><span
                         >{providerTypeLabel(
                           selectedProvider.config.provider_type
                         )}</span
@@ -2073,8 +2091,8 @@
     flex: 0 0 auto;
     width: 36px;
     height: 36px;
-    color: var(--theme-accent);
-    background: var(--theme-bg-accent-soft);
+    color: var(--theme-icon-fg);
+    background: var(--theme-icon-bg);
     border-radius: 7px;
   }
   .provider-icon {
@@ -2186,7 +2204,7 @@
     padding: 0;
     color: var(--theme-fg-muted);
     background: transparent;
-    border-color: transparent;
+    border: 0 !important;
   }
   .panel {
     padding: 0;
@@ -2246,7 +2264,7 @@
     background: var(--theme-bg-hover);
   }
   :global(:root[data-theme='dark']) .list-toolbar-actions .icon-button:hover {
-    color: var(--theme-teal);
+    color: var(--theme-icon-fg);
     background: var(--theme-bg-accent-soft);
   }
   .provider-search {
@@ -2317,7 +2335,7 @@
   }
   .provider-row:hover,
   .provider-row.selected {
-    background: var(--theme-bg-hover);
+    background: var(--theme-bg-surface);
     border-color: var(--theme-accent);
   }
   .provider-row.selected::before {
@@ -2342,7 +2360,7 @@
     border-radius: 0;
   }
   .provider-row .provider-icon {
-    color: var(--theme-teal);
+    color: var(--theme-icon-fg);
   }
   .provider-title {
     display: flex;
@@ -2497,7 +2515,7 @@
   :global(:root[data-theme='dark']) .provider-models-action:focus,
   :global(:root[data-theme='dark']) .provider-models-action:focus-visible,
   :global(:root[data-theme='dark']) .provider-models-action:active {
-    color: var(--theme-teal);
+    color: var(--theme-icon-fg);
     background: var(--theme-bg-accent-soft);
   }
   .model-chip {
@@ -2508,11 +2526,20 @@
     max-width: 100%;
     padding: 0 7px;
     overflow: hidden;
-    color: var(--theme-teal);
-    background: var(--theme-teal-soft);
+    color: var(--theme-icon-fg);
+    background: var(--theme-bg-selected);
     border-radius: 5px;
     font-size: 10px;
     font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .model-chip.default-model {
+    min-width: 54px;
+  }
+  .model-chip-name {
+    min-width: 0;
+    overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -2738,7 +2765,7 @@
     width: 35px;
     min-height: 35px;
     padding: 0;
-    color: var(--theme-teal);
+    color: var(--theme-icon-fg);
     background: transparent;
     border-color: transparent;
     transform: none;
@@ -2788,6 +2815,15 @@
   .provider-preview-type {
     gap: 7px;
   }
+  .provider-preview-provider-icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    color: var(--theme-fg-muted);
+  }
+  .provider-preview-provider-icon :global(.provider-brand-monogram) {
+    color: var(--theme-fg-muted);
+    background: transparent;
+  }
   .provider-preview-tags {
     justify-self: stretch;
     width: 100%;
@@ -2811,7 +2847,7 @@
   .provider-preview-tags .tag-row::-webkit-scrollbar-thumb,
   .provider-tag-editor .tag-row::-webkit-scrollbar-thumb,
   .model-capability-editor .tag-row::-webkit-scrollbar-thumb {
-    background: var(--theme-border-strong);
+    background: var(--theme-scrollbar-thumb);
     border-radius: 999px;
   }
   .preview-tag-hidden {
@@ -2852,13 +2888,13 @@
     flex-wrap: wrap;
     overflow: visible;
   }
-  .provider-tag-editor,
-  .provider-level-field {
+  .provider-tag-editor {
     justify-self: start;
   }
   .provider-level-field {
-    width: 150px;
-    min-width: 150px;
+    justify-self: stretch;
+    width: 100%;
+    min-width: 0;
   }
   .provider-level-field :global(.field-label) {
     text-align: left;

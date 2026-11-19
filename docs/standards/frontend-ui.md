@@ -47,7 +47,8 @@
 | 输入框/下拉框 | `--theme-fg` | `--theme-bg-input` | `--theme-border-strong` |
 | 输入框悬停 | `--theme-fg` | `--theme-bg-hover` | `--theme-border-strong` |
 | 输入框聚焦 | `--theme-fg` | `--theme-bg-input` | `--theme-border-focus` + `--theme-focus` 焦点环 |
-| 选中项/选中标签 | `--theme-teal` | `--theme-bg-selected` | `--theme-teal` |
+| 选中项/选中标签 | `--theme-icon-fg` | `--theme-bg-selected` | `--theme-icon-fg` |
+| 表格选中行/展开区 | `--theme-fg` | `--theme-bg-table-row-selected` | 保持原表格边框 |
 | 禁用控件 | `--theme-fg-disabled` | `--theme-bg-subtle` | `--theme-border` |
 | 成功/警告/错误状态 | 对应 `--theme-success/warning/danger` | 对应 `--theme-bg-*-soft` | 可选对应颜色边框 |
 
@@ -66,6 +67,8 @@
 
 主题审计规则：实际颜色值只能出现在 `frontend/src/app.css` 的全局令牌定义区；页面、组件和组件级覆盖不得直接写 HEX、RGB 或 RGBA 颜色。公共控件的覆盖范围包括普通/主/危险按钮、图标按钮、文本按钮、单行输入框、多行文本框、下拉框及其选项、复选框、开关、分段控件、Tooltip、弹窗遮罩、加载指示器和状态徽标。每个控件必须复用本节令牌，并覆盖悬停、焦点、选中、禁用和状态反馈；不再使用局部主题令牌或 `!important` 强行压过全局主题。
 
+颜色使用补充约束：禁止使用 `color-mix()`。原本由混色计算得到的颜色应按浅色/深色主题展开为全局令牌，页面和组件只引用令牌。仅当品牌图标必须保留多色细节时允许在图标资源本身保留品牌色；不得用混色生成界面状态或装饰颜色。
+
 #### 完整主题令牌对照
 
 以下是项目唯一维护的两套主题令牌。代码中的 `:root` 对应浅色主题，`:root[data-theme='dark']` 对应深色主题。页面和组件不得再创建局部主题或复制这些颜色值。
@@ -79,6 +82,7 @@
 | 次级表面 | `#F5EFEC` | `#3A3430` |
 | 悬停背景 | `#FFF0E9` | `#342E2A` |
 | 选中背景 | `#FFF0E8` | `#173E35` |
+| 表格行悬停/选中/展开背景 | `#FFF9F4` | `#2A2926` |
 | 普通文字 | `#3A3431` | `#EEE4DF` |
 | 强调文字 | `#423934` | `#F1E8E3` |
 | 次要文字 | `#6F625B` | `#BFB3AC` |
@@ -93,7 +97,7 @@
 | 操作按钮主色 | `#E7601B` | `#18A27D` |
 | 操作按钮悬停 | `#D95716` | `#158C6C` |
 | 操作按钮按下 | `#C94E10` | `#117557` |
-| 辅助强调色 | `#9E3F0F` | `#9FE4CF` |
+| 图标/选中前景色 | `#E7601B` | `#9FE4CF` |
 | 成功背景 | `#F5F2EF` | `#173E35` |
 | 警告背景 | `#FFF4DC` | `#46371E` |
 | 错误背景 | `#FCEBE8` | `#4A2D27` |
