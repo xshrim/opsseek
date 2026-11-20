@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+
   export let value = '';
   export let colorScheme: 'theme' | 'independent' = 'theme';
   export let distinguishKeyOnly = true;
@@ -9,18 +11,45 @@
   export let overflow = false;
   export let measure = false;
 
+  let element: HTMLSpanElement;
+  let truncated = false;
+
   $: separator = value.search(/[=:]/);
   $: hasValue = separator > 0 && separator < value.length - 1;
+
+  function measureTruncation() {
+    const next = Boolean(
+      textMode === 'ellipsis' &&
+      element &&
+      element.scrollWidth > element.clientWidth
+    );
+    if (next !== truncated) truncated = next;
+  }
+
+  onMount(() => {
+    const observer = new ResizeObserver(measureTruncation);
+    observer.observe(element);
+    measureTruncation();
+    return () => observer.disconnect();
+  });
+
+  $: {
+    value;
+    textMode;
+    maxWidth;
+    queueMicrotask(measureTruncation);
+  }
 </script>
 
 <span
+  bind:this={element}
   class={`tag tag-${colorScheme} tag-text-${textMode} ${className}`}
   class:tag-has-value={hasValue && distinguishKeyOnly}
   class:tag-key-only={!hasValue && distinguishKeyOnly}
   class:tag-overflow={overflow}
   data-tag-measure={measure ? '' : undefined}
   style={`--tag-max-width: ${maxWidth || '100%'}`}
-  data-tooltip={textMode === 'ellipsis' && tooltipOnTruncate
+  data-tooltip={textMode === 'ellipsis' && tooltipOnTruncate && truncated
     ? value
     : undefined}
   aria-label={value}>{value}</span

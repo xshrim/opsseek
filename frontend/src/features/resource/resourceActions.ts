@@ -288,7 +288,8 @@ export function updateResourceRecord(
   body: Record<string, unknown>
 ) {
   const { credential, ...resource } = body;
-  if (credential === undefined || credential === '')
+  // Encrypted credentials are write-only; an empty edit form means keep the saved secret.
+  if (credential === undefined || credential === '' || credential === null)
     return api.updateResource(resourceId, resource);
   return api.updateResource(resourceId, body);
 }

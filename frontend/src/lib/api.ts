@@ -150,6 +150,7 @@ export interface Application {
   labels: Record<string, string>;
   critical: boolean;
   listening_address?: string;
+  listening_address_pending?: boolean;
   technical_owner_ids: string[];
   operations_owner_ids: string[];
   instances: ApplicationInstance[];

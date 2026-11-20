@@ -36,7 +36,7 @@
       disabled={disabled || uploading}
     />
     <Upload class="upload-icon" size={17} aria-hidden="true" />
-    <span class="file-copy" title={file?.name ?? ariaLabel}>
+    <span class="file-copy" data-tooltip={file?.name ?? ariaLabel}>
       <strong>{file?.name ?? placeholder}</strong>
       {#if file}<small>{formatFileSize(file.size)}</small>{/if}
     </span>

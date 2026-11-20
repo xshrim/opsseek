@@ -16,6 +16,7 @@
   export let onChange: () => void = () => {};
   export let validate: (value: string) => boolean = () => true;
   export let fileLabelPrefix = '';
+  export let credentialConfigured = false;
 
   type CredentialField = 'ca' | 'cert' | 'key';
   let selectedFileNames: Record<CredentialField, string> = {
@@ -76,6 +77,7 @@
 <fieldset class="docker-tls-fieldset" {disabled}>
   <legend>{legend}</legend>
   {#if help}<p class="docker-field-help">{help}</p>{/if}
+  {#if credentialConfigured}<p class="docker-field-help">TLS 凭据已加密保存；留空会保留现有凭据，重新导入可替换。</p>{/if}
   <div class="docker-form-grid docker-tls-grid">
     <div class="docker-tls-certificate-row">
       {#each [['ca', ca], ['cert', cert], ['key', key]] as entry}

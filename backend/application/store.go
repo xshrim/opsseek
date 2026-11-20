@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -28,7 +29,8 @@ const appSelect = `SELECT a.id::text, a.project_id::text, p.scope_id::text,
          WHEN EXISTS (SELECT 1 FROM application_instances unhealthy_instance WHERE unhealthy_instance.application_id = a.id AND unhealthy_instance.status NOT IN ('active', 'healthy', 'normal', 'up')) THEN 'warning'
          ELSE 'active'
 	       END, a.runtime_kind,
-	       a.external_uid, a.labels, a.critical, a.technical_owner_ids, a.operations_owner_ids, a.created_at, a.updated_at
+	       a.external_uid, a.labels, a.critical, a.listening_address, a.listening_address_pending,
+	       a.technical_owner_ids, a.operations_owner_ids, a.created_at, a.updated_at
   FROM applications a
   JOIN projects p ON p.id = a.project_id
   JOIN scopes s ON s.id = p.scope_id
@@ -41,7 +43,8 @@ func scanApp(row rowScanner) (Application, error) {
 	var labels []byte
 	if err := row.Scan(&item.ID, &item.ProjectID, &item.ProjectScopeID, &item.Name, &item.Code,
 		&item.Description, &item.Icon, &item.Status, &item.RuntimeKind, &item.ExternalUID,
-		&labels, &item.Critical, &item.TechnicalOwnerIDs, &item.OperationsOwnerIDs, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		&labels, &item.Critical, &item.ListeningAddress, &item.ListeningAddressPending,
+		&item.TechnicalOwnerIDs, &item.OperationsOwnerIDs, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Application{}, ErrNotFound
 		}
@@ -116,9 +119,9 @@ func (s *store) CreateMany(ctx context.Context, inputs []CreateInput) ([]Applica
 			return nil, fmt.Errorf("encode application labels: %w", err)
 		}
 		var id string
-		if err := tx.QueryRow(ctx, `INSERT INTO applications(project_id,name,code,description,icon,runtime_kind,external_uid,labels,critical,technical_owner_ids,operations_owner_ids)
-VALUES($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10::uuid[],$11::uuid[]) RETURNING id::text`, input.ProjectID, input.Name, input.Code,
-			input.Description, input.Icon, input.RuntimeKind, input.ExternalUID, labels, input.Critical, input.TechnicalOwnerIDs, input.OperationsOwnerIDs).Scan(&id); err != nil {
+		if err := tx.QueryRow(ctx, `INSERT INTO applications(project_id,name,code,description,icon,runtime_kind,external_uid,labels,critical,listening_address_pending,technical_owner_ids,operations_owner_ids)
+VALUES($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::uuid[],$12::uuid[]) RETURNING id::text`, input.ProjectID, input.Name, input.Code,
+			input.Description, input.Icon, input.RuntimeKind, input.ExternalUID, labels, input.Critical, len(input.Instances) > 0, input.TechnicalOwnerIDs, input.OperationsOwnerIDs).Scan(&id); err != nil {
 			return nil, mapStoreError(err)
 		}
 		if err := insertInstances(ctx, tx, id, input.Instances); err != nil {
@@ -505,6 +508,11 @@ func (s *store) Update(ctx context.Context, projectID, applicationID string, inp
 			return Application{}, err
 		}
 	}
+	if input.Instances != nil || input.RuntimeKind != nil {
+		if _, err := tx.Exec(ctx, `UPDATE applications a SET listening_address='',listening_address_pending=EXISTS (SELECT 1 FROM application_instances i WHERE i.application_id=a.id) WHERE a.id=$1::uuid`, updatedID); err != nil {
+			return Application{}, fmt.Errorf("reset application listener address: %w", err)
+		}
+	}
 	if input.Dependencies != nil {
 		if _, err := tx.Exec(ctx, `DELETE FROM application_dependencies WHERE application_id=$1::uuid`, updatedID); err != nil {
 			return Application{}, fmt.Errorf("replace application dependencies: %w", err)
@@ -525,6 +533,17 @@ func (s *store) Update(ctx context.Context, projectID, applicationID string, inp
 		return Application{}, fmt.Errorf("commit update application: %w", err)
 	}
 	return s.Get(ctx, projectID, updatedID)
+}
+
+func (s *store) SetListeningAddress(ctx context.Context, applicationID string, updatedAt time.Time, address string) error {
+	query := `UPDATE applications a SET listening_address=$3,listening_address_pending=false
+FROM projects p
+WHERE a.id=$1::uuid AND a.project_id=p.id AND a.updated_at=$2 AND a.deleted_at IS NULL AND p.deleted_at IS NULL`
+	query, args := visibleApplications(query, []any{applicationID, updatedAt, address}, ctx)
+	if _, err := s.pool.Exec(ctx, query, args...); err != nil {
+		return fmt.Errorf("save application listener address: %w", err)
+	}
+	return nil
 }
 
 func applicationUpdateQuery(ctx context.Context, projectID string, args []any) (string, []any) {
@@ -614,11 +633,22 @@ func (s *store) CreateInstance(ctx context.Context, projectID, applicationID str
 	if err != nil {
 		return Instance{}, fmt.Errorf("encode application log binding: %w", err)
 	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Instance{}, fmt.Errorf("begin create application instance: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
 	var id string
-	if err := s.pool.QueryRow(ctx, `INSERT INTO application_instances(application_id,name,runtime_kind,target_resource_id,selector,log_binding,status)
+	if err := tx.QueryRow(ctx, `INSERT INTO application_instances(application_id,name,runtime_kind,target_resource_id,selector,log_binding,status)
 VALUES($1::uuid,$2,$3,$4::uuid,$5::jsonb,$6::jsonb,COALESCE(NULLIF($7,''),'active')) RETURNING id::text`, applicationID,
 		input.Name, input.RuntimeKind, input.TargetResourceID, selector, logs, input.Status).Scan(&id); err != nil {
 		return Instance{}, mapStoreError(err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE applications SET listening_address='',listening_address_pending=true,updated_at=now() WHERE id=$1::uuid`, applicationID); err != nil {
+		return Instance{}, fmt.Errorf("mark application listener address pending: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Instance{}, fmt.Errorf("commit create application instance: %w", err)
 	}
 	return s.getInstance(ctx, projectID, applicationID, id)
 }
@@ -685,9 +715,20 @@ func (s *store) DeleteInstance(ctx context.Context, projectID, applicationID, in
 	if _, err := s.Get(ctx, projectID, applicationID); err != nil {
 		return err
 	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin delete application instance: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
 	var deletedID string
-	if err := s.pool.QueryRow(ctx, `DELETE FROM application_instances WHERE id=$1::uuid AND application_id=$2::uuid RETURNING id::text`, instanceID, applicationID).Scan(&deletedID); err != nil {
+	if err := tx.QueryRow(ctx, `DELETE FROM application_instances WHERE id=$1::uuid AND application_id=$2::uuid RETURNING id::text`, instanceID, applicationID).Scan(&deletedID); err != nil {
 		return mapStoreError(err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE applications a SET listening_address='',listening_address_pending=EXISTS (SELECT 1 FROM application_instances i WHERE i.application_id=a.id),updated_at=now() WHERE a.id=$1::uuid`, applicationID); err != nil {
+		return fmt.Errorf("reset application listener address: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit delete application instance: %w", err)
 	}
 	return nil
 }

@@ -24,6 +24,7 @@
   export let allowAddMCPServer = true;
   export let configurationAttempted = false;
   export let credentialLoading = false;
+  export let credentialConfigured = false;
   export let onConfigurationChange: () => void = () => {};
   export let onAddMCPServer: () => void = () => {};
 
@@ -149,8 +150,7 @@
             <label class:invalid={(configurationAttempted && !kubeconfig.trim()) || Boolean(fileError)}>
               <span class="docker-credential-label">
                 <span
-                  >Kubeconfig<i class="required-mark" aria-hidden="true">*</i
-                  ></span
+                  >Kubeconfig{#if !credentialConfigured}<i class="required-mark" aria-hidden="true">*</i>{/if}</span
                 >
                 <span class="docker-file-picker">
                   {#if selectedFileName}<small>{selectedFileName}</small>{/if}
@@ -175,12 +175,13 @@
                 bind:value={kubeconfig}
                 on:input={onConfigurationChange}
                 rows={6}
-                required
-                placeholder="粘贴 kubeconfig 文本或 Base64 编码"
+                required={!credentialConfigured}
+                placeholder={credentialConfigured ? '已导入；留空可保留当前凭据，导入新文件可替换' : '粘贴 kubeconfig 文本或 Base64 编码'}
                 spellcheck={false}
               />
               {#if fileError}<small class="field-error">{fileError}</small>{/if}
             </label>
+            {#if credentialConfigured}<small class="docker-field-help">Kubeconfig 已导入并加密保存；留空不会覆盖现有凭据。</small>{/if}
           </div>
         </div>
       </fieldset>
@@ -212,6 +213,7 @@
         bind:key={keyBase64}
         bind:skipVerify={skipTLSVerify}
         {configurationAttempted}
+        {credentialConfigured}
         legend="Endpoint TLS 凭据（可选）"
         onChange={onConfigurationChange}
       />

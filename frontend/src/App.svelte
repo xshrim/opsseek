@@ -25,7 +25,7 @@
     Stethoscope,
     Trash2,
     UserRound,
-    UserRoundCog,
+    UserRoundCog
   } from 'lucide-svelte';
   import {
     resourceHasConnector,
@@ -169,7 +169,11 @@
   let selectedScopeId = '';
   let selectedResourceId = '';
   let resourceNavigationToken = 0;
-  let resourceNavigationTarget: { id: string; name: string; token: number } | null = null;
+  let resourceNavigationTarget: {
+    id: string;
+    name: string;
+    token: number;
+  } | null = null;
   let projectApplicationFocusId = '';
   let selectedApplicationId = '';
   let connectionBusy = false;
@@ -870,7 +874,8 @@
       <button
         type="button"
         class="workspace-label"
-        title="触发一次模拟故障，用于自举诊断测试"
+        aria-label="触发一次模拟故障，用于自举诊断测试"
+        data-tooltip="触发一次模拟故障，用于自举诊断测试"
         disabled={mockErrorBusy}
         aria-busy={mockErrorBusy}
         on:click={triggerMockError}
@@ -1170,7 +1175,9 @@
             const project = projects.find(
               (item) => item.scope.id === resource.scope_id
             );
-            const team = teams.find((item) => item.scope.id === resource.scope_id);
+            const team = teams.find(
+              (item) => item.scope.id === resource.scope_id
+            );
             selectedTeamId = project?.team_id ?? team?.id ?? '';
             selectedProjectId = project?.id ?? '';
             resourceNavigationToken += 1;
@@ -1381,6 +1388,12 @@
               (project) => project.team_id !== team.id
             );
             if (selectedTeamId === team.id) chooseTeam('');
+          }}
+          onTeamCreated={(team) => {
+            teams = [...teams.filter((item) => item.id !== team.id), team];
+            selectedTeamId = team.id;
+            selectedProjectId = '';
+            selectedScopeId = team.scope.id;
           }}
           platformName={platform?.name ?? '平台'}
           {resources}

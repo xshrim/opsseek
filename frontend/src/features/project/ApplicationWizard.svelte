@@ -14,7 +14,9 @@
   } from 'lucide-svelte';
   import { onDestroy, onMount } from 'svelte';
   import DropdownSelect from '../../components/DropdownSelect.svelte';
-  import Combobox, { type ComboboxOption } from '../../components/Combobox.svelte';
+  import Combobox, {
+    type ComboboxOption
+  } from '../../components/Combobox.svelte';
   import FormField from '../../components/FormField.svelte';
   import IconPicker from '../../components/IconPicker.svelte';
   import ResourceBrandIcon from '../../components/ResourceBrandIcon.svelte';
@@ -35,6 +37,7 @@
   import {
     resourcesForRuntime,
     runtimeLabel,
+    javaArtifactFromCommandLine,
     normalizeRepositoryBinding,
     slugify,
     preserveConfiguredValue,
@@ -56,6 +59,7 @@
   export let applications: Application[] = [];
   export let projects: Array<{ id: string; name: string; icon?: string }> = [];
   export let initialApplication: Application | null = null;
+  export let projectId = '';
   export let initialRuntimeKind = '';
   export let initialTab: 'basic' | 'bindings' | 'applications' = 'basic';
   export let topology: import('../../lib/api').ProjectTopology | null = null;
@@ -158,7 +162,12 @@
   const applicationDependencyColumns: ReadonlyTableColumn[] = [
     { key: 'project', label: '依赖项目', width: '42%' },
     { key: 'application', label: '依赖应用', width: '48%' },
-    { key: 'actions', label: '操作', width: '10%', className: 'application-dependency-actions' }
+    {
+      key: 'actions',
+      label: '操作',
+      width: '10%',
+      className: 'application-dependency-actions'
+    }
   ];
 
   let step = 0;
@@ -193,6 +202,7 @@
   let applicationTab: 'basic' | 'bindings' | 'applications' = initialTab;
   let collapsedBindingKeys = new Set<string>();
   let applicationCatalog: Array<Application & { project_name?: string }> = [];
+  let conflictCandidateKeys = new Set<string>();
   let applicationProjectOptions: ComboboxOption[] = [];
 
   $: availableResources = [...resources, ...createdResources].filter(
@@ -210,7 +220,6 @@
       label: `新增 ${runtimeLabel(runtimeKind)} 资源`
     }
   ];
-  $: namespaceDropdownOptions = namespaceOptions;
   $: ownerOptions = users
     .filter((user) => user.status === 'active')
     .map((user) => ({
@@ -219,11 +228,11 @@
       description: user.display_name ? user.username : user.email || user.phone
     }));
   $: applicationProjectOptions = projects.map((project) => ({
-      value: project.id,
-      label: project.name,
-      iconKind: 'Project',
-      icon: project.icon || 'lucide:FolderKanban'
-    }));
+    value: project.id,
+    label: project.name,
+    iconKind: 'Project',
+    icon: project.icon || 'lucide:FolderKanban'
+  }));
   $: if (!initialApplication) {
     editInitialized = false;
     initializedApplicationId = '';
@@ -262,6 +271,7 @@
     ? candidates.filter((candidate) =>
         [
           candidate.name,
+          candidate.detail ?? '',
           candidate.identity,
           candidate.kind ?? '',
           candidate.namespace ?? ''
@@ -275,6 +285,15 @@
     candidates.every((candidate) =>
       selectedCandidateKeys.includes(candidate.key)
     );
+  $: conflictCandidateKeys = findApplicationCodeConflicts(
+    candidates,
+    selectedCandidateKeys,
+    candidateDrafts,
+    applicationCatalog,
+    projectId,
+    initialApplication,
+    activeCandidateKey
+  );
   $: runtimeLocked =
     Boolean(initialApplication?.instances.length) && !bindingsCleared;
 
@@ -325,6 +344,53 @@
     );
   }
 
+  async function refreshProjectApplications() {
+    if (!projectId) return;
+    const result = await api.applications(projectId);
+    applicationCatalog = [
+      ...applicationCatalog.filter((item) => item.project_id !== projectId),
+      ...result.items
+    ];
+  }
+
+  function findApplicationCodeConflicts(
+    candidates: Candidate[],
+    selectedCandidateKeys: string[],
+    candidateDrafts: Record<string, CandidateDraft>,
+    applicationCatalog: Array<Application & { project_name?: string }>,
+    projectId: string,
+    initialApplication: Application | null,
+    activeCandidateKey: string
+  ) {
+    const selected = initialApplication
+      ? candidates.filter((candidate) => candidate.key === activeCandidateKey)
+      : candidates.filter((candidate) =>
+          selectedCandidateKeys.includes(candidate.key)
+        );
+    const counts = new Map<string, string[]>();
+    for (const candidate of selected) {
+      const code = candidateDrafts[candidate.key]?.code.trim().toLowerCase();
+      if (!code) continue;
+      const keys = counts.get(code) ?? [];
+      keys.push(candidate.key);
+      counts.set(code, keys);
+    }
+    const conflicts = new Set<string>();
+    for (const [code, keys] of counts) {
+      if (keys.length > 1) keys.forEach((key) => conflicts.add(key));
+      if (
+        applicationCatalog.some(
+          (item) =>
+            item.project_id === projectId &&
+            item.id !== initialApplication?.id &&
+            item.code.toLowerCase() === code
+        )
+      )
+        keys.forEach((key) => conflicts.add(key));
+    }
+    return conflicts;
+  }
+
   function initializeEdit(application: Application) {
     editInitialized = true;
     bindingsCleared = false;
@@ -354,8 +420,7 @@
         first?.selector.namespace ?? externalWorkload?.namespace ?? ''
       );
       void loadNamespaces(
-        first?.target_resource_id ?? externalWorkload!.resourceId,
-        true
+        first?.target_resource_id ?? externalWorkload!.resourceId
       );
     }
     if (application.instances.length === 0) setUnboundCandidate(application);
@@ -423,24 +488,24 @@
       ),
       resourceBindings: [
         ...(application.dependencies ?? []).map((dependency) => {
-        const binding = Object.fromEntries(
-          Object.entries(dependency.binding ?? {}).map(([key, value]) => [
-            key === 'path' && dependency.dependency_kind === 'repository'
-              ? 'directory'
-              : key,
-            String(value)
-          ])
-        );
-        return {
-          key: randomId(),
-          resourceId: dependency.target_resource_id,
-          dependencyKind: dependency.dependency_kind,
-          binding:
-            dependency.dependency_kind === 'repository'
-              ? normalizeRepositoryBinding(binding)
-              : binding,
-          required: dependency.required
-        };
+          const binding = Object.fromEntries(
+            Object.entries(dependency.binding ?? {}).map(([key, value]) => [
+              key === 'path' && dependency.dependency_kind === 'repository'
+                ? 'directory'
+                : key,
+              String(value)
+            ])
+          );
+          return {
+            key: randomId(),
+            resourceId: dependency.target_resource_id,
+            dependencyKind: dependency.dependency_kind,
+            binding:
+              dependency.dependency_kind === 'repository'
+                ? normalizeRepositoryBinding(binding)
+                : binding,
+            required: dependency.required
+          };
         }),
         emptyResourceBinding()
       ],
@@ -458,12 +523,10 @@
           .map((node) => ({
             targetApplicationId: '',
             projectText: String(node.metadata?.dependency_project_name ?? ''),
-            applicationText: String(
-              node.metadata?.description ?? node.name
-            ),
+            applicationText: String(node.metadata?.description ?? node.name),
             relationKind: 'depends_on' as const
           }))
-      ],
+      ]
     };
   }
 
@@ -519,7 +582,7 @@
         operationsOwnerIds: [],
         logPath: runtimeKind === 'virtual_machine' ? '' : 'stdout',
         resourceBindings: [emptyResourceBinding()],
-        applicationRelations: [],
+        applicationRelations: []
       }
     };
   }
@@ -583,7 +646,7 @@
     } else {
       candidateDrafts = {};
     }
-    if (kind === 'cloud_native' && first) void loadNamespaces(first.id, false);
+    if (kind === 'cloud_native' && first) void loadNamespaces(first.id);
   }
 
   function changeRuntimeResources(value: string | string[]) {
@@ -597,7 +660,8 @@
     runtimeResourceIds = selected;
     if (runtimeKind === 'cloud_native') {
       const id = selected[0] ?? '';
-      if (id) void loadNamespaces(id, false);
+      namespace = '';
+      if (id) void loadNamespaces(id);
       else {
         clearTimeout(workloadTimer);
         workloadRequestId++;
@@ -622,10 +686,13 @@
       runtimeKind === 'cloud_native'
         ? [resource.id]
         : [...new Set([...runtimeResourceIds, resource.id])];
-    if (runtimeKind === 'cloud_native') void loadNamespaces(resource.id, false);
+    if (runtimeKind === 'cloud_native') {
+      namespace = '';
+      void loadNamespaces(resource.id);
+    }
   }
 
-  async function loadNamespaces(resourceId: string, preserve: boolean) {
+  async function loadNamespaces(resourceId: string) {
     const requestId = ++namespaceRequestId;
     namespaceLoading = true;
     namespaceOptions = [];
@@ -637,19 +704,11 @@
         label: item.name
       }));
       const names = namespaceOptions.map((item) => item.value);
-      namespace =
-        preserve && names.includes(namespace)
-          ? namespace
-          : names.includes('default')
-            ? 'default'
-            : (names[0] ?? '');
+      if (!namespace.trim())
+        namespace = names.includes('default') ? 'default' : (names[0] ?? '');
       if (namespace) queueWorkloadDiscovery();
-    } catch (cause) {
-      if (requestId === namespaceRequestId)
-        error =
-          cause instanceof Error
-            ? cause.message
-            : '读取 Kubernetes 命名空间失败。';
+    } catch {
+      // Namespace choices are suggestions; permission failures must not block manual input.
     } finally {
       if (requestId === namespaceRequestId) namespaceLoading = false;
     }
@@ -753,7 +812,7 @@
 
   function ensureDrafts(items: Candidate[]) {
     const next = { ...candidateDrafts };
-    items.forEach((candidate, index) => {
+    items.forEach((candidate) => {
       if (next[candidate.key]) return;
       if (
         initialApplication &&
@@ -762,13 +821,9 @@
       ) {
         next[candidate.key] = draftFromApplication(initialApplication);
       } else {
-        const suffix = items.length > 1 ? `-${index + 1}` : '';
-        const stem = slugify(candidate.name)
-          .slice(0, 63 - suffix.length)
-          .replace(/-$/, '');
         next[candidate.key] = {
           name: candidate.name,
-          code: `${stem}${suffix}`,
+          code: slugify(candidate.name),
           description: '',
           icon: 'lucide:AppWindow',
           labels: '',
@@ -777,7 +832,7 @@
           operationsOwnerIds: [],
           logPath: runtimeKind === 'virtual_machine' ? '' : 'stdout',
           resourceBindings: [emptyResourceBinding()],
-          applicationRelations: [],
+          applicationRelations: []
         };
       }
     });
@@ -802,7 +857,10 @@
     resource: Resource
   ): Array<{ key: string; label: string; placeholder: string }> {
     if (kind === 'database')
-      return databaseBindingFields(resource.kind, String(resource.config?.mode ?? ''));
+      return databaseBindingFields(
+        resource.kind,
+        String(resource.config?.mode ?? '')
+      );
     if (kind === 'messaging')
       return [
         {
@@ -914,7 +972,9 @@
     return 'other';
   }
 
-  function resourceScopeType(scopeId: string): 'platform' | 'team' | 'project' | 'scope' {
+  function resourceScopeType(
+    scopeId: string
+  ): 'platform' | 'team' | 'project' | 'scope' {
     const type = resourceScopeTypes[scopeId];
     return type === 'platform' || type === 'team' || type === 'project'
       ? type
@@ -966,7 +1026,11 @@
     collapsedBindingKeys = new Set(collapsedBindingKeys);
   }
 
-  function selectResourceBinding(key: string, bindingKey: string, resourceId: string) {
+  function selectResourceBinding(
+    key: string,
+    bindingKey: string,
+    resourceId: string
+  ) {
     const draft = candidateDrafts[key];
     const resource = availableResources.find((item) => item.id === resourceId);
     if (!draft || !resource) return;
@@ -983,11 +1047,7 @@
     const nextBindings = next.some((item) => !item.resourceId)
       ? next
       : [...next, emptyResourceBinding()];
-    updateDraft(
-      key,
-      'resourceBindings',
-      nextBindings
-    );
+    updateDraft(key, 'resourceBindings', nextBindings);
     collapsedBindingKeys = new Set(
       nextBindings
         .filter((item) => item.key !== bindingKey)
@@ -1096,7 +1156,11 @@
   }
 
   function selectCandidate(key: string) {
-    if (initialApplication && activeCandidateKey && key !== activeCandidateKey) {
+    if (
+      initialApplication &&
+      activeCandidateKey &&
+      key !== activeCandidateKey
+    ) {
       const current = candidateDrafts[activeCandidateKey];
       const next = candidateDrafts[key];
       if (current && next)
@@ -1146,6 +1210,13 @@
     );
   }
 
+  function candidateArtifact(candidate: Candidate) {
+    return runtimeKind === 'virtual_machine' &&
+      candidate.name.toLowerCase() === 'java'
+      ? javaArtifactFromCommandLine(candidate.detail ?? '')
+      : '';
+  }
+
   async function continueFromRuntimeStep() {
     submitAttempted = true;
     error = '';
@@ -1172,7 +1243,7 @@
         error = '请选择 Kubernetes 命名空间。';
         return;
       }
-      if (namespaceLoading || loading) {
+      if (loading) {
         error = '正在读取 Kubernetes 工作负载，请稍候。';
         return;
       }
@@ -1312,25 +1383,28 @@
       critical: draft.critical,
       technicalOwnerIds: draft.technicalOwnerIds,
       operationsOwnerIds: draft.operationsOwnerIds,
-      dependencies: draft.resourceBindings.filter((binding) => binding.resourceId).map((binding) => ({
-        dependency_kind: binding.dependencyKind,
-        target_resource_id: binding.resourceId,
-        binding: binding.binding,
-        required: binding.required
-      })),
+      dependencies: draft.resourceBindings
+        .filter((binding) => binding.resourceId)
+        .map((binding) => ({
+          dependency_kind: binding.dependencyKind,
+          target_resource_id: binding.resourceId,
+          binding: binding.binding,
+          required: binding.required
+        })),
       relations: draft.applicationRelations
         .filter((relation) => Boolean(relation.targetApplicationId))
         .map((relation) => ({
-        target_application_id: relation.targetApplicationId,
-        relation_kind: relation.relationKind,
-        status: 'active'
+          target_application_id: relation.targetApplicationId,
+          relation_kind: relation.relationKind,
+          status: 'active'
         })),
       externalDependencies: draft.applicationRelations
         .filter((relation) => Boolean(relation.applicationText?.trim()))
         .map((relation) => ({
           projectName:
             relation.projectText?.trim() ||
-            projects.find((project) => project.id === relation.projectId)?.name ||
+            projects.find((project) => project.id === relation.projectId)
+              ?.name ||
             '',
           description: relation.applicationText!.trim()
         })),
@@ -1353,10 +1427,8 @@
       )
     )
       return '请填写应用名称和应用标识。';
-    const codes = selected.map((candidate) =>
-      candidateDrafts[candidate.key].code.trim().toLowerCase()
-    );
-    if (new Set(codes).size !== codes.length) return '应用标识不能重复。';
+    if (selected.some((candidate) => conflictCandidateKeys.has(candidate.key)))
+      return '请处理左侧标记为“标识冲突”的应用。';
     return '';
   }
 
@@ -1379,6 +1451,18 @@
         await onSave(selected.map(runtimeCandidateDraft));
       }
     } catch (cause) {
+      if (
+        cause instanceof Error &&
+        /application identity already exists|应用标识.*(冲突|重复|存在)/i.test(
+          cause.message
+        )
+      ) {
+        try {
+          await refreshProjectApplications();
+        } catch {
+          // The existing list still marks conflicts already known to the page.
+        }
+      }
       error =
         cause instanceof Error
           ? cause.message
@@ -1432,7 +1516,12 @@
             disabled={runtimeLocked}
             on:click={() => selectRuntime(option.kind)}
           >
-            <span class="project-runtime-icon"><ResourceBrandIcon resource={{ kind: option.label }} size={26} /></span>
+            <span class="project-runtime-icon"
+              ><ResourceBrandIcon
+                resource={{ kind: option.label }}
+                size={26}
+              /></span
+            >
             <strong
               >{option.label}<small class="runtime-choice-kind"
                 >{option.subtitle}</small
@@ -1500,21 +1589,20 @@
                       changeRuntimeResources(String(event.detail))}
                   />
                 </FormField>
-                <FormField label="命名空间" required>
-                  <DropdownSelect
+                <FormField
+                  label="命名空间"
+                  required
+                  invalid={submitAttempted && !namespace}
+                  invalidMessage="请选择 Kubernetes 命名空间"
+                >
+                  <Combobox
                     value={namespace}
-                    options={namespaceDropdownOptions}
-                    searchable
-                    disabled={namespaceLoading ||
-                      !runtimeResourceIds[0] ||
-                      runtimeLocked}
+                    options={namespaceOptions}
+                    disabled={!runtimeResourceIds[0] || runtimeLocked}
                     placeholder={namespaceLoading
-                      ? '读取命名空间…'
-                      : '选择命名空间'}
+                      ? '读取选项中，也可手动输入'
+                      : '输入或选择命名空间'}
                     ariaLabel="Kubernetes 命名空间"
-                    invalid={submitAttempted && !namespace}
-                    invalidMode="bubble"
-                    invalidMessage="请选择 Kubernetes 命名空间"
                     on:change={(event) => {
                       namespace = String(event.detail);
                       queueWorkloadDiscovery();
@@ -1607,10 +1695,11 @@
             </div>
           </div>
           <div class="application-candidate-list">
-            {#each (normalizedCandidateSearch ? visibleCandidates : candidates) as candidate}
+            {#each normalizedCandidateSearch ? visibleCandidates : candidates as candidate}
               <button
                 class="application-candidate"
                 class:active={activeCandidateKey === candidate.key}
+                class:conflict={conflictCandidateKeys.has(candidate.key)}
                 type="button"
                 on:click={() => selectCandidate(candidate.key)}
               >
@@ -1624,16 +1713,23 @@
                     on:change={() => toggleCandidate(candidate.key)}
                   />
                 {/if}
-                <AppWindow
-                  class="project-application-node-icon"
-                  size={17}
-                />
+                <AppWindow class="project-application-node-icon" size={17} />
                 <span
-                  ><strong>{candidate.name}</strong><small
-                    ><span class="application-runtime-icon"><ResourceBrandIcon
+                  ><span class="application-candidate-name"
+                    ><strong>{candidate.name}</strong
+                    >{#if candidateArtifact(candidate)}<small
+                        class="application-candidate-artifact"
+                        >{candidateArtifact(candidate)}</small
+                      >{/if}{#if conflictCandidateKeys.has(candidate.key)}<em
+                        >标识冲突</em
+                      >{/if}</span
+                  ><small
+                    ><span class="application-runtime-icon"
+                      ><ResourceBrandIcon
                         resource={{ kind: runtimeLabel(runtimeKind) }}
                         size={12}
-                      /></span>{resourceNamesForCandidate(candidate)} · {candidate.replicas}
+                      /></span
+                    >{resourceNamesForCandidate(candidate)} · {candidate.replicas}
                     个实例</small
                   ></span
                 >
@@ -1665,11 +1761,17 @@
               <div>
                 <h3>{activeDraft.name || activeCandidate.name}</h3>
                 <p>
-                  <span class="application-runtime-icon"><ResourceBrandIcon
+                  <span class="application-runtime-icon"
+                    ><ResourceBrandIcon
                       resource={{ kind: runtimeLabel(runtimeKind) }}
                       size={12}
-                    /></span>{runtimeLabel(runtimeKind)} · {activeCandidate.replicas} 个实例
-                  · {candidateLocator(activeCandidate)}
+                    /></span
+                  >{runtimeLabel(runtimeKind)} · {activeCandidate.replicas} 个实例
+                  <span
+                    class="application-candidate-locator"
+                    data-tooltip={candidateLocator(activeCandidate)}
+                    >{candidateLocator(activeCandidate)}</span
+                  >
                 </p>
               </div>
               <span class="kubernetes-inclusion-state included"
@@ -1689,7 +1791,9 @@
                   'basic' | 'bindings' | 'applications')}
               ariaLabel="应用配置分区"
             />
-            {#if applicationTab === 'basic'}<div class="application-config-panel application-form-grid">
+            {#if applicationTab === 'basic'}<div
+                class="application-config-panel application-form-grid"
+              >
                 <div class="application-identity-row">
                   <div class="application-identity-half">
                     <FormField label="应用标识" required
@@ -1818,7 +1922,10 @@
                 >
                 <FormField label="监听地址" className="full-field"
                   ><TextInput
-                    value={initialApplication?.listening_address || '保存后自动获取'}
+                    value={initialApplication?.listening_address_pending
+                      ? '正在获取…'
+                      : initialApplication?.listening_address ||
+                        '保存后自动获取'}
                     readonly
                     ariaLabel="监听地址"
                   /></FormField
@@ -1844,108 +1951,120 @@
                   自定义添加具体资源，并填写应用实际使用的库、Topic、命名空间或其他对象。
                 </p>
                 <div class="application-binding-list">
-                {#each activeDraft.resourceBindings as binding (binding.key)}
-                  {@const resource = availableResources.find(
-                    (item) => item.id === binding.resourceId
-                  )}
-                  <div class="application-binding-detail">
-                    <div
-                      class="application-binding-detail-heading"
-                      role="button"
-                      tabindex="0"
-                      aria-expanded={!collapsedBindingKeys.has(binding.key)}
-                      on:click={() => toggleResourceBinding(binding.key)}
-                      on:keydown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          toggleResourceBinding(binding.key);
-                        }
-                      }}
-                    >
-                      <span class="application-binding-heading-main">
-                        <ResourceBindingPicker
-                          resources={availableResources.filter(
-                            (item) =>
-                              item.id === binding.resourceId ||
-                              !activeDraft.resourceBindings.some(
-                                (other) =>
-                                  other.key !== binding.key &&
-                                  other.resourceId === item.id
-                              )
-                          )}
-                          {resourceScopeTypes}
-                          selectedResourceId={binding.resourceId}
-                          onSelect={(resourceId) =>
-                            selectResourceBinding(
-                              activeCandidate.key,
-                              binding.key,
-                              resourceId
+                  {#each activeDraft.resourceBindings as binding (binding.key)}
+                    {@const resource = availableResources.find(
+                      (item) => item.id === binding.resourceId
+                    )}
+                    <div class="application-binding-detail">
+                      <div
+                        class="application-binding-detail-heading"
+                        role="button"
+                        tabindex="0"
+                        aria-expanded={!collapsedBindingKeys.has(binding.key)}
+                        on:click={() => toggleResourceBinding(binding.key)}
+                        on:keydown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            toggleResourceBinding(binding.key);
+                          }
+                        }}
+                      >
+                        <span class="application-binding-heading-main">
+                          <ResourceBindingPicker
+                            resources={availableResources.filter(
+                              (item) =>
+                                item.id === binding.resourceId ||
+                                !activeDraft.resourceBindings.some(
+                                  (other) =>
+                                    other.key !== binding.key &&
+                                    other.resourceId === item.id
+                                )
                             )}
-                        />
-                        {#if resource}
-                          {@const tag = resourceCatalogTagsFor(resource)[0] ?? '资源'}
-                          {@const tagClass = resourceCatalogTagClass(tag)}
-                          <strong>{resource.name}</strong>
-                          <span class={`resource-catalog-tag resource-catalog-tag-${tagClass}`}>{tag}</span>
-                        {:else}
-                        <strong class="application-binding-unselected">选择资源</strong>
-                        {/if}
-                      </span>
-                      <span class="application-binding-heading-meta">
-                        {#if resource}
-                          <small>{resource.kind} · {resourceSubtypeFor(resource)}</small>
-                          <ScopeLevelBadge
-                            className="resource-binding-level-badge"
-                            type={resourceScopeType(resource.scope_id)}
-                            label={resourceScopeLabel(resource.scope_id)}
+                            {resourceScopeTypes}
+                            selectedResourceId={binding.resourceId}
+                            onSelect={(resourceId) =>
+                              selectResourceBinding(
+                                activeCandidate.key,
+                                binding.key,
+                                resourceId
+                              )}
                           />
-                        {/if}
-                        <button
-                          class="icon-button"
-                          type="button"
-                          aria-label="移除资源关联"
-                          data-tooltip="移除资源关联"
-                          on:click|stopPropagation={() =>
-                            removeResourceBinding(
-                              activeCandidate.key,
-                              binding.key
-                            )}><X size={14} /></button
-                        >
-                        <ChevronDown
-                          class={`application-binding-collapse-icon${collapsedBindingKeys.has(binding.key) ? ' collapsed' : ''}`}
-                          size={15}
-                        />
-                      </span>
-                    </div>
-                    {#if !collapsedBindingKeys.has(binding.key)}
-                    {#if resource}
-                      <div class="application-binding-fields">
-                        {#each bindingFields(binding.dependencyKind, resource) as field}
-                          <FormField label={field.label}
-                            ><TextInput
-                              value={binding.binding[field.key] ?? ''}
-                              placeholder={field.placeholder}
-                              on:value={(event) =>
-                                updateBinding(
-                                  activeCandidate.key,
-                                  binding.key,
-                                  field.key,
-                                  String(event.detail)
-                                )}
-                            /></FormField
+                          {#if resource}
+                            {@const tag =
+                              resourceCatalogTagsFor(resource)[0] ?? '资源'}
+                            {@const tagClass = resourceCatalogTagClass(tag)}
+                            <strong>{resource.name}</strong>
+                            <span
+                              class={`resource-catalog-tag resource-catalog-tag-${tagClass}`}
+                              >{tag}</span
+                            >
+                          {:else}
+                            <strong class="application-binding-unselected"
+                              >选择资源</strong
+                            >
+                          {/if}
+                        </span>
+                        <span class="application-binding-heading-meta">
+                          {#if resource}
+                            <small
+                              >{resource.kind} · {resourceSubtypeFor(
+                                resource
+                              )}</small
+                            >
+                            <ScopeLevelBadge
+                              className="resource-binding-level-badge"
+                              type={resourceScopeType(resource.scope_id)}
+                              label={resourceScopeLabel(resource.scope_id)}
+                            />
+                          {/if}
+                          <button
+                            class="icon-button"
+                            type="button"
+                            aria-label="移除资源关联"
+                            data-tooltip="移除资源关联"
+                            on:click|stopPropagation={() =>
+                              removeResourceBinding(
+                                activeCandidate.key,
+                                binding.key
+                              )}><X size={14} /></button
                           >
-                        {/each}
+                          <ChevronDown
+                            class={`application-binding-collapse-icon${collapsedBindingKeys.has(binding.key) ? ' collapsed' : ''}`}
+                            size={15}
+                          />
+                        </span>
                       </div>
-                    {:else}
-                      <div class="application-binding-empty-state">
-                        点击左上角图标选择资源
-                      </div>
-                    {/if}
-                    {/if}
-                  </div>
-                {:else}
-                  <div class="application-binding-list-empty">尚未添加资源关联</div>
-                {/each}
+                      {#if !collapsedBindingKeys.has(binding.key)}
+                        {#if resource}
+                          <div class="application-binding-fields">
+                            {#each bindingFields(binding.dependencyKind, resource) as field}
+                              <FormField label={field.label}
+                                ><TextInput
+                                  value={binding.binding[field.key] ?? ''}
+                                  placeholder={field.placeholder}
+                                  on:value={(event) =>
+                                    updateBinding(
+                                      activeCandidate.key,
+                                      binding.key,
+                                      field.key,
+                                      String(event.detail)
+                                    )}
+                                /></FormField
+                              >
+                            {/each}
+                          </div>
+                        {:else}
+                          <div class="application-binding-empty-state">
+                            点击左上角图标选择资源
+                          </div>
+                        {/if}
+                      {/if}
+                    </div>
+                  {:else}
+                    <div class="application-binding-list-empty">
+                      尚未添加资源关联
+                    </div>
+                  {/each}
                 </div>
               </div>
             {:else}
@@ -1956,11 +2075,13 @@
                 <div class="application-dependency-table">
                   <ReadonlyTable
                     columns={applicationDependencyColumns}
-                    rows={activeDraft.applicationRelations.map((dependency, index) => ({
-                      ...dependency,
-                      index,
-                      projectId: dependencyProjectId(dependency)
-                    }))}
+                    rows={activeDraft.applicationRelations.map(
+                      (dependency, index) => ({
+                        ...dependency,
+                        index,
+                        projectId: dependencyProjectId(dependency)
+                      })
+                    )}
                     emptyText="尚未配置应用依赖"
                   >
                     <svelte:fragment slot="cell" let:row let:column>
@@ -1982,9 +2103,11 @@
                       {:else if column.key === 'application'}
                         <Combobox
                           options={applicationCatalog
-                            .filter((item) =>
-                              item.id !== initialApplication?.id &&
-                              (!row.projectId || item.project_id === row.projectId)
+                            .filter(
+                              (item) =>
+                                item.id !== initialApplication?.id &&
+                                (!row.projectId ||
+                                  item.project_id === row.projectId)
                             )
                             .map((item) => ({
                               value: item.id,
@@ -1992,7 +2115,9 @@
                               description: item.project_name || item.code,
                               iconKind: 'Application'
                             }))}
-                          value={row.targetApplicationId || row.applicationText || ''}
+                          value={row.targetApplicationId ||
+                            row.applicationText ||
+                            ''}
                           placeholder="选择或输入依赖应用"
                           ariaLabel="依赖应用"
                           on:change={(event) =>
@@ -2021,7 +2146,8 @@
                   <button
                     class="application-dependency-add-row"
                     type="button"
-                    on:click={() => addApplicationDependency(activeCandidate.key)}
+                    on:click={() =>
+                      addApplicationDependency(activeCandidate.key)}
                     ><ChevronDown size={14} />新增依赖</button
                   >
                 </div>

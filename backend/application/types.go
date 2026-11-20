@@ -16,19 +16,20 @@ type Application struct {
 	// RuntimeKind is the application's declared runtime family. Each instance
 	// repeats the same value so its binding can be validated and diagnosed in
 	// isolation.
-	RuntimeKind        string            `json:"runtime_kind"`
-	Status             string            `json:"status"`
-	ExternalUID        string            `json:"external_uid,omitempty"`
-	Labels             map[string]string `json:"labels"`
-	Critical           bool              `json:"critical"`
-	ListeningAddress   string            `json:"listening_address,omitempty"`
-	TechnicalOwnerIDs  []string          `json:"technical_owner_ids"`
-	OperationsOwnerIDs []string          `json:"operations_owner_ids"`
-	Instances          []Instance        `json:"instances"`
-	Dependencies       []Dependency      `json:"dependencies"`
-	Relations          []Relation        `json:"relations"`
-	CreatedAt          time.Time         `json:"created_at"`
-	UpdatedAt          time.Time         `json:"updated_at"`
+	RuntimeKind             string            `json:"runtime_kind"`
+	Status                  string            `json:"status"`
+	ExternalUID             string            `json:"external_uid,omitempty"`
+	Labels                  map[string]string `json:"labels"`
+	Critical                bool              `json:"critical"`
+	ListeningAddress        string            `json:"listening_address,omitempty"`
+	ListeningAddressPending bool              `json:"listening_address_pending,omitempty"`
+	TechnicalOwnerIDs       []string          `json:"technical_owner_ids"`
+	OperationsOwnerIDs      []string          `json:"operations_owner_ids"`
+	Instances               []Instance        `json:"instances"`
+	Dependencies            []Dependency      `json:"dependencies"`
+	Relations               []Relation        `json:"relations"`
+	CreatedAt               time.Time         `json:"created_at"`
+	UpdatedAt               time.Time         `json:"updated_at"`
 }
 
 type Instance struct {

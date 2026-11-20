@@ -1,6 +1,7 @@
 SHELL := /bin/bash
 
 COMPOSE_FILE := deploy/compose/docker-compose.yml
+CONTAINERD_COMPOSE_FILE := $(if $(wildcard /run/containerd/containerd.sock),-f deploy/compose/docker-compose.containerd.yml,)
 WEBUI_DIST := backend/webui/dist
 IMAGE_REPOSITORY ?= opsseek
 IMAGE_TAG ?= local
@@ -34,10 +35,11 @@ endef
 
 define compose
 @export DOCKER_SOCKET_GID="$${DOCKER_SOCKET_GID:-$$(stat -c '%g' /var/run/docker.sock 2>/dev/null || echo 0)}"; \
+export CONTAINERD_SOCKET_GID="$${CONTAINERD_SOCKET_GID:-$$(stat -c '%g' /run/containerd/containerd.sock 2>/dev/null || echo 65532)}"; \
 if docker compose version >/dev/null 2>&1; then \
-	docker compose -f $(COMPOSE_FILE) --env-file .env $(1); \
+	docker compose -f $(COMPOSE_FILE) $(CONTAINERD_COMPOSE_FILE) --env-file .env $(1); \
 elif command -v docker-compose >/dev/null 2>&1; then \
-	docker-compose -f $(COMPOSE_FILE) --env-file .env $(1); \
+	docker-compose -f $(COMPOSE_FILE) $(CONTAINERD_COMPOSE_FILE) --env-file .env $(1); \
 else \
 	echo "Docker Compose is not installed"; \
 	exit 1; \

@@ -2069,6 +2069,9 @@
 .docker-daemon-fields.containerd-daemon .docker-daemon-address-field {
   grid-column: span 3;
 }
+.docker-daemon-address-help {
+  grid-column: 1 / -1;
+}
 .docker-daemon-namespace-field {
   grid-column: span 1;
 }

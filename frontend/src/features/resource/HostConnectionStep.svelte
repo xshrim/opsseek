@@ -28,6 +28,7 @@
   export let allowAddMCPServer = true;
   export let configurationAttempted = false;
   export let credentialLoading = false;
+  export let credentialConfigured = false;
   export let onConfigurationChange: () => void = () => {};
   export let onAddMCPServer: () => void = () => {};
 
@@ -89,7 +90,8 @@
     knownHosts,
     timeoutSeconds,
     mcpServerResourceId,
-    connectionOverride
+    connectionOverride,
+    credentialConfigured
   });
   $: sshMode = Boolean(host.trim());
   $: if (authMethod === 'password') privateKey = '';
@@ -195,14 +197,14 @@
         {#if authMethod === 'password'}
           <label class="host-password">
             <span
-              >SSH 密码<i class="required-mark" aria-hidden="true">*</i></span
+              >SSH 密码{#if !credentialConfigured}<i class="required-mark" aria-hidden="true">*</i>{/if}</span
             >
             <PasswordInput
               bind:value={password}
               on:input={onConfigurationChange}
               autocomplete="current-password"
               placeholder="不会回显"
-              required
+              required={!credentialConfigured}
               ariaLabel="SSH 密码"
               secretLabel="SSH 密码"
             />
@@ -254,7 +256,7 @@
           </label>
           <label class="host-private-key" class:invalid={Boolean(fileErrors.privateKey)}>
             <span class="docker-credential-label"
-              ><span>私钥<i class="required-mark" aria-hidden="true">*</i></span
+              ><span>私钥{#if !credentialConfigured}<i class="required-mark" aria-hidden="true">*</i>{/if}</span
               ><span class="docker-file-picker"
                 >{#if selectedFileNames.privateKey}<small
                     >{selectedFileNames.privateKey}</small
@@ -281,7 +283,7 @@
               rows={4}
               placeholder="粘贴 PEM 或 Base64 编码私钥"
               spellcheck={false}
-              required
+              required={!credentialConfigured}
             />
             {#if fileErrors.privateKey}<small class="field-error"
                 >{fileErrors.privateKey}</small
@@ -328,6 +330,7 @@
         凭据不会进入资源配置或模型上下文。
       </p>
     {/if}
+    {#if credentialConfigured}<p class="docker-field-help">凭据已导入并加密保存；留空会保留现有凭据，重新导入可替换。</p>{/if}
     {#if credentialLoading}<p class="docker-field-help">
         正在读取已有 Host 凭据，请稍候…
       </p>{/if}

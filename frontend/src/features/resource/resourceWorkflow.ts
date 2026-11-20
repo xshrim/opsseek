@@ -93,11 +93,12 @@ export type KubernetesConnectionDraft = {
   keyBase64: string;
   kubeconfig: string;
   skipTLSVerify: boolean;
+  credentialConfigured?: boolean;
 };
 export function kubernetesConfigurationValid(draft: KubernetesConnectionDraft) {
   if (draft.isAgent && draft.connectionOverride === false) return true;
   if (draft.connectionMode === 'kubeconfig')
-    return Boolean(draft.kubeconfig.trim());
+    return Boolean(draft.kubeconfig.trim() || draft.credentialConfigured);
   return Boolean(draft.server.trim());
 }
 export function kubernetesConfigForSave(
@@ -317,6 +318,7 @@ export type HostConnectionDraft = {
   timeoutSeconds: number;
   mcpServerResourceId: string;
   connectionOverride: boolean;
+  credentialConfigured?: boolean;
 };
 
 export function hostAccessModeLabel(mode: string) {
@@ -353,8 +355,8 @@ export function hostConnectionConfigurationValid(draft: HostConnectionDraft) {
   if (draft.port < 1 || draft.port > 65535 || !draft.username.trim())
     return false;
   if (draft.authMethod === 'password')
-    return Boolean(draft.password.trim()) && !draft.privateKey.trim();
-  return Boolean(draft.privateKey.trim()) && !draft.password.trim();
+    return (Boolean(draft.password.trim()) || draft.credentialConfigured === true) && !draft.privateKey.trim();
+  return (Boolean(draft.privateKey.trim()) || draft.credentialConfigured === true) && !draft.password.trim();
 }
 
 export function hostConfigForSave(

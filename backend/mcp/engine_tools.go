@@ -13,6 +13,7 @@ import (
 	kafka "opsseek/backend/tool/kafka"
 	kubernetes "opsseek/backend/tool/kubernetes"
 	minio "opsseek/backend/tool/minio"
+	mongodb "opsseek/backend/tool/mongodb"
 	mysql "opsseek/backend/tool/mysql"
 	nacos "opsseek/backend/tool/nacos"
 	oceanbase "opsseek/backend/tool/oceanbase"
@@ -33,7 +34,7 @@ func (s *Service) EngineProvider() engine.ContextProvider {
 type mcpContextProvider struct{ service *Service }
 
 func (mcpContextProvider) Kinds() []string {
-	return []string{"MCPServer", "Host", "Docker", "Kubernetes", "Nacos", "Repository", "Redis", "PostgreSQL", "Kafka", "RabbitMQ", "Elasticsearch", "MinIO", "OceanBase", "Oracle", "MySQL", "TongRDS", "Prometheus", "Loki"}
+	return []string{"MCPServer", "Host", "Docker", "Kubernetes", "Nacos", "Repository", "Redis", "MongoDB", "PostgreSQL", "Kafka", "RabbitMQ", "Elasticsearch", "MinIO", "OceanBase", "Oracle", "MySQL", "TongRDS", "Prometheus", "Loki"}
 }
 
 func (mcpContextProvider) AccessModes() []string {
@@ -93,6 +94,8 @@ func (p mcpContextProvider) Resolve(ctx context.Context, resource engine.Context
 			inputSchema = kafkaAgentSchema(inputSchema)
 		} else if strings.EqualFold(strings.TrimSpace(resource.Kind), "Elasticsearch") && strings.EqualFold(strings.TrimSpace(resource.Subtype), "agent") {
 			inputSchema = elasticsearchAgentSchema(inputSchema)
+		} else if strings.EqualFold(strings.TrimSpace(resource.Kind), "MongoDB") && strings.EqualFold(strings.TrimSpace(resource.Subtype), "agent") {
+			inputSchema = mongodbAgentSchema(inputSchema)
 		}
 		inputSchema = engine.DescribeToolParameters(resource.Kind, inputSchema)
 		tools = append(tools, engine.ToolFunc{
@@ -154,6 +157,10 @@ func agentToolNames(kind string) map[string]struct{} {
 		}
 	case "redis":
 		for _, tool := range redis.ListTools() {
+			names = append(names, tool.Name)
+		}
+	case "mongodb":
+		for _, tool := range mongodb.ListTools() {
 			names = append(names, tool.Name)
 		}
 	case "postgresql":
@@ -274,7 +281,7 @@ func (p mcpContextProvider) agentArguments(ctx context.Context, contextResource 
 		}
 	}()
 	kind := strings.TrimSpace(contextResource.Kind)
-	if (!strings.EqualFold(kind, "Docker") && !strings.EqualFold(kind, "Kubernetes") && !strings.EqualFold(kind, "Host") && !strings.EqualFold(kind, "PostgreSQL") && !strings.EqualFold(kind, "MySQL") && !strings.EqualFold(kind, "Oracle") && !strings.EqualFold(kind, "OceanBase") && !strings.EqualFold(kind, "Redis") && !strings.EqualFold(kind, "Nacos") && !strings.EqualFold(kind, "Repository") && !strings.EqualFold(kind, "Kafka") && !strings.EqualFold(kind, "RabbitMQ") && !strings.EqualFold(kind, "Elasticsearch") && !strings.EqualFold(kind, "MinIO")) || !strings.EqualFold(strings.TrimSpace(contextResource.Subtype), "agent") {
+	if (!strings.EqualFold(kind, "Docker") && !strings.EqualFold(kind, "Kubernetes") && !strings.EqualFold(kind, "Host") && !strings.EqualFold(kind, "PostgreSQL") && !strings.EqualFold(kind, "MySQL") && !strings.EqualFold(kind, "Oracle") && !strings.EqualFold(kind, "OceanBase") && !strings.EqualFold(kind, "Redis") && !strings.EqualFold(kind, "MongoDB") && !strings.EqualFold(kind, "Nacos") && !strings.EqualFold(kind, "Repository") && !strings.EqualFold(kind, "Kafka") && !strings.EqualFold(kind, "RabbitMQ") && !strings.EqualFold(kind, "Elasticsearch") && !strings.EqualFold(kind, "MinIO")) || !strings.EqualFold(strings.TrimSpace(contextResource.Subtype), "agent") {
 		return arguments, nil
 	}
 	if err := rejectInternalLocatorArguments(kind, arguments); err != nil {
@@ -370,6 +377,12 @@ func (p mcpContextProvider) agentArguments(ctx context.Context, contextResource 
 				merged[key] = value
 			}
 		}
+	} else if strings.EqualFold(kind, "MongoDB") {
+		for _, key := range []string{"host", "port", "database", "auth_source", "timeout_seconds"} {
+			if value, ok := contextResource.Config[key]; ok && value != nil {
+				merged[key] = value
+			}
+		}
 	} else {
 		setString("host")
 	}
@@ -438,6 +451,8 @@ func (p mcpContextProvider) agentArguments(ctx context.Context, contextResource 
 		keys = []string{"brokers", "username", "password", "tls_server_name", "timeout_seconds"}
 	} else if strings.EqualFold(kind, "Elasticsearch") {
 		keys = []string{"url", "username", "password", "tls_insecure", "timeout_seconds"}
+	} else if strings.EqualFold(kind, "MongoDB") {
+		keys = []string{"host", "port", "database", "auth_source", "username", "password", "timeout_seconds"}
 	}
 	for _, key := range keys {
 		if strings.EqualFold(strings.TrimSpace(connectionMode), "endpoint") && key == "kubeconfig" {
@@ -535,4 +550,8 @@ func kafkaAgentSchema(raw json.RawMessage) json.RawMessage {
 
 func elasticsearchAgentSchema(raw json.RawMessage) json.RawMessage {
 	return hideConnectionFields(raw, "url", "username", "password", "tls_insecure", "timeout_seconds")
+}
+
+func mongodbAgentSchema(raw json.RawMessage) json.RawMessage {
+	return hideConnectionFields(raw, "host", "port", "database", "auth_source", "username", "password", "timeout_seconds")
 }

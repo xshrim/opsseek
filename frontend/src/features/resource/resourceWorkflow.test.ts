@@ -209,6 +209,13 @@ describe('resource workflow helpers', () => {
       skipTLSVerify: false
     };
     expect(kubernetesConfigurationValid(kubeconfig)).toBe(true);
+    expect(
+      kubernetesConfigurationValid({
+        ...kubeconfig,
+        kubeconfig: '',
+        credentialConfigured: true
+      })
+    ).toBe(true);
     expect(kubernetesConfigForSave(kubeconfig)).toEqual({
       connection_mode: 'kubeconfig'
     });
@@ -239,5 +246,26 @@ describe('resource workflow helpers', () => {
     expect(kubernetesConfigurationValid(agent)).toBe(true);
     expect(kubernetesConfigForSave(agent)).toEqual({});
     expect(kubernetesCredentialForSave(agent)).toEqual({});
+  });
+
+  it('allows an edited Host to retain its encrypted SSH credential', async () => {
+    const { hostConnectionConfigurationValid } = await import('./resourceWorkflow');
+    expect(
+      hostConnectionConfigurationValid({
+        accessMode: 'direct',
+        host: 'host.example',
+        port: 22,
+        username: 'ops',
+        authMethod: 'password',
+        password: '',
+        privateKey: '',
+        passphrase: '',
+        knownHosts: '',
+        timeoutSeconds: 30,
+        mcpServerResourceId: '',
+        connectionOverride: false,
+        credentialConfigured: true
+      })
+    ).toBe(true);
   });
 });

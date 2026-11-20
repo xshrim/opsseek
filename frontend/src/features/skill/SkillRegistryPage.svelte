@@ -461,7 +461,7 @@
               aria-label={`选择 ${skill.name}`}
               on:click|stopPropagation
             /><span class="skill-row-icon"
-              ><BookOpen size={15} aria-hidden="true" /></span
+              ><BookOpen size={17} aria-hidden="true" /></span
             >
             <div>
               <strong>{skill.name}</strong><small>{skill.identifier}</small>

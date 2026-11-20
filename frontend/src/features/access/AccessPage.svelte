@@ -92,6 +92,7 @@
   export let accessProjectUsers: Record<string, User[]> = {};
   export let teamAccessExpanded: Record<string, boolean> = {};
   export let onTeamDeleted: (team: Team) => void = () => {};
+  export let onTeamCreated: (team: Team) => void = () => {};
   export let selectedAccessTeamIds: string[] = [];
   export let selectedAccessUserIds: string[] = [];
   export let teamDialogOpen = false;
@@ -393,6 +394,9 @@
 
   function auditTime(value: string) {
     return value ? new Date(value).toLocaleString() : '—';
+  }
+  function auditDetails(details: Record<string, unknown> | undefined) {
+    return JSON.stringify(details ?? {}, null, 2);
   }
   // The parent clears the request after it is consumed, so remounting this
   // page cannot replay a dialog that was already opened and closed.
@@ -986,7 +990,13 @@
         labels: parseLabels(teamLabels),
         owner_ids: teamOwnerIds
       });
-      teams = [...teams, created];
+      try {
+        teams = (await api.teams()).items;
+      } catch {
+        teams = [...teams.filter((team) => team.id !== created.id), created];
+      }
+      teams = [...teams.filter((team) => team.id !== created.id), created];
+      onTeamCreated(created);
       teamDialogOpen = false;
       onNotice(`团队“${created.name}”已创建`);
     });
@@ -1246,7 +1256,6 @@
           {selectedTeamId}
           {selectedProjectId}
           canViewPlatform={accessCanViewPlatform}
-          {platformName}
           {accessTeamUsers}
           {accessProjectUsers}
           {teamAccessExpanded}
@@ -1340,11 +1349,17 @@
                   tone={event.result === 'success' ? 'active' : 'disabled'}
                   label={event.result || '—'}
                 />
-                ><span
-                  class="access-audit-details"
-                  data-tooltip={JSON.stringify(event.details ?? {})}
-                  >{JSON.stringify(event.details ?? {}) || '—'}</span
                 >
+                <details class="access-audit-details">
+                  <summary
+                    >{Object.keys(event.details ?? {}).length
+                      ? '查看详情'
+                      : '—'}</summary
+                  >
+                  {#if Object.keys(event.details ?? {}).length}<pre>{auditDetails(
+                        event.details
+                      )}</pre>{/if}
+                </details>
               </article>
             {:else}<div class="access-state">暂无可查看的审计记录。</div>{/each}
           </div>{/if}
@@ -1531,7 +1546,8 @@
           <TextInput
             value={editingUser ? editingUser.username : newUserUsername}
             disabled={Boolean(editingUser)}
-            on:value={(event) => updateNewUserUsername(String(event.detail ?? ''))}
+            on:value={(event) =>
+              updateNewUserUsername(String(event.detail ?? ''))}
             required
             placeholder="登录用户名"
             ariaLabel="用户名"
@@ -1584,12 +1600,16 @@
             {#if passwordResetCredentials}
               <div class="created-credentials-inline" aria-live="polite">
                 <span class="user-password-label">一次性密码</span>
-                <strong class="user-password-value">{passwordResetCredentials.password}</strong>
+                <strong class="user-password-value"
+                  >{passwordResetCredentials.password}</strong
+                >
                 <button
                   class="icon-button"
                   type="button"
                   aria-label="复制一次性密码"
-                  data-tooltip={copiedControl === 'reset-credentials' ? '已复制' : '复制一次性密码'}
+                  data-tooltip={copiedControl === 'reset-credentials'
+                    ? '已复制'
+                    : '复制一次性密码'}
                   on:click={() => copyPasswordResetCredentials(true)}
                 >
                   {#if copiedControl === 'reset-credentials'}<ClipboardCheck
@@ -1601,7 +1621,9 @@
             {:else}
               <div class="created-credentials-inline">
                 <span class="user-password-label">一次性密码</span>
-                <small class="user-password-hint">点击后生成新密码，原密码立即失效</small>
+                <small class="user-password-hint"
+                  >点击后生成新密码，原密码立即失效</small
+                >
               </div>
             {/if}
           </div>
@@ -1651,7 +1673,8 @@
                     placeholder="至少 8 位，建议包含字母、数字和特殊字符"
                     ariaLabel="一次性密码"
                     on:input={() => {
-                      if (newUserPassword.length >= 8) newUserPasswordError = '';
+                      if (newUserPassword.length >= 8)
+                        newUserPasswordError = '';
                     }}
                   />
                 </FormField>
@@ -1659,12 +1682,18 @@
             {:else if createdUserCredentials}
               <div class="created-credentials-inline" aria-live="polite">
                 <span class="user-password-label">一次性密码</span>
-                <strong class="user-password-value">{createdUserCredentials.password}</strong>
+                <strong class="user-password-value"
+                  >{createdUserCredentials.password}</strong
+                >
                 <button
                   class="icon-button"
                   type="button"
-                  aria-label={copiedControl === 'created-password' ? '已复制一次性密码' : '复制一次性密码'}
-                  data-tooltip={copiedControl === 'created-password' ? '已复制' : '复制一次性密码'}
+                  aria-label={copiedControl === 'created-password'
+                    ? '已复制一次性密码'
+                    : '复制一次性密码'}
+                  data-tooltip={copiedControl === 'created-password'
+                    ? '已复制'
+                    : '复制一次性密码'}
                   on:click={copyOneTimePassword}
                   >{#if copiedControl === 'created-password'}<ClipboardCheck
                       size={15}
@@ -1675,7 +1704,9 @@
             {:else}
               <div class="created-credentials-inline">
                 <span class="user-password-label">一次性密码</span>
-                <small class="user-password-hint">创建后显示，仅可查看和复制一次</small>
+                <small class="user-password-hint"
+                  >创建后显示，仅可查看和复制一次</small
+                >
               </div>
             {/if}
           </div>
@@ -1716,8 +1747,16 @@
                     )
                     .map((type) => ({
                       value: type,
-                      label: grantScopeLabel(type as NewUserGrant['scopeType'])
+                      label: grantScopeLabel(type as NewUserGrant['scopeType']),
+                      icon:
+                        type === 'platform'
+                          ? 'lucide:PanelsTopLeft'
+                          : type === 'team'
+                            ? 'lucide:Building'
+                            : 'lucide:Boxes'
                     }))}
+                  showIcons
+                  iconTone="scope"
                   ariaLabel="授权级别"
                   on:change={(event) =>
                     chooseNewUserGrantType(

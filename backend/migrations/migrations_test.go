@@ -11,8 +11,8 @@ func TestLoadOrdersEmbeddedMigrations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load() error = %v", err)
 	}
-	if len(items) != 3 {
-		t.Fatalf("load() returned %d migrations, want the initial baseline and two forward migrations", len(items))
+	if len(items) != 5 {
+		t.Fatalf("load() returned %d migrations, want the initial baseline and four forward migrations", len(items))
 	}
 	if items[0].version != 1 || items[0].name != "initial" {
 		t.Fatalf("loaded migration = %#v, want version 1 initial", items[0])
@@ -22,6 +22,12 @@ func TestLoadOrdersEmbeddedMigrations(t *testing.T) {
 	}
 	if items[2].version != 3 || items[2].name != "mongodb_resource_and_document_database" {
 		t.Fatalf("unexpected MongoDB migration: %#v", items[2])
+	}
+	if items[3].version != 4 || items[3].name != "application_listener_address" {
+		t.Fatalf("unexpected listener-address migration: %#v", items[3])
+	}
+	if items[4].version != 5 || items[4].name != "mongodb_agent_toolkit" {
+		t.Fatalf("unexpected MongoDB Agent migration: %#v", items[4])
 	}
 	for _, item := range items {
 		if item.sql == "" || item.checksum == "" {

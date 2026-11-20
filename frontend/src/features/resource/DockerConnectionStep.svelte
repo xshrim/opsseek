@@ -27,6 +27,7 @@
   export let allowAddMCPServer = true;
   export let configurationAttempted = false;
   export let credentialLoading = false;
+  export let credentialConfigured = false;
   export let onConfigurationChange: () => void = () => {};
   export let onAddMCPServer: () => void = () => {};
 
@@ -113,13 +114,18 @@
     </FormField>
   {/if}
   {#if accessMode === 'direct' || connectionOverride}
-    <p id="docker-host-help" class="docker-field-help">
+    <p
+      id="docker-host-help"
+      class="docker-field-help docker-daemon-address-help"
+    >
       {#if daemonType === 'containerd'}
-        containerd 使用原生 gRPC：本地 Socket 示例 <code>unix:///run/containerd/containerd.sock</code>；远程示例
-        <code>tcp://host:端口</code>，可配置 TLS。命名空间默认 <code>k8s.io</code>。
+        <code>unix:///run/containerd/containerd.sock</code>、
+        <code>tcp://host:端口</code>、<code>grpc://host:端口</code>、
+        <code>grpcs://host:端口</code>、<code>https://host:端口</code>
       {:else}
-        dockerd 使用 Docker Engine API：本地 Socket 示例 <code>unix:///var/run/docker.sock</code>；远程支持
-        <code>tcp://</code>、<code>http://</code>、<code>https://</code>，且不能包含用户名或密码。
+        <code>unix:///var/run/docker.sock</code>、
+        <code>tcp://host:端口</code>、<code>http://host:端口</code>、
+        <code>https://host:端口</code>
       {/if}
     </p>
   {/if}
@@ -169,6 +175,7 @@
       bind:key={keyBase64}
       bind:skipVerify={skipTLSVerify}
       {configurationAttempted}
+      {credentialConfigured}
       disabled={!tlsSupported}
       help={tlsSupported
         ? 'CA 证书、客户端证书和私钥支持粘贴 PEM 文本或 Base64 编码，也支持导入 PEM 文件。数据库和工具参数统一使用 Base64；客户端证书和私钥必须成对。'

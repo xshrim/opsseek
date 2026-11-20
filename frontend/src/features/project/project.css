@@ -484,6 +484,9 @@
   background: var(--theme-bg-surface);
   border-color: var(--theme-border-focus);
 }
+.application-candidate.conflict {
+  border-color: var(--theme-danger);
+}
 .application-candidate > span {
   display: grid;
   min-width: 0;
@@ -501,6 +504,27 @@
 }
 .application-candidate strong {
   font-size: 12px;
+}
+.application-candidate-name {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+.application-candidate-name strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.application-candidate-name em {
+  flex: 0 0 auto;
+  color: var(--theme-danger);
+  font-size: 10px;
+  font-style: normal;
+}
+.application-candidate-artifact {
+  flex: 0 1 auto;
+  color: var(--theme-fg-muted);
+  font-size: 10px;
 }
 .application-candidate small {
   color: var(--theme-fg-muted);
@@ -717,9 +741,17 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 0;
+  overflow: visible;
   white-space: nowrap;
+}
+.application-candidate-locator {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  text-overflow: clip;
 }
 .kubernetes-application-heading h3 {
   overflow-wrap: anywhere;

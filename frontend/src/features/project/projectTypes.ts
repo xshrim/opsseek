@@ -100,6 +100,12 @@ export const applicationKeywordFromSelector = (
   return '';
 };
 
+export const javaArtifactFromCommandLine = (commandLine: string) => {
+  const match = commandLine.match(/(?:^|\s)-jar\s+(?:"([^"]+\.jar)"|'([^']+\.jar)'|([^\s]+\.jar))/i);
+  const path = match?.[1] ?? match?.[2] ?? match?.[3] ?? '';
+  return path.split(/[\\/]/).at(-1) ?? '';
+};
+
 export const preserveConfiguredValue = (current: string, fallback: string) =>
   current.trim() ? current : fallback;
 
@@ -123,7 +129,7 @@ export const slugify = (value: string) => {
     .toLocaleLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-  return slug || `application-${Date.now()}`;
+  return slug || 'application';
 };
 
 export const resourcesForRuntime = (

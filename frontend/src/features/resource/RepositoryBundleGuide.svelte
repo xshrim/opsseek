@@ -72,7 +72,7 @@ git bundle verify opsseek.bundle</code
             type="button"
             class="copy-button"
             aria-label="复制上传命令"
-            title="复制上传命令"
+            data-tooltip="复制上传命令"
             on:click={() => void copyCommand()}
             >{#if copied === 'api'}<Check
                 size={15}

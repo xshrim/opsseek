@@ -39,7 +39,7 @@ export const resourceCategoryOptions: Record<string, string[]> = {
   Oracle: ['Direct', 'Agent'],
   MySQL: ['Direct', 'Agent'],
   OceanBase: ['Direct', 'Agent'],
-  MongoDB: ['Direct'],
+  MongoDB: ['Direct', 'Agent'],
   Redis: ['Direct', 'Agent'],
   TongRDS: ['Direct', 'Agent'],
   Kafka: ['Direct', 'Agent'],

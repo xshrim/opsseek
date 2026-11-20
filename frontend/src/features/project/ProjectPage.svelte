@@ -67,7 +67,7 @@
     type ApplicationResourceCreationResult,
     type RuntimeResourceKind
   } from './projectTypes';
-  import { onMount, tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
 
   export let teams: Team[] = [];
   export let allProjects: Project[] = [];
@@ -143,6 +143,9 @@
   let topologyConfigBusy = false;
   let workspaceProjectId = '';
   let loadingWorkspace = false;
+  let listeningAddressPollTimer: ReturnType<typeof setTimeout> | undefined;
+  let listeningAddressPollProjectId = '';
+  let listeningAddressPollAttempts = 0;
   let collapsedTeams = new Set<string>();
   let initializedTeamKey = '';
   let teamFilterElement: HTMLElement;
@@ -173,17 +176,17 @@
   let users: User[] = [];
 
   const applicationColumns: ReadonlyTableColumn[] = [
-    { key: 'application', label: '应用', width: '18%' },
+    { key: 'application', label: '应用', width: '29%' },
     { key: 'runtime', label: '运行时', width: '12%' },
     { key: 'listening_address', label: '监听地址', width: '14%' },
-    { key: 'instances', label: '实例', width: '9%' },
-    { key: 'resources', label: '资源', width: '8%' },
-    { key: 'labels', label: '标签', width: '16%' },
+    { key: 'instances', label: '实例', width: '5%' },
+    { key: 'resources', label: '资源', width: '5%' },
+    { key: 'labels', label: '标签', width: '13%' },
     { key: 'status', label: '状态', width: '9%' },
     {
       key: 'actions',
       label: '操作',
-      width: '10%',
+      width: '9%',
       className: 'application-actions-column'
     }
   ];
@@ -211,6 +214,7 @@
       .catch(() => (users = []));
     return () => resizeObserver.disconnect();
   });
+  onDestroy(() => clearTimeout(listeningAddressPollTimer));
   $: ownerOptions = users
     .filter((user) => user.status === 'active')
     .map((user) => ({
@@ -700,6 +704,7 @@
         api.projectTopology(id)
       ]);
       workspace = nextWorkspace;
+      scheduleListeningAddressRefresh(id);
       projectTopology = nextTopology;
       workspaceProjectId = id;
       const scopeId = selectedProject?.scope.id ?? selectedScopeId;
@@ -727,12 +732,40 @@
       inspectionLoading = false;
     }
   }
+  function scheduleListeningAddressRefresh(projectId: string) {
+    if (listeningAddressPollProjectId !== projectId) {
+      clearTimeout(listeningAddressPollTimer);
+      listeningAddressPollAttempts = 0;
+      listeningAddressPollProjectId = projectId;
+    }
+    if (!workspace?.applications.some((application) => application.listening_address_pending)) {
+      clearTimeout(listeningAddressPollTimer);
+      listeningAddressPollTimer = undefined;
+      listeningAddressPollAttempts = 0;
+      return;
+    }
+    if (listeningAddressPollAttempts >= 20 || listeningAddressPollTimer) return;
+    listeningAddressPollAttempts += 1;
+    listeningAddressPollTimer = setTimeout(async () => {
+      listeningAddressPollTimer = undefined;
+      if (selectedProjectId !== projectId) return;
+      try {
+        const refreshed = await api.projectWorkspace(projectId);
+        if (selectedProjectId !== projectId) return;
+        workspace = refreshed;
+        scheduleListeningAddressRefresh(projectId);
+      } catch {
+        scheduleListeningAddressRefresh(projectId);
+      }
+    }, 1500);
+  }
   async function loadTopology() {
     if (!selectedProjectId) return;
     loadingTopology = true;
     try {
       projectTopology = await api.projectTopology(selectedProjectId);
       workspace = await api.projectWorkspace(selectedProjectId);
+      scheduleListeningAddressRefresh(selectedProjectId);
     } catch (error) {
       onError(describeError(error, '项目拓扑刷新失败'));
     } finally {
@@ -1696,16 +1729,20 @@
                     >
                   {:else if column.key === 'listening_address'}<span
                       class="application-table-value"
-                      data-tooltip={row.listening_address || '未发现监听地址'}
-                      ><strong>{row.listening_address || '—'}</strong></span
+                      data-tooltip={row.listening_address_pending
+                        ? '正在异步获取监听地址'
+                        : row.listening_address || '未发现监听地址'}
+                      ><strong>{row.listening_address_pending
+                          ? '获取中…'
+                          : row.listening_address || '—'}</strong></span
                     >
                   {:else if column.key === 'instances'}<span
                       class="application-table-count"
-                      >{row.instances.length} 个实例</span
+                      >{row.instances.length}</span
                     >
                   {:else if column.key === 'resources'}<span
                       class="application-table-count"
-                      >{applicationResourceCount(row)} 个资源</span
+                      >{applicationResourceCount(row)}</span
                     >
                   {:else if column.key === 'labels'}<TagList
                       className="application-table-tags"
@@ -1771,7 +1808,9 @@
                       </div>
                       <div>
                         <small>监听地址</small><strong
-                          >{row.listening_address || '—'}</strong
+                          >{row.listening_address_pending
+                            ? '获取中…'
+                            : row.listening_address || '—'}</strong
                         >
                       </div>
                       <div>
@@ -1867,6 +1906,8 @@
             <TopologyApplicationCreate
               resources={availableResources}
               {users}
+              applications={workspace?.applications ?? []}
+              projectId={selectedProjectId}
               runtimeKind={topologyEditApplication.runtime_kind as ApplicationRuntimeKind}
               initialApplication={topologyEditApplication}
               onSave={saveTopologyApplicationEdit}
@@ -1878,6 +1919,8 @@
             <TopologyApplicationCreate
               resources={availableResources}
               {users}
+              applications={workspace?.applications ?? []}
+              projectId={selectedProjectId}
               runtimeKind={topologyComponentIntent.runtimeKind as ApplicationRuntimeKind}
               onSave={saveTopologyApplication}
               onCancel={() => {
@@ -1967,7 +2010,7 @@
                   </span>
                   <span class="relationship-row-actions">
                     {#if row.application && canUpdateSelectedProject}<button
-                        class="icon-button"
+                        class="icon-button edit-action"
                         type="button"
                         aria-label="编辑资源关联"
                         data-tooltip="编辑资源关联"
@@ -1975,7 +2018,7 @@
                           void openApplicationEditor(row.application!, 'bindings')}
                         ><Pencil size={13} /></button
                       >{/if}{#if row.application && canDeleteSelectedProject}<button
-                        class="icon-button danger-action"
+                        class="icon-button danger-action delete-action"
                         type="button"
                         aria-label="删除资源关联"
                         data-tooltip="删除资源关联"
@@ -2044,7 +2087,7 @@
                   </span>
                   <span class="relationship-row-actions">
                     {#if canUpdateSelectedProject}<button
-                      class="icon-button"
+                      class="icon-button edit-action"
                       type="button"
                       aria-label="编辑应用依赖"
                       data-tooltip="编辑应用依赖"
@@ -2052,7 +2095,7 @@
                         void openApplicationEditor(row.application, 'applications')}
                       ><Pencil size={13} /></button
                     >{/if}{#if canDeleteSelectedProject}<button
-                      class="icon-button danger-action"
+                      class="icon-button danger-action delete-action"
                       type="button"
                       aria-label="删除应用依赖"
                       data-tooltip="删除应用依赖"
@@ -2262,6 +2305,7 @@
     resourceScopeTypes={applicationResourceScopeTypes}
     {users}
     applications={workspace?.applications ?? []}
+    projectId={selectedProjectId}
     projects={allProjects.map((project) => ({
       id: project.id,
       name: project.name,

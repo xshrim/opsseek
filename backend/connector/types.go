@@ -26,6 +26,7 @@ const (
 	CapabilityKafkaInspect         Capability = "kafka_inspect"
 	CapabilityElasticsearchInspect Capability = "elasticsearch_inspect"
 	CapabilityMinIOInspect         Capability = "minio_inspect"
+	CapabilityMongoDBInspect       Capability = "mongodb_inspect"
 	CapabilityDockerInfo           Capability = "docker_info"
 	CapabilityDockerImages         Capability = "docker_images"
 	CapabilityDockerContainers     Capability = "docker_containers"

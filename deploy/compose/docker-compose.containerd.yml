@@ -1,0 +1,18 @@
+services:
+  api:
+    user: "65532:${CONTAINERD_SOCKET_GID:-65532}"
+    volumes:
+      - type: bind
+        source: /run/containerd/containerd.sock
+        target: /run/containerd/containerd.sock
+        bind:
+          create_host_path: false
+
+  app:
+    user: "65532:${CONTAINERD_SOCKET_GID:-65532}"
+    volumes:
+      - type: bind
+        source: /run/containerd/containerd.sock
+        target: /run/containerd/containerd.sock
+        bind:
+          create_host_path: false

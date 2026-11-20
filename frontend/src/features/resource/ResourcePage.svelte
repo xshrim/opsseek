@@ -2103,6 +2103,8 @@
   }
 
   function kubernetesDraft() {
+    const existing = resources.find((item) => item.id === editingKubernetesResourceId);
+    const configuredMode = String(existing?.config?.connection_mode ?? (existing?.config?.server ? 'endpoint' : 'kubeconfig'));
     return {
       isAgent: kubernetesIsAgent(),
       connectionOverride: kubernetesConnectionOverride,
@@ -2113,10 +2115,12 @@
       certBase64: kubernetesCertBase64,
       keyBase64: kubernetesKeyBase64,
       kubeconfig: kubernetesKubeconfig,
-      skipTLSVerify: kubernetesSkipTLSVerify
+      skipTLSVerify: kubernetesSkipTLSVerify,
+      credentialConfigured: Boolean(existing?.credential_configured && configuredMode === 'kubeconfig' && kubernetesConnectionMode === 'kubeconfig')
     } as const;
   }
   function hostDraft() {
+    const existing = resources.find((item) => item.id === editingHostResourceId);
     return {
       accessMode: hostAccessMode,
       host: hostHost,
@@ -2129,7 +2133,8 @@
       knownHosts: hostKnownHosts,
       timeoutSeconds: hostTimeoutSeconds,
       mcpServerResourceId: hostMCPServerResourceId,
-      connectionOverride: hostConnectionOverride
+      connectionOverride: hostConnectionOverride,
+      credentialConfigured: Boolean(existing?.credential_configured && String(existing.config?.auth_method ?? 'password') === hostAuthMethod)
     } as const;
   }
   function postgresqlDraft() {
@@ -3071,10 +3076,11 @@
     if (
       hostHost.trim() &&
       hostAuthMethod === 'password' &&
-      !hostPassword.trim()
+      !hostPassword.trim() &&
+      !hostDraft().credentialConfigured
     )
       issues.push('SSH 密码');
-    if (hostHost.trim() && hostAuthMethod === 'key' && !hostPrivateKey.trim())
+    if (hostHost.trim() && hostAuthMethod === 'key' && !hostPrivateKey.trim() && !hostDraft().credentialConfigured)
       issues.push('SSH 私钥');
     if (!Number.isFinite(hostPort) || hostPort < 1 || hostPort > 65535)
       issues.push('SSH 端口');
@@ -3176,7 +3182,8 @@
     if (kubernetesIsAgent() && !kubernetesConnectionOverride) return [];
     if (
       kubernetesConnectionMode === 'kubeconfig' &&
-      !kubernetesKubeconfig.trim()
+      !kubernetesKubeconfig.trim() &&
+      !kubernetesDraft().credentialConfigured
     )
       return ['Kubeconfig'];
     if (kubernetesConnectionMode === 'endpoint' && !kubernetesServer.trim())
@@ -5530,6 +5537,7 @@
               allowAddMCPServer={!editingDockerResourceId}
               configurationAttempted={dockerConfigurationAttempted}
               credentialLoading={dockerCredentialLoading}
+              credentialConfigured={Boolean(resources.find((item) => item.id === editingDockerResourceId)?.credential_configured)}
               onConfigurationChange={resetDockerDraftTest}
               onAddMCPServer={openMCPServerWorkflowFromConnection}
             />
@@ -5575,6 +5583,7 @@
               allowAddMCPServer={!editingKubernetesResourceId}
               configurationAttempted={kubernetesConfigurationAttempted}
               credentialLoading={kubernetesCredentialLoading}
+              credentialConfigured={Boolean(resources.find((item) => item.id === editingKubernetesResourceId)?.credential_configured)}
               onConfigurationChange={() => (kubernetesDraftTest = null)}
               onAddMCPServer={openMCPServerWorkflowFromConnection}
             />
@@ -5625,6 +5634,7 @@
               allowAddMCPServer={!editingHostResourceId}
               configurationAttempted={hostConfigurationAttempted}
               credentialLoading={hostCredentialLoading}
+              credentialConfigured={Boolean(resources.find((item) => item.id === editingHostResourceId)?.credential_configured)}
               onConfigurationChange={resetHostDraftTest}
               onAddMCPServer={openMCPServerWorkflowFromConnection}
             />

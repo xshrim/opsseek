@@ -49,6 +49,6 @@ export function viewBreadcrumb(
   accessTab?: 'teams' | 'users' | 'roles'
 ) {
   return view === 'access'
-    ? `权限 / ${viewTitle(view, accessTab)}`
+    ? '智能运维平台 / 权限'
     : breadcrumbs[view];
 }

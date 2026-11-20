@@ -79,7 +79,7 @@ it('previews a revision with GET and never persists it, including for read-only 
     )
   );
   document
-    .querySelector<HTMLButtonElement>(`.option-list button[title="${second}"]`)!
+    .querySelector<HTMLButtonElement>(`.option-list button[data-tooltip="${second}"]`)!
     .click();
   await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   const requests = fetchMock.mock.calls as unknown as [string, RequestInit][];

@@ -7,10 +7,12 @@
   let left = 0;
   let top = 0;
   let pointerPosition: { x: number; y: number } | null = null;
-  let placement: 'top' | 'bottom' = 'bottom';
   let tooltipElement: HTMLDivElement;
+  let placementFrame: number | null = null;
 
   function hide() {
+    if (placementFrame !== null) cancelAnimationFrame(placementFrame);
+    placementFrame = null;
     if (tooltipElement?.matches(':popover-open')) tooltipElement.hidePopover();
     visible = false;
     target = null;
@@ -30,9 +32,30 @@
       return;
     }
     const rect = target.getBoundingClientRect();
-    placement = 'bottom';
     left = rect.left;
     top = rect.bottom + 8;
+  }
+  function schedulePlacement() {
+    if (placementFrame !== null) cancelAnimationFrame(placementFrame);
+    placementFrame = requestAnimationFrame(() => {
+      placementFrame = null;
+      if (!target || !tooltipElement) return;
+      const tooltip = tooltipElement.getBoundingClientRect();
+      const margin = 8;
+      left = Math.min(
+        Math.max(left, margin),
+        Math.max(margin, window.innerWidth - tooltip.width - margin)
+      );
+      if (tooltip.bottom > window.innerHeight - margin) {
+        const targetRect = target.getBoundingClientRect();
+        const above = targetRect.top - tooltip.height - margin;
+        if (above >= margin) {
+          top = above;
+        } else {
+          top = Math.max(margin, window.innerHeight - tooltip.height - margin);
+        }
+      }
+    });
   }
   async function show(node: HTMLElement, pointer?: { x: number; y: number }) {
     const value = node.dataset.tooltip?.trim();
@@ -49,6 +72,7 @@
     ) {
       tooltipElement.showPopover();
     }
+    schedulePlacement();
   }
   function tooltipTarget(event: Event) {
     const node =
@@ -63,8 +87,10 @@
   }
   function onPointerMove(event: PointerEvent) {
     const node = tooltipTarget(event);
-    if (node && node === target)
+    if (node && node === target) {
       position({ x: event.clientX, y: event.clientY });
+      schedulePlacement();
+    }
   }
   function onPointerOut(event: PointerEvent) {
     const node = tooltipTarget(event);
@@ -89,7 +115,10 @@
       hide();
   }
   function onViewportChange() {
-    if (visible) position();
+    if (visible) {
+      position();
+      schedulePlacement();
+    }
   }
 
   window.addEventListener('pointerover', onPointerOver);
@@ -100,6 +129,7 @@
   window.addEventListener('scroll', onViewportChange, true);
   window.addEventListener('resize', onViewportChange);
   onDestroy(() => {
+    if (placementFrame !== null) cancelAnimationFrame(placementFrame);
     window.removeEventListener('pointerover', onPointerOver);
     window.removeEventListener('pointermove', onPointerMove);
     window.removeEventListener('pointerout', onPointerOut);
@@ -114,7 +144,6 @@
   <div
     bind:this={tooltipElement}
     popover="manual"
-    class:top={placement === 'top'}
     class="tooltip-portal"
     role="tooltip"
     style={`left:${left}px;top:${top}px`}

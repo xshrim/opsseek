@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"opsseek/backend/authorization"
 )
@@ -18,17 +19,35 @@ type testStore struct {
 	candidateScope string
 	candidates     []Application
 	workspace      Workspace
+	listenerWrites chan string
 }
 type testBindingValidator struct{ err error }
 
-type testListenerResolver struct{ values map[string][]string }
+type testListenerResolver struct {
+	values map[string][]string
+	calls  *int
+}
 
 func (v testBindingValidator) ValidateApplicationBinding(context.Context, string, string, map[string]any) error {
 	return v.err
 }
 
 func (r testListenerResolver) ResolveApplicationListeners(_ context.Context, _ string, resourceID string, _ map[string]any) ([]string, error) {
+	if r.calls != nil {
+		*r.calls++
+	}
 	return r.values[resourceID], nil
+}
+
+type blockingListenerResolver struct {
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (r blockingListenerResolver) ResolveApplicationListeners(context.Context, string, string, map[string]any) ([]string, error) {
+	r.entered <- struct{}{}
+	<-r.release
+	return []string{"127.0.0.1:8080"}, nil
 }
 
 func (s *testStore) Create(_ context.Context, input CreateInput) (Application, error) {
@@ -40,7 +59,25 @@ func (s *testStore) CreateMany(_ context.Context, inputs []CreateInput) ([]Appli
 	if len(inputs) != 0 {
 		s.input = inputs[0]
 	}
-	return make([]Application, len(inputs)), nil
+	applications := make([]Application, len(inputs))
+	for index, input := range inputs {
+		applications[index] = s.app
+		applications[index].Instances = make([]Instance, len(input.Instances))
+		for instanceIndex, instance := range input.Instances {
+			applications[index].Instances[instanceIndex] = Instance{
+				RuntimeKind:      instance.RuntimeKind,
+				TargetResourceID: instance.TargetResourceID,
+				Selector:         instance.Selector,
+			}
+		}
+	}
+	return applications, nil
+}
+func (s *testStore) SetListeningAddress(_ context.Context, _ string, _ time.Time, address string) error {
+	if s.listenerWrites != nil {
+		s.listenerWrites <- address
+	}
+	return nil
 }
 func (s *testStore) Get(context.Context, string, string) (Application, error) {
 	return s.app, nil
@@ -94,9 +131,11 @@ func TestCreateValidatesProjectAndCode(t *testing.T) {
 	}
 }
 
-func TestWorkspaceEnrichesListeningAddress(t *testing.T) {
+func TestWorkspaceDoesNotResolveListeningAddress(t *testing.T) {
+	calls := 0
 	store := &testStore{workspace: Workspace{Applications: []Application{{
-		ID: "application-1",
+		ID:               "application-1",
+		ListeningAddress: "10.0.0.8:8080",
 		Instances: []Instance{
 			{RuntimeKind: RuntimeHost, TargetResourceID: "runtime-a"},
 			{RuntimeKind: RuntimeDocker, TargetResourceID: "runtime-b"},
@@ -106,13 +145,56 @@ func TestWorkspaceEnrichesListeningAddress(t *testing.T) {
 	service.SetListenerResolver(testListenerResolver{values: map[string][]string{
 		"runtime-a": {"10.0.0.1:8080"},
 		"runtime-b": {"10.0.0.2:8080", "10.0.0.1:8080"},
-	}})
+	}, calls: &calls})
 	workspace, err := service.Workspace(context.Background(), "project-1")
 	if err != nil {
 		t.Fatalf("Workspace() error = %v", err)
 	}
-	if got := workspace.Applications[0].ListeningAddress; got != "10.0.0.1:8080、10.0.0.2:8080" {
-		t.Fatalf("ListeningAddress = %q", got)
+	if got := workspace.Applications[0].ListeningAddress; got != "10.0.0.8:8080" {
+		t.Fatalf("ListeningAddress = %q, want stored value", got)
+	}
+	if calls != 0 {
+		t.Fatalf("listener resolver calls = %d, want 0 on workspace read", calls)
+	}
+}
+
+func TestCreateSchedulesListenerResolutionAsynchronously(t *testing.T) {
+	store := &testStore{app: Application{ID: "application-1", UpdatedAt: time.Now()}, listenerWrites: make(chan string, 1)}
+	resolver := blockingListenerResolver{entered: make(chan struct{}, 1), release: make(chan struct{})}
+	service := NewService(store)
+	service.SetBindingValidator(testBindingValidator{})
+	service.SetListenerResolver(resolver)
+	result := make(chan error, 1)
+	go func() {
+		_, err := service.CreateMany(context.Background(), []CreateInput{{
+			ProjectID: "project-1", Name: "Orders", Code: "orders", RuntimeKind: RuntimeHost,
+			Instances: []CreateInstanceInput{{Name: "primary", RuntimeKind: RuntimeHost, TargetResourceID: "host-1", Selector: map[string]any{"process_command_line": "orders"}}},
+		}})
+		result <- err
+	}()
+	select {
+	case err := <-result:
+		if err != nil {
+			t.Fatalf("CreateMany() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		close(resolver.release)
+		t.Fatal("CreateMany() waited for listener resolution")
+	}
+	select {
+	case <-resolver.entered:
+	case <-time.After(time.Second):
+		close(resolver.release)
+		t.Fatal("listener resolution did not start")
+	}
+	close(resolver.release)
+	select {
+	case got := <-store.listenerWrites:
+		if got != "127.0.0.1:8080" {
+			t.Fatalf("saved listener address = %q", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("listener address was not saved")
 	}
 }
 

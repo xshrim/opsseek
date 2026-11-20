@@ -188,13 +188,17 @@
           ...group.options.map((option) => option.label.length)
         ]),
         0
-      ) * 8 +
+      ) *
+        8 +
         112
     )
   )}px`;
 
   function menuPositionAbove(rect: DOMRect, width = 280) {
-    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+    const left = Math.max(
+      8,
+      Math.min(rect.left, window.innerWidth - width - 8)
+    );
     return `left:${left}px;bottom:${Math.max(8, window.innerHeight - rect.top + 6)}px`;
   }
 
@@ -237,10 +241,7 @@
     );
   }
 
-  function toggleComposerMenu(
-    kind: 'skill' | 'persona',
-    event: MouseEvent
-  ) {
+  function toggleComposerMenu(kind: 'skill' | 'persona', event: MouseEvent) {
     diagnosisComposerMenu = diagnosisComposerMenu === kind ? '' : kind;
     diagnosisComposerMenuSearch = '';
     diagnosisComposerTokenStart =
@@ -871,7 +872,11 @@
       );
       if (diagnosisSnapshot?.session.id === updated.id)
         diagnosisSnapshot = { ...diagnosisSnapshot, session: updated };
-      onNotice(updated.scope_shared ? '会话已按当前范围共享。' : '会话已设为仅自己可见。');
+      onNotice(
+        updated.scope_shared
+          ? '会话已按当前范围共享。'
+          : '会话已设为仅自己可见。'
+      );
     } catch (error) {
       onError(describeError(error, '会话共享设置失败'));
     }
@@ -1247,7 +1252,7 @@
               ><span class="diagnosis-session-meta-f"
                 ><small>{formatDate(session.created_at)}</small><em
                   class={`diagnosis-session-status-f ${session.status}`}
-                  title={diagnosisInterruptionReason(
+                  data-tooltip={diagnosisInterruptionReason(
                     session.status,
                     session.error_message,
                     ''
@@ -1257,21 +1262,21 @@
             >
             {#if session.scope_shared}<span
                 class="diagnosis-session-shared-corner"
-                aria-label="已按当前范围共享"
-                ><Share2 size={10} /></span
+                aria-label="已按当前范围共享"><Share2 size={10} /></span
               >{/if}
             <div class="diagnosis-session-actions">
               {#if currentUserId && session.actor_user_id === currentUserId}<button
-                class="share-action"
-                aria-label={session.scope_shared
-                  ? '取消按当前范围共享'
-                  : '按当前范围共享'}
-                data-tooltip={session.scope_shared
-                  ? '取消按当前范围共享'
-                  : '按当前范围共享'}
-                on:click|stopPropagation={() =>
-                  void toggleDiagnosisSharing(session)}><Share2 size={13} /></button
-              >{/if}<button
+                  class="share-action"
+                  aria-label={session.scope_shared
+                    ? '取消按当前范围共享'
+                    : '按当前范围共享'}
+                  data-tooltip={session.scope_shared
+                    ? '取消按当前范围共享'
+                    : '按当前范围共享'}
+                  on:click|stopPropagation={() =>
+                    void toggleDiagnosisSharing(session)}
+                  ><Share2 size={13} /></button
+                >{/if}<button
                 class="edit-action"
                 aria-label="重命名会话"
                 data-tooltip="重命名会话"
@@ -1324,7 +1329,7 @@
       <div class="diagnosis-head-actions">
         <span
           class="diagnosis-head-status"
-          title={diagnosisInterruptionReason(
+          data-tooltip={diagnosisInterruptionReason(
             diagnosisSnapshot?.session.status,
             diagnosisSnapshot?.session.error_message,
             diagnosisInterruptedReason
@@ -1372,7 +1377,11 @@
       {copyDiagnosisMessage}
       {copyStreamingAnswer}
       copyDiagnosisAction={(content) =>
-        copyDiagnosisText(content, () => onNotice('工具内容已复制。'), onNotice)}
+        copyDiagnosisText(
+          content,
+          () => onNotice('工具内容已复制。'),
+          onNotice
+        )}
     />
     <form
       class="diagnosis-composer-f"
@@ -1498,7 +1507,9 @@
                     !diagnosisCollaborationMenuOpen;
                   if (diagnosisCollaborationMenuOpen)
                     diagnosisCollaborationMenuPosition = menuPositionAbove(
-                      (event.currentTarget as HTMLElement).getBoundingClientRect(),
+                      (
+                        event.currentTarget as HTMLElement
+                      ).getBoundingClientRect(),
                       180
                     );
                 }}
@@ -1522,7 +1533,10 @@
                         diagnosisCollaborationMenuOpen = false;
                         void diagnosisCommands.setCollaboration(option.value);
                       }}
-                      ><svelte:component this={option.icon} size={15} />{option.label}</button
+                      ><svelte:component
+                        this={option.icon}
+                        size={15}
+                      />{option.label}</button
                     >
                   {/each}
                 </div>{/if}
@@ -1555,7 +1569,10 @@
                   ></span
                 >{/each}
             </div>{/if}
-          <div class="diagnosis-model-picker" style={`--diagnosis-model-width:${modelPickerWidth}`}>
+          <div
+            class="diagnosis-model-picker"
+            style={`--diagnosis-model-width:${modelPickerWidth}`}
+          >
             <GroupedSelect
               groups={modelGroups}
               group={selectedProviderId}

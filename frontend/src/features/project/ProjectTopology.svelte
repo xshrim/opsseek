@@ -508,11 +508,13 @@
     restoreSelectedDetailAnchor();
   }
   function hoverNode(node: Node) {
+    if (mode === 'edit') return;
     hoveredNodeID = node.id;
     hoveredEdgeID = '';
     nodeDetailAnchor = positions.get(node.id) ?? { x: 0, y: 0 };
   }
   function hoverEdge(edge: Edge) {
+    if (mode === 'edit') return;
     hoveredEdgeID = edge.id;
     hoveredNodeID = '';
   }
@@ -530,6 +532,7 @@
       return;
     const point = positions.get(node.id);
     if (!point) return;
+    clearHoverState();
     event.preventDefault();
     nodeDrag = {
       id: node.id,
@@ -1588,6 +1591,7 @@
           {/if}
           {#if selectedNode}<aside
               class="topology-detail-float"
+              class:hover-detail={hoverDetailActive}
               style={detailFloatStyle(selectedNode)}
             >
               <header
@@ -1618,7 +1622,9 @@
                   <dt>实例数量</dt>
                   <dd>{String(selectedNode.metadata?.instance_count ?? 0)}</dd>
                   <dt>监听地址</dt>
-                  <dd>{applications.find((item) => item.id === selectedNode.id)?.listening_address || '—'}</dd>
+                  <dd>{applications.find((item) => item.id === selectedNode.id)?.listening_address_pending
+                    ? '获取中…'
+                    : applications.find((item) => item.id === selectedNode.id)?.listening_address || '—'}</dd>
                   <dt>所属项目</dt>
                   <dd>{selectedNode.project_name || project.name}</dd>
                 </dl>{:else}<dl>
@@ -2296,6 +2302,9 @@
   }
   .topology-detail-close.hidden {
     visibility: hidden;
+  }
+  .topology-detail-float.hover-detail {
+    pointer-events: none;
   }
   .topology-detail-float header span {
     justify-content: flex-start;

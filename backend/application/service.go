@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"opsseek/backend/authorization"
 )
@@ -56,6 +58,10 @@ type BindingValidator interface {
 // make ordinary application reads unavailable.
 type ListenerResolver interface {
 	ResolveApplicationListeners(context.Context, string, string, map[string]any) ([]string, error)
+}
+
+type listenerAddressWriter interface {
+	SetListeningAddress(context.Context, string, time.Time, string) error
 }
 
 type Service struct {
@@ -208,7 +214,14 @@ func (s *Service) CreateMany(ctx context.Context, inputs []CreateInput) ([]Appli
 			return nil, err
 		}
 	}
-	return s.store.CreateMany(ctx, prepared)
+	applications, err := s.store.CreateMany(ctx, prepared)
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range applications {
+		s.scheduleListeningAddress(ctx, item)
+	}
+	return applications, nil
 }
 
 func (s *Service) validateBinding(ctx context.Context, runtimeKind, resourceID string, selector map[string]any) error {
@@ -294,7 +307,6 @@ func (s *Service) Get(ctx context.Context, id string) (Application, error) {
 	if err != nil {
 		return Application{}, err
 	}
-	s.enrichListeningAddress(ctx, &item)
 	return item, nil
 }
 func (s *Service) List(ctx context.Context, pid string) ([]Application, error) {
@@ -398,7 +410,11 @@ func (s *Service) UpdateInProject(ctx context.Context, projectID, id string, in 
 			in.RuntimeKind = &runtimeKind
 		}
 		if in.Instances == nil {
-			return s.store.Update(ctx, strings.TrimSpace(projectID), strings.TrimSpace(id), in)
+			item, err := s.store.Update(ctx, strings.TrimSpace(projectID), strings.TrimSpace(id), in)
+			if err == nil && in.RuntimeKind != nil {
+				s.scheduleListeningAddress(ctx, item)
+			}
+			return item, err
 		}
 		if runtimeKind == "" {
 			return Application{}, ErrInvalid
@@ -421,7 +437,11 @@ func (s *Service) UpdateInProject(ctx context.Context, projectID, id string, in 
 			return Application{}, err
 		}
 	}
-	return s.store.Update(ctx, strings.TrimSpace(projectID), strings.TrimSpace(id), in)
+	item, err := s.store.Update(ctx, strings.TrimSpace(projectID), strings.TrimSpace(id), in)
+	if err == nil && (in.Instances != nil || in.RuntimeKind != nil) {
+		s.scheduleListeningAddress(ctx, item)
+	}
+	return item, err
 }
 
 func normalizeDependencies(items []CreateDependencyInput) ([]CreateDependencyInput, error) {
@@ -526,7 +546,7 @@ func normalizeRepositoryDirectory(value string) (string, error) {
 func allowedDependencyBindingField(kind, key string) bool {
 	switch kind {
 	case "database":
-		return oneOf(key, "database", "schema", "instance", "service", "service_name", "sid", "username")
+		return oneOf(key, "database", "schema", "collection", "instance", "service", "service_name", "sid", "username")
 	case "messaging":
 		return oneOf(key, "topic", "queue", "exchange", "group", "vhost")
 	case "configuration":
@@ -595,7 +615,6 @@ func (s *Service) GetInProject(ctx context.Context, projectID, id string) (Appli
 	if err != nil {
 		return Application{}, err
 	}
-	s.enrichListeningAddress(ctx, &item)
 	return item, nil
 }
 func (s *Service) CreateInstanceInProject(ctx context.Context, projectID, applicationID string, in CreateInstanceInput) (Instance, error) {
@@ -616,13 +635,26 @@ func (s *Service) CreateInstanceInProject(ctx context.Context, projectID, applic
 		return Instance{}, err
 	}
 	in.ApplicationID = applicationID
-	return s.store.CreateInstance(ctx, strings.TrimSpace(projectID), strings.TrimSpace(applicationID), in)
+	created, err := s.store.CreateInstance(ctx, strings.TrimSpace(projectID), strings.TrimSpace(applicationID), in)
+	if err != nil {
+		return Instance{}, err
+	}
+	if app, err := s.store.Get(ctx, strings.TrimSpace(projectID), strings.TrimSpace(applicationID)); err == nil {
+		s.scheduleListeningAddress(ctx, app)
+	}
+	return created, nil
 }
 func (s *Service) DeleteInstanceInProject(ctx context.Context, projectID, applicationID, id string) error {
 	if strings.TrimSpace(projectID) == "" || strings.TrimSpace(applicationID) == "" || strings.TrimSpace(id) == "" {
 		return ErrInvalid
 	}
-	return s.store.DeleteInstance(ctx, strings.TrimSpace(projectID), strings.TrimSpace(applicationID), strings.TrimSpace(id))
+	if err := s.store.DeleteInstance(ctx, strings.TrimSpace(projectID), strings.TrimSpace(applicationID), strings.TrimSpace(id)); err != nil {
+		return err
+	}
+	if app, err := s.store.Get(ctx, strings.TrimSpace(projectID), strings.TrimSpace(applicationID)); err == nil {
+		s.scheduleListeningAddress(ctx, app)
+	}
+	return nil
 }
 func (s *Service) ContextResourceIDs(ctx context.Context, applicationID, scopeID string) ([]string, error) {
 	if strings.TrimSpace(applicationID) == "" || strings.TrimSpace(scopeID) == "" {
@@ -690,36 +722,45 @@ func (s *Service) Workspace(ctx context.Context, pid string) (Workspace, error) 
 	if err != nil {
 		return Workspace{}, err
 	}
-	for index := range workspace.Applications {
-		s.enrichListeningAddress(ctx, &workspace.Applications[index])
-	}
 	return workspace, nil
 }
 
-func (s *Service) enrichListeningAddress(ctx context.Context, item *Application) {
-	if item == nil || s.listenerResolver == nil {
+func (s *Service) scheduleListeningAddress(ctx context.Context, item Application) {
+	writer, ok := s.store.(listenerAddressWriter)
+	if s.listenerResolver == nil || !ok || item.ID == "" || len(item.Instances) == 0 {
 		return
 	}
-	seen := map[string]struct{}{}
-	addresses := make([]string, 0, len(item.Instances))
-	for _, instance := range item.Instances {
-		values, err := s.listenerResolver.ResolveApplicationListeners(ctx, instance.RuntimeKind, instance.TargetResourceID, instance.Selector)
-		if err != nil {
-			continue
-		}
-		for _, value := range values {
-			value = strings.TrimSpace(value)
-			if value == "" {
-				continue
+	background := context.WithoutCancel(ctx)
+	go func() {
+		resolveCtx, cancel := context.WithTimeout(background, 30*time.Second)
+		defer cancel()
+		seen := map[string]struct{}{}
+		addresses := make([]string, 0, len(item.Instances))
+		for _, instance := range item.Instances {
+			values, err := s.listenerResolver.ResolveApplicationListeners(resolveCtx, instance.RuntimeKind, instance.TargetResourceID, instance.Selector)
+			if err != nil {
+				slog.Warn("resolve application listener address", "application_id", item.ID, "error", err)
+				addresses = nil
+				break
 			}
-			if _, exists := seen[value]; exists {
-				continue
+			for _, value := range values {
+				value = strings.TrimSpace(value)
+				if value == "" {
+					continue
+				}
+				if _, exists := seen[value]; exists {
+					continue
+				}
+				seen[value] = struct{}{}
+				addresses = append(addresses, value)
 			}
-			seen[value] = struct{}{}
-			addresses = append(addresses, value)
 		}
-	}
-	item.ListeningAddress = strings.Join(addresses, "、")
+		writeCtx, writeCancel := context.WithTimeout(background, 5*time.Second)
+		defer writeCancel()
+		if err := writer.SetListeningAddress(writeCtx, item.ID, item.UpdatedAt, strings.Join(addresses, "、")); err != nil {
+			slog.Warn("store application listener address", "application_id", item.ID, "error", err)
+		}
+	}()
 }
 func (s *Service) Topology(ctx context.Context, pid string) (Topology, error) {
 	if strings.TrimSpace(pid) == "" {

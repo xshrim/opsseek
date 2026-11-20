@@ -8,7 +8,7 @@ import (
 
 func IsDatabaseKind(kind string) bool {
 	switch kind {
-	case "PostgreSQL", "MySQL", "Oracle", "OceanBase":
+	case "PostgreSQL", "MySQL", "Oracle", "OceanBase", "MongoDB":
 		return true
 	}
 	return false
@@ -54,6 +54,11 @@ func DatabaseConnectionTarget(kind string, defaults, binding map[string]any) (ma
 			delete(result, "service_name")
 		}
 	}
+	if kind == "MongoDB" {
+		if collection := text("collection"); collection != "" {
+			result["collection"] = collection
+		}
+	}
 	return result, nil
 }
 
@@ -80,6 +85,13 @@ func DatabaseToolArguments(kind string, binding map[string]any, schema []byte, a
 				if database, _ := binding["database"].(string); strings.TrimSpace(database) != "" {
 					result["schema"] = strings.TrimSpace(database)
 				}
+			}
+		}
+	}
+	if _, supported := definition.Properties["collection"]; supported {
+		if value, _ := result["collection"].(string); strings.TrimSpace(value) == "" {
+			if collection, _ := binding["collection"].(string); strings.TrimSpace(collection) != "" {
+				result["collection"] = strings.TrimSpace(collection)
 			}
 		}
 	}

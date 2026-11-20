@@ -64,7 +64,7 @@
         placeholder="例如 db.example.com"
       /></FormField
     >
-    <FormField label="端口"
+    <FormField label="端口" required
       ><TextInput
         type="number"
         min="1"

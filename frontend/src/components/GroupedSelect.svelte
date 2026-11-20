@@ -29,6 +29,8 @@
     (item) => item.value === value
   );
   $: menuGroup = groups.find((item) => item.value === activeGroup);
+  $: selectedTooltip =
+    selectedGroup && value ? `${selectedGroup.label} · ${value}` : placeholder;
 
   function toggle() {
     open = !open;
@@ -68,10 +70,7 @@
     aria-label={ariaLabel}
     aria-haspopup="dialog"
     aria-expanded={open}
-    data-tooltip={tooltip || undefined}
-    title={selectedGroup && value
-      ? `${selectedGroup.label} · ${value}`
-      : placeholder}
+    data-tooltip={tooltip || selectedTooltip}
     on:click={toggle}
   >
     <span
@@ -97,7 +96,7 @@
             aria-pressed={activeGroup === item.value}
             on:click={() => (activeGroup = item.value)}
           >
-            <span title={item.label}>{item.label}</span><ChevronRight
+            <span data-tooltip={item.label}>{item.label}</span><ChevronRight
               size={12}
               aria-hidden="true"
             />
@@ -111,7 +110,7 @@
             type="button"
             class:active={group === activeGroup && value === item.value}
             aria-pressed={group === activeGroup && value === item.value}
-            title={item.value}
+            data-tooltip={item.value}
             on:click={() => choose(item.value)}
           >
             <span

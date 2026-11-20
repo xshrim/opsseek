@@ -30,6 +30,9 @@ func DefaultRegistry(limits Limits) (*Registry, error) {
 		{kind: "Redis", factory: func(target Target) (Adapter, error) {
 			return newRedisAdapter(target, limits)
 		}},
+		{kind: "MongoDB", factory: func(target Target) (Adapter, error) {
+			return newMongoDBAdapter(target, limits)
+		}},
 		{kind: "MySQL", factory: func(target Target) (Adapter, error) {
 			return newMySQLAdapter(target, limits)
 		}},

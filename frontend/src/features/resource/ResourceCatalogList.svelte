@@ -111,13 +111,14 @@
         ><span class="entity-icon resource-icon"
           ><ResourceBrandIcon
             {resource}
-            fallback={resourceCategoryIcon(resource.kind) || resourceIcon(resource.kind)}
+            fallback={resourceCategoryIcon(resource.kind) ||
+              resourceIcon(resource.kind)}
             brandOnly
             monochrome
           /></span
         ><span
           ><strong>{resource.name}</strong><small
-            title={endpointLabel(resource, resourceCheck)}
+            data-tooltip={endpointLabel(resource, resourceCheck)}
             >{endpointLabel(resource, resourceCheck)}</small
           ></span
         ></span

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
+  import Combobox from '../../components/Combobox.svelte';
   import DropdownSelect from '../../components/DropdownSelect.svelte';
   import EntityBrandIcon from '../../components/EntityBrandIcon.svelte';
   import FormField from '../../components/FormField.svelte';
@@ -27,6 +28,8 @@
 
   export let resources: Resource[] = [];
   export let users: User[] = [];
+  export let applications: Application[] = [];
+  export let projectId = '';
   export let runtimeKind: ApplicationRuntimeKind;
   export let initialApplication: Application | null = null;
   export let onSave: (draft: ApplicationDraft) => Promise<void> | void;
@@ -84,14 +87,17 @@
     value: resource.id,
     label: resource.name
   }));
-  $: namespaceOptions = namespaces;
-  $: candidateOptions = candidates.map((candidate) => ({
-    value: candidate.key,
-    label: candidate.name,
-    meta: `${candidate.replicas} 个实例`,
-    description: candidateDescription(candidate),
-    tooltip: candidate.tooltip
-  }));
+  $: candidateOptions = candidates.map((candidate) => {
+    const proposedCode = candidate.key === selectedCandidateKey ? code : slugify(candidate.name);
+    const conflict = hasCodeConflict(proposedCode, applications, initialApplication);
+    return {
+      value: candidate.key,
+      label: `${candidate.name}${conflict ? ' · 标识冲突' : ''}`,
+      meta: `${candidate.replicas} 个实例${conflict ? ' · 标识冲突' : ''}`,
+      description: candidateDescription(candidate),
+      tooltip: candidate.tooltip
+    };
+  });
   $: ownerOptions = users
     .filter((user) => user.status === 'active')
     .map((user) => ({
@@ -104,6 +110,7 @@
   );
   $: isKubernetes = runtimeKind === 'cloud_native';
   $: runtimeLabelText = runtimeLabel(runtimeKind);
+  $: codeConflict = hasCodeConflict(code, applications, initialApplication);
 
   $: if (
     initialApplication &&
@@ -186,12 +193,8 @@
         value: item.name,
         label: item.name
       }));
-    } catch (cause) {
-      if (currentRequest === namespaceRequestId)
-        error =
-          cause instanceof Error
-            ? cause.message
-            : '读取 Kubernetes 命名空间失败。';
+    } catch {
+      // Namespace choices are suggestions; permission failures must not block manual input.
     } finally {
       if (currentRequest === namespaceRequestId) namespaceLoading = false;
     }
@@ -217,6 +220,17 @@
     labels = '';
     description = '';
     logPath = String(candidate.instances[0]?.log_binding?.path ?? '');
+  }
+
+  function hasCodeConflict(
+    value: string,
+    applications: Application[],
+    initialApplication: Application | null
+  ) {
+    const normalized = value.trim().toLowerCase();
+    return Boolean(normalized) && applications.some(
+      (application) => application.id !== initialApplication?.id && application.code.toLowerCase() === normalized
+    );
   }
 
   function clearCandidate() {
@@ -297,6 +311,10 @@
       error = '请填写应用名称和应用标识。';
       return;
     }
+    if (codeConflict) {
+      error = '应用标识存在冲突，请在左侧候选列表中查看标记。';
+      return;
+    }
     saving = true;
     try {
       await onSave({
@@ -355,6 +373,13 @@
         }))
       });
     } catch (cause) {
+      if (cause instanceof Error && /application identity already exists|应用标识.*(冲突|重复|存在)/i.test(cause.message) && projectId) {
+        try {
+          applications = (await api.applications(projectId)).items;
+        } catch {
+          // Keep the last loaded application list if the refresh fails.
+        }
+      }
       error =
         cause instanceof Error
           ? cause.message
@@ -437,17 +462,20 @@
                 changeRuntimeResources(String(event.detail))}
             />
           </FormField>
-          <FormField label="命名空间" required>
-            <DropdownSelect
+          <FormField
+            label="命名空间"
+            required
+            invalid={attempted && !namespace}
+            invalidMessage="请选择 Kubernetes 命名空间"
+          >
+            <Combobox
               value={namespace}
-              options={namespaceOptions}
-              searchable
-              disabled={namespaceLoading || !runtimeResourceIds[0]}
-              placeholder={namespaceLoading ? '读取命名空间…' : '选择命名空间'}
+              options={namespaces}
+              disabled={!runtimeResourceIds[0]}
+              placeholder={namespaceLoading
+                ? '读取选项中，也可手动输入'
+                : '输入或选择命名空间'}
               ariaLabel="Kubernetes 命名空间"
-              invalid={attempted && !namespace}
-              invalidMode="bubble"
-              invalidMessage="请选择 Kubernetes 命名空间"
               on:change={(event) => {
                 namespace = String(event.detail);
                 queueDiscovery();
@@ -546,9 +574,9 @@
                 ><TextInput
                   bind:value={code}
                   placeholder="payments-api"
-                  invalid={attempted && !code.trim()}
+                  invalid={(attempted && !code.trim()) || codeConflict}
                   invalidMode="bubble"
-                  invalidMessage="请填写应用标识"
+                  invalidMessage={codeConflict ? '应用标识已存在' : '请填写应用标识'}
                 /></FormField
               >
               <FormField label="应用名称" required

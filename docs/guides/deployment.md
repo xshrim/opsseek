@@ -51,7 +51,7 @@ make mcp-image IMAGE_REPOSITORY=registry.example.com/opsseek IMAGE_TAG=v0.1.0
 ```bash
 make env
 make app-image
-# 直接使用 Compose 时，为非 root 服务加入宿主机 Docker socket 所属组
+# 直接使用 Compose 时，为非 root 服务加入宿主机 Docker Socket 所属组
 export DOCKER_SOCKET_GID=$(stat -c '%g' /var/run/docker.sock)
 docker compose -f deploy/compose/docker-compose.yml --env-file .env \
   up -d --wait --wait-timeout 180 postgres app
@@ -68,7 +68,7 @@ make frontend-up
 
 `api`、`worker`、`scheduler`、`frontend` 属于 `svc` profile；`app` 为默认服务。服务不使用 `condition`，程序自身负责依赖重试。Compose 文件只引用镜像，不包含 `build`。
 
-App/API 将宿主机 `/var/run/docker.sock` 挂载到容器同一路径，Docker Direct 资源使用 `unix:///var/run/docker.sock` 即可访问宿主机容器。`make up`、`make app-up` 和 `make api-up` 自动识别 socket 的所属组，无需修改镜像或使用 root 用户。镜像构建不读取或挂载 socket，宿主机没有 socket 也能构建；运行上述服务则需要存在该 socket，缺失时明确报错，不自动创建同名目录。无本地 Docker 的部署需移除此挂载，并配置远程 Docker 端点。
+App/API 始终挂载宿主机 `/var/run/docker.sock`；宿主机存在 `/run/containerd/containerd.sock` 时，`make up`、`make app-up` 和 `make api-up` 还会自动加载 `docker-compose.containerd.yml`，并将 containerd Socket 的 GID 设为容器主组，无需 root 或重复的 supplementary group。直接使用 Compose 时，需要在基础文件后追加 `-f deploy/compose/docker-compose.containerd.yml`，并导出 `CONTAINERD_SOCKET_GID=$(stat -c '%g' /run/containerd/containerd.sock)`。连接测试时，请确认资源选择了 `containerd`、地址与容器内挂载路径一致，并填写实际 containerd namespace（常见为 `k8s.io`）。Unix socket 是 gRPC 通道，不能用 `cat` 验证；权限错误可能表现为 gRPC 重试直至连接超时。可在宿主机用 `stat -c '%A %u:%g %n' /run/containerd/containerd.sock` 查看权限。只有 Docker 的环境不加载该 override，因此不要求安装 containerd。
 
 Docker socket 访问权限基本等同于宿主机管理员权限，仅向可信服务开放；它不只是只读监控接口。
 

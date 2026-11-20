@@ -50,12 +50,13 @@
   export let selectedTeamId = '';
   export let selectedProjectId = '';
   export let canViewPlatform = false;
-  export let platformName = '平台';
   export let accessTeamUsers: Record<string, User[]> = {};
   export let accessProjectUsers: Record<string, User[]> = {};
   export let teamAccessExpanded: Record<string, boolean> = {};
   export let selectedAccessUserIds: string[] = [];
   export let accessLoading = false;
+
+  const platformScopeLabel = '平台';
   export let accessLoadError = '';
   export let accessCanCreateTeam = false;
   export let accessCanCreateUser = false;
@@ -88,12 +89,12 @@
     const team = visibleAccessTeams.find((item) => item.id === selectedTeamId);
     return team
       ? { kind: 'team', id: team.id, name: team.name }
-      : { kind: 'platform', id: 'platform', name: platformName };
+      : { kind: 'platform', id: 'platform', name: platformScopeLabel };
   }
   let selected: Selection = {
     kind: 'platform',
     id: 'platform',
-    name: platformName
+    name: platformScopeLabel
   };
   let previousGlobalScopeKey = '';
   let activeProjectID = '';
@@ -149,8 +150,8 @@
     memberFieldValues = {};
     selectedAccessUserIds = [];
   }
-  $: if (selected.kind === 'platform' && selected.name !== platformName)
-    selected = { ...selected, name: platformName };
+  $: if (selected.kind === 'platform' && selected.name !== platformScopeLabel)
+    selected = { ...selected, name: platformScopeLabel };
   $: selectedProject = projects.find((project) => project.id === selected.id);
   $: scopedUsers = dedupeUsers(
     selected.kind === 'platform'
@@ -241,7 +242,7 @@
     return (user.display_name || user.username).slice(0, 1).toUpperCase();
   }
   function selectPlatform() {
-    selected = { kind: 'platform', id: 'platform', name: platformName };
+    selected = { kind: 'platform', id: 'platform', name: platformScopeLabel };
     activeProjectID = '';
     memberQuery = '';
     selectedAccessUserIds = [];
@@ -342,7 +343,7 @@
             on:click={selectPlatform}
             ><span class="scope-tree-icon"><Network size={16} /></span><span
               class="scope-tree-label"
-              ><strong>{platformName}</strong><small class="scope-tree-count"
+              ><strong>平台</strong><small class="scope-tree-count"
                 >{visibleAccessTeams.length} 个团队 · {visibleProjects.length} 个项目
                 · {visibleAccessUsers.length} 位用户</small
               ></span

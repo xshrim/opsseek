@@ -624,7 +624,7 @@ func validateResourceInput(scopeID, kind, name string) error {
 }
 
 var directAgentKinds = map[string]struct{}{
-	"Host": {}, "Docker": {}, "Kubernetes": {}, "Nacos": {}, "Redis": {}, "TongRDS": {},
+	"Host": {}, "Docker": {}, "Kubernetes": {}, "Nacos": {}, "Redis": {}, "MongoDB": {}, "TongRDS": {},
 	"Kafka": {}, "RabbitMQ": {}, "Elasticsearch": {}, "OceanBase": {},
 	"Oracle": {}, "MySQL": {}, "PostgreSQL": {}, "Prometheus": {}, "Loki": {},
 	"Tempo": {}, "Jaeger": {}, "Skywalking": {}, "Alertmanager": {},
