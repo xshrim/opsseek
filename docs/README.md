@@ -16,6 +16,12 @@
 | 长期决策 | [adr/README.md](adr/README.md) |
 | 迭代范围和验收记录 | [iterations/](iterations/) |
 
+## 当前设计与迭代
+
+- [技能、专家与专家组设计](design/skills-and-experts.md)：已确认目标设计，实施状态见 [I008 标准技能与专家体系](iterations/I008-skills-experts/iteration.md)。
+- 已封板：[I001](iterations/archived/I001-initial/iteration.md)、[I002](iterations/archived/I002-ui-function-optimization/iteration.md)、[I003](iterations/archived/I003-ai-engine/iteration.md)、[I004](iterations/archived/I004-unified-resource-access/iteration.md)、[I005](iterations/archived/I005-skill-intelligent-inspection/iteration.md)、[I006](iterations/archived/I006-notification-mechanism/iteration.md)、[I007](iterations/archived/I007-project-application-creation/iteration.md)。
+- I002–I007 本次依据用户确认进行文档验收与归档，未重新执行测试；历史验收证据与当时的未验收记录保留在各归档文件中。
+
 ## 目录职责
 
 ```text

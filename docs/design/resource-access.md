@@ -4,7 +4,7 @@
 
 本文定义 OpsSeek 对基础设施、数据库、中间件和可观测资源的统一接入方式。目标是让同一套资源工具既可以作为本项目提供的 MCP Server 工具，也可以作为 Engine 的 Direct 内置工具使用。
 
-本文描述长期设计原则和运行时边界；具体实施顺序、任务状态和验收证据以 [I004 统一资源接入迭代](../iterations/I004-unified-resource-access/iteration.md) 及其需求文档为准。
+本文描述长期设计原则和运行时边界；具体实施顺序、任务状态和验收证据以 [I004 统一资源接入迭代](../iterations/archived/I004-unified-resource-access/iteration.md) 及其需求文档为准。
 
 ## 2. 核心目标
 
