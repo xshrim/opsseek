@@ -74,16 +74,7 @@
     content: '';
   }
   .form-field.invalid { z-index: 3; }
-  .form-field.invalid :global(input),
-  .form-field.invalid :global(select),
-  .form-field.invalid :global(textarea),
-  .form-field.invalid :global(.dropdown-select-trigger),
-  .form-field.invalid :global(.grouped-select-trigger) {
-    border-color: var(--theme-danger);
-    box-shadow: 0 0 0 1px var(--theme-danger);
-  }
-  .form-field.invalid :global(.textarea-wrap textarea),
-  .form-field.invalid :global(.password-control input) {
+  .form-field.invalid :global(:is(input, select, textarea, .dropdown-select-trigger, .grouped-select-trigger)) {
     border-color: var(--theme-danger);
     box-shadow: 0 0 0 1px var(--theme-danger);
   }

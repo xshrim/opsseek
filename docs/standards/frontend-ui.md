@@ -244,6 +244,11 @@
 
 ### 6.4 样式与 CSS 归属
 
+- 采用“全局令牌与基础规则 → 公共组件及其状态 → 页面布局与必要变体”的职责划分。业务 CSS 由入口统一加载，不具备文件级隔离；通用 `.dialog`、`.confirm-dialog` 等规则不得放在业务页面中覆盖所有调用者。
+- 普通 `.css` 文件必须使用浏览器原生选择器；`:global(...)` 仅可用于 Svelte 的 `<style>`。修复无效选择器时必须检查其开始生效后的布局，不得只以构建成功作为验收。
+- 编辑/删除按钮的交互由公共动作类维护。普通图标样式引用 `--action-icon-fg` / `--action-icon-bg`，页面需要差异时只提供已定义主题令牌的引用（如 `--edit-action-hover-bg`），不得追加 `!important` 的颜色覆盖。
+- 可展开表格自行管理选择列、展开列和行状态；业务列宽使用 `columns[].width`，禁止用 `col:nth-child(...) !important` 覆盖。展开区通过 `--readonly-table-bg` / `--readonly-table-row-bg` 向内嵌只读表格传递背景，不通过全局后代选择器修改子组件内部。
+- 字段标签及错误气泡由 `FormField` 管理；控件自身保留独立使用时的错误状态。页面不得重复添加输入框错误边框及焦点补丁。技能列表暂保留列表布局，行悬停和选中必须复用公共表格状态色。
 - `frontend/src/app.css` 只保留全局主题令牌、reset、基础排版、全局控件契约和确实无法归属单一页面的规则；页面业务样式不得继续堆入 `app.css`。
 - 跨页面基础控件样式放在 `frontend/src/components/components.css`，应用壳和导航样式放在 `frontend/src/layouts/layout.css`，页面专属样式放在 `frontend/src/features/<feature>/<feature>.css`。Provider、MCP 和资源工作流样式属于 `features/resource/resource.css`，不属于公共组件样式。
 - 每个 CSS 规则必须有明确归属，禁止用过深选择器、重复规则或 `!important` 修补拆分后的层叠问题。迁移后应删除旧 CSS 文件和无引用选择器。

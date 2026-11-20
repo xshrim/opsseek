@@ -12,31 +12,26 @@
   height: 24px;
   font-size: 10px;
 }
-.danger-action {
-  color: var(--theme-danger);
-}
-.danger-action:hover {
-  color: var(--theme-danger);
-  background: var(--theme-bg-danger-soft);
-  border-color: var(--theme-danger);
-}
 .edit-action {
-  color: var(--theme-fg-muted) !important;
+  --action-icon-fg: var(--theme-fg-muted);
+  color: var(--action-icon-fg);
 }
-.delete-action {
-  color: var(--theme-danger) !important;
+.delete-action,
+.danger-action {
+  --action-icon-fg: var(--theme-danger);
+  color: var(--action-icon-fg);
 }
-.edit-action:hover {
-  color: var(--theme-icon-fg) !important;
-  background: var(--theme-bg-selected) !important;
+.edit-action:is(:hover, :focus-visible, :active):not(:disabled):not([aria-disabled='true']) {
+  --action-icon-fg: var(--theme-icon-fg);
+  --action-icon-bg: var(--edit-action-hover-bg, var(--theme-bg-selected));
+  background: var(--action-icon-bg);
 }
-.delete-action:hover {
-  color: var(--theme-danger) !important;
-  background: var(--theme-bg-danger-soft) !important;
-  border: 0 !important;
+:is(.delete-action, .danger-action):is(:hover, :focus-visible, :active):not(:disabled):not([aria-disabled='true']) {
+  --action-icon-bg: var(--theme-bg-danger-soft);
+  background: var(--action-icon-bg);
 }
 :root[data-theme='dark'] .edit-action {
-  color: var(--theme-icon-fg) !important;
+  --action-icon-fg: var(--theme-icon-fg);
 }
 .wide-dialog {
   width: min(720px, 100%);
@@ -168,7 +163,6 @@
 }
 .scope-type {
   padding: 4px 7px;
-  background: var(--theme-bg-surface);
   border-radius: 4px;
   font-weight: 700;
 }
@@ -355,10 +349,6 @@
   padding: 0 9px;
   background: var(--theme-bg-subtle);
   border-radius: 5px;
-}
-.status-pill.healthy {
-  color: var(--theme-success);
-  background: var(--theme-bg-success-soft);
 }
 .status-label.active,
 .status-label.up {
@@ -655,24 +645,18 @@
   place-items: center;
   width: 28px;
   height: 28px;
-  color: var(--theme-fg-muted);
-  background: transparent;
+  color: var(--action-icon-fg, var(--theme-fg-muted));
+  background: var(--action-icon-bg, transparent);
   border: 0;
   border-radius: 4px;
   font-size: 19px;
 }
-.icon-button,
-.icon-button:hover,
-.icon-button:active,
-.icon-button:disabled {
-  border: 0 !important;
-}
 .icon-button:hover {
-  color: var(--theme-accent);
-  background: var(--theme-bg-hover);
+  color: var(--action-icon-fg, var(--theme-accent));
+  background: var(--action-icon-bg, var(--theme-bg-hover));
 }
 .icon-button:focus-visible {
-  color: var(--theme-accent);
+  color: var(--action-icon-fg, var(--theme-accent));
   outline: 2px solid var(--theme-focus);
   outline-offset: 1px;
 }
@@ -1041,13 +1025,13 @@
 }
 :root[data-theme='dark'] .dialog .secondary,
 :root[data-theme='dark'] .created-credentials-inline .icon-button {
-  color: var(--theme-fg-muted);
-  background: var(--theme-bg-surface);
+  color: var(--action-icon-fg, var(--theme-fg-muted));
+  background: var(--action-icon-bg, var(--theme-bg-surface));
 }
 :root[data-theme='dark'] .dialog .secondary:hover,
 :root[data-theme='dark'] .created-credentials-inline .icon-button:hover {
-  color: var(--theme-icon-fg);
-  background: var(--theme-bg-hover);
+  color: var(--action-icon-fg, var(--theme-icon-fg));
+  background: var(--action-icon-bg, var(--theme-bg-hover));
 }
 :root[data-theme='dark'] .entity-icon,
 :root[data-theme='dark'] .type-icon {

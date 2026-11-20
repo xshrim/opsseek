@@ -62,7 +62,7 @@
     width: 100%;
     border-collapse: separate;
     border-spacing: 0 1px;
-    background: var(--theme-divider);
+    background: var(--readonly-table-bg, var(--theme-divider));
     color: var(--theme-fg);
     font-size: 11px;
   }
@@ -86,7 +86,7 @@
 
   td {
     min-height: 30px;
-    background: var(--theme-bg-raised);
+    background: var(--readonly-table-row-bg, var(--theme-bg-raised));
     font-weight: 400;
   }
 

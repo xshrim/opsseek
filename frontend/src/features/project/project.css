@@ -432,7 +432,7 @@
   color: var(--theme-fg-muted);
   font-size: 10px;
 }
-.application-candidate-search :global(.search-input) {
+.application-candidate-search.search-input {
   min-width: 0;
 }
 .application-candidate-pane-actions {
@@ -604,7 +604,7 @@
   font-size: 10px;
   white-space: nowrap;
 }
-.application-binding-detail-heading :global(.icon-button) {
+.application-binding-detail-heading .icon-button {
   z-index: 1;
 }
 .application-binding-collapse-icon {
@@ -669,20 +669,20 @@
 .application-dependency-table {
   grid-column: 1 / -1;
 }
-.application-dependency-table :global(.readonly-table-scroll) {
+.application-dependency-table .readonly-table-scroll {
   overflow-x: auto;
   border-radius: 5px 5px 0 0;
 }
-.application-dependency-table :global(.readonly-table) {
+.application-dependency-table .readonly-table {
   min-width: 520px;
 }
-.application-dependency-table :global(th) {
+.application-dependency-table .readonly-table th {
   font-size: 12px;
 }
-.application-dependency-table :global(.readonly-table td) {
+.application-dependency-table .readonly-table td {
   vertical-align: middle;
 }
-.application-dependency-table :global(.application-dependency-actions) {
+.application-dependency-table .application-dependency-actions {
   text-align: center;
 }
 .application-dependency-add-row {
@@ -705,7 +705,7 @@
   color: var(--theme-action);
   background: var(--theme-bg-selected);
 }
-.kubernetes-application-heading :global(.icon-picker) {
+.kubernetes-application-heading .icon-picker {
   flex: 0 0 auto;
   margin-top: 1px;
 }
@@ -1344,7 +1344,7 @@
   width: 100%;
 }
 
-.project-card-tags :global(.tag) {
+.project-card-tags .tag {
   flex: 0 1 auto;
   min-width: 0;
 }
@@ -1746,7 +1746,7 @@
 .relationship-resource-name > .text-link {
   flex: 0 1 auto;
 }
-.relationship-resource-name > :global(.scope-level-badge) {
+.relationship-resource-name > .scope-level-badge {
   flex: 0 0 auto;
 }
 .relationship-resource-type {
@@ -1758,7 +1758,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.relationship-resource-type :global(svg) {
+.relationship-resource-type svg {
   flex: 0 0 auto;
   color: inherit;
 }
@@ -2106,7 +2106,7 @@
   width: 28px;
   height: 28px;
   padding: 0;
-  background: transparent;
+  background: var(--action-icon-bg, transparent);
   border: 0;
   border-radius: 6px;
 }
@@ -2118,8 +2118,8 @@
 
 .application-table-actions
   .icon-button:not(.edit-action):not(.danger-action):hover {
-  color: var(--color-primary);
-  background: var(--theme-bg-hover);
+  color: var(--action-icon-fg, var(--color-primary));
+  background: var(--action-icon-bg, var(--theme-bg-hover));
 }
 
 .application-card-head {
@@ -2496,7 +2496,7 @@
   flex: 1;
 }
 
-.inline-edit :global(.icon-picker-trigger) {
+.inline-edit .icon-picker-trigger {
   width: 32px;
   height: 32px;
 }

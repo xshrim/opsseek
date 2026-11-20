@@ -23,6 +23,50 @@ const styles = sources.flatMap(({ file, source }) =>
 );
 
 describe('shared style contract', () => {
+  it('does not leave Svelte-only selectors in plain CSS', () => {
+    const issues: string[] = [];
+    for (const { file, root } of styles) {
+      if (!file.endsWith('.css')) continue;
+      root.walkRules((rule) => {
+        if (rule.selector.includes(':global(')) {
+          issues.push(`${file}: ${rule.selector}`);
+        }
+      });
+    }
+    expect(issues).toEqual([]);
+  });
+
+  it('keeps action states, confirmation dialogs and table columns out of page-level priority patches', () => {
+    const issues: string[] = [];
+    for (const { file, root } of styles) {
+      root.walkRules((rule) => {
+        if (
+          file.startsWith('features/') &&
+          rule.selector.includes('.confirm-dialog')
+        ) {
+          issues.push(`${file}: shared confirmation dialog override`);
+        }
+        if (
+          /\.(?:icon-button|edit-action|delete-action)\b|col:nth-child/.test(
+            rule.selector
+          )
+        ) {
+          rule.walkDecls((declaration) => {
+            if (
+              declaration.important &&
+              /^(?:color|background|border|width)/.test(declaration.prop)
+            ) {
+              issues.push(
+                `${file}: ${rule.selector}: ${declaration.toString()}`
+              );
+            }
+          });
+        }
+      });
+    }
+    expect(issues).toEqual([]);
+  });
+
   it('keeps literal colors in global tokens and forbids component color mixing', () => {
     const issues: string[] = [];
     for (const { file, root } of styles) {
@@ -69,6 +113,19 @@ describe('shared style contract', () => {
       values.push(declaration.value);
     });
     expect(values).toEqual(['#fff9f4', '#2a2926']);
+    const skill = styles.find(
+      (item) => item.file === 'features/skill/skill.css'
+    )!.root;
+    skill.walkRules((rule) => {
+      if (
+        rule.selector.includes('.skill-row:hover') ||
+        rule.selector.includes('.skill-row.selected')
+      ) {
+        rule.walkDecls('background', (declaration) => {
+          expect(declaration.value).toBe('var(--theme-bg-table-row-selected)');
+        });
+      }
+    });
     const table = styles.find(
       (item) => item.file === 'components/ExpandableTable.svelte'
     )!.root;

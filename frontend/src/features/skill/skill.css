@@ -188,10 +188,9 @@
 }
 .skill-row:hover,
 .skill-row.selected {
-  background: var(--theme-bg-hover);
+  background: var(--theme-bg-table-row-selected);
 }
 .skill-row.selected {
-  background: var(--theme-bg-table-row-selected);
   box-shadow: inset 3px 0 0 var(--theme-accent);
 }
 .skill-name-cell {
@@ -679,9 +678,6 @@
   }
   .skill-filter-result {
     margin-left: 0;
-  }
-  .skill-search {
-    width: 100%;
   }
   .skill-stat-grid {
     grid-template-columns: 1fr;

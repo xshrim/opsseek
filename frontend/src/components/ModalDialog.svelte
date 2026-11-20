@@ -115,6 +115,8 @@
     top: 50%;
     margin: 0;
     transform: translate(-50%, -50%);
+    max-height: min(760px, calc(100vh - 40px));
+    border-radius: 7px;
   }
   .modal-dialog-header {
     position: relative;
@@ -162,7 +164,7 @@
     align-items: center;
     gap: 7px;
   }
-  .modal-dialog-actions :global(button) {
+  .modal-dialog-actions :global(button:not(.icon-button)) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -173,13 +175,7 @@
     border-radius: 5px;
     font-size: 12px;
     font-weight: 700;
-  }
-  .modal-dialog-actions :global(button.primary),
-  .modal-dialog-actions :global(button.secondary) {
-    min-height: 37px;
-    padding: 0 14px;
-    font-size: 12px;
-    font-weight: 700;
+    cursor: pointer;
   }
   .modal-dialog-actions :global(button.primary) {
     color: var(--theme-accent-contrast);
@@ -189,9 +185,6 @@
   .modal-dialog-actions :global(button.secondary) {
     color: var(--theme-fg);
     background: var(--theme-bg-surface);
-  }
-  .modal-dialog-actions :global(button) {
-    cursor: pointer;
   }
   .modal-dialog-content {
     flex: 1 1 auto;
@@ -216,10 +209,6 @@
   }
   .modal-dialog-content.modal-dialog-content-flush {
     padding: 0;
-  }
-  :global(.dialog.modal-dialog) {
-    max-height: min(760px, calc(100vh - 40px));
-    border-radius: 7px;
   }
   :global(.dialog.modal-dialog-size-small) {
     width: min(480px, calc(100vw - 40px));
@@ -274,15 +263,13 @@
     .modal-dialog-header {
       padding-right: 16px;
       padding-left: 16px;
+      align-items: flex-start;
     }
     .modal-dialog-content {
       padding: 9px 16px;
     }
     .modal-dialog-content.modal-dialog-content-flush {
       padding: 0;
-    }
-    .modal-dialog-header {
-      align-items: flex-start;
     }
     .modal-dialog-header :global(.message-banner) {
       width: calc(100% - 32px);

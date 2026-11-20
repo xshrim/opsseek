@@ -47,11 +47,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 288px;
-  padding: 9px 11px;
-  border: 1px solid var(--theme-border);
   border-radius: 6px;
-  background: var(--theme-bg-surface);
   color: var(--theme-fg-muted);
 }
 .persona-search input {
@@ -60,7 +56,6 @@
   outline: 0;
   background: transparent;
   color: var(--theme-fg);
-  font-size: 12px;
 }
 .persona-toolbar-count {
   margin-left: auto;
@@ -94,8 +89,6 @@
 }
 .persona-card-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 15px;
 }
 .persona-card {
   display: grid;
@@ -141,7 +134,6 @@
 }
 .persona-card-name {
   gap: 7px;
-  min-width: 0;
 }
 .persona-card-name svg {
   flex: 0 0 auto;
@@ -152,7 +144,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 15px;
 }
 .persona-built-in {
   display: inline-flex;
@@ -167,7 +158,6 @@
 .persona-card-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
 }
 .persona-card-tags span,
 .persona-detail-chips span {
@@ -429,7 +419,6 @@
   display: grid;
   gap: 13px;
   overflow: auto;
-  padding: 16px 20px;
 }
 .persona-editor-form > label,
 .persona-editor-grid label {
@@ -473,9 +462,6 @@
   gap: 5px;
 }
 @media (max-width: 1000px) {
-  .persona-card-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 @media (max-width: 700px) {
   .persona-page-header {
@@ -489,14 +475,8 @@
     align-items: stretch;
     flex-direction: column;
   }
-  .persona-search {
-    width: 100%;
-  }
   .persona-toolbar-count {
     margin-left: 0;
-  }
-  .persona-card-grid {
-    grid-template-columns: 1fr;
   }
   .persona-card-facts {
     grid-template-columns: 1fr 1fr 0.6fr;

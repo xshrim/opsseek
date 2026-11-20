@@ -274,16 +274,15 @@
     border-bottom: 1px solid var(--theme-divider);
   }
 
-  :global(:root) .expandable-table tbody > tr:not(.expandable-table-details-row):hover > td,
-  :global(:root) .expandable-table tbody > tr.selected > td,
-  :global(:root) .expandable-table tbody > tr.selected:hover > td,
-  :global(:root) .expandable-table tbody > tr.expandable-table-details-row > td {
+  .expandable-table tbody > tr:not(.expandable-table-details-row):hover > td,
+  .expandable-table tbody > tr.selected > td,
+  .expandable-table tbody > tr.expandable-table-details-row > td {
     background: var(--theme-bg-table-row-selected);
   }
 
-  :global(:root .expandable-table tbody > tr.expandable-table-details-row .readonly-table),
-  :global(:root .expandable-table tbody > tr.expandable-table-details-row .readonly-table tbody > tr > td) {
-    background: var(--theme-bg-table-row-selected);
+  .expandable-table-details-row {
+    --readonly-table-bg: var(--theme-bg-table-row-selected);
+    --readonly-table-row-bg: var(--theme-bg-table-row-selected);
   }
 
   .expandable-table-toggle-column,
@@ -294,13 +293,14 @@
   .expandable-table-select-column,
   .expandable-table-select-cell {
     width: 24px;
-    text-align: center !important;
+    text-align: center;
   }
 
   .expandable-table :is(th, td).expandable-table-toggle-cell,
   .expandable-table :is(th, td).expandable-table-select-cell {
     padding-right: 0;
     padding-left: 0;
+    text-align: center;
   }
 
   .expandable-table-toggle {
@@ -331,8 +331,8 @@
     border-bottom: 1px solid var(--theme-divider);
   }
 
-  .expandable-table-empty {
+  .expandable-table td.expandable-table-empty {
     color: var(--theme-fg-muted);
-    text-align: center !important;
+    text-align: center;
   }
 </style>

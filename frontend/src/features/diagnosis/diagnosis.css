@@ -543,20 +543,20 @@
   min-height: 29px;
   padding: 0;
   border: 0;
-  background: transparent;
-  color: var(--diagnosis-muted);
+  background: var(--action-icon-bg, transparent);
+  color: var(--action-icon-fg, var(--diagnosis-muted));
 }
 .diagnosis-heading-actions .icon-button:hover,
 .diagnosis-head-actions .icon-button:hover {
-  color: var(--diagnosis-accent);
-  background: var(--diagnosis-accent-soft);
+  color: var(--action-icon-fg, var(--diagnosis-accent));
+  background: var(--action-icon-bg, var(--diagnosis-accent-soft));
 }
 .diagnosis-session-search {
   width: 100%;
   margin-bottom: 11px;
   border-radius: 5px;
 }
-.diagnosis-session-search :global(input) {
+.diagnosis-session-search input {
   color: var(--diagnosis-ink);
   font-size: 11px;
 }
@@ -679,14 +679,14 @@
   width: 23px;
   height: 23px;
   padding: 0;
-  color: var(--diagnosis-muted);
-  background: transparent;
+  color: var(--action-icon-fg, var(--diagnosis-muted));
+  background: var(--action-icon-bg, transparent);
   border: 0;
   border-radius: 4px;
 }
 .diagnosis-session-actions button:hover {
-  color: var(--diagnosis-accent);
-  background: transparent;
+  color: var(--action-icon-fg, var(--diagnosis-accent));
+  background: var(--action-icon-bg, transparent);
 }
 .diagnosis-session-actions .share-action {
   color: var(--theme-info, var(--diagnosis-muted));
