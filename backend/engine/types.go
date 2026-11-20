@@ -167,6 +167,7 @@ type Request struct {
 	SkillID        string          `json:"skill_id,omitempty"`
 	SkillVersionID string          `json:"skill_version_id,omitempty"`
 	PersonaID      string          `json:"persona_id,omitempty"`
+	ExpertGroupID  string          `json:"expert_group_id,omitempty"`
 	WorkflowID     string          `json:"workflow_id,omitempty"`
 	Instruction    string          `json:"instruction,omitempty"`
 	InputSchema    json.RawMessage `json:"input_schema,omitempty"`
@@ -212,6 +213,7 @@ func (r *Request) Normalize() error {
 	r.SkillID = strings.TrimSpace(r.SkillID)
 	r.SkillVersionID = strings.TrimSpace(r.SkillVersionID)
 	r.PersonaID = strings.TrimSpace(r.PersonaID)
+	r.ExpertGroupID = strings.TrimSpace(r.ExpertGroupID)
 	r.WorkflowID = strings.TrimSpace(r.WorkflowID)
 	if r.ScopeID == "" {
 		return &ValidationError{Message: "scope_id is required"}
@@ -305,6 +307,11 @@ type Engine interface {
 // generic AgentRunner. Provider resolution and credential loading remain in
 // the llm package; the execution runtime only receives a model client and
 // the capabilities of the selected model.
+//
+// Description carries the framework-neutral model description used by runtime
+// adapters (I008 A2-3, FR-004). It is additive: the ADK-specific Client field
+// stays until the ADK and candidate adapter contract tests both pass, so the
+// current ADK path keeps working unchanged.
 type ModelBuildResult struct {
 	Client              model.LLM
 	ProviderID          string
@@ -316,6 +323,44 @@ type ModelBuildResult struct {
 	// applied to every model request by the runner instead of being left only
 	// in the resource configuration.
 	Temperature float64
+	// Protocol is the wire protocol the selected provider model speaks.
+	Protocol ModelProtocol
+	// Description is the framework-neutral model description an adapter needs
+	// to build its own model client. It is derived from the fields above and
+	// never carries credentials.
+	Description ModelDescription
+}
+
+// ModelDescription builds the framework-neutral description of the selected
+// model. It intentionally excludes credentials: an adapter receives a
+// one-shot in-memory credential separately and must not persist it.
+func (r ModelBuildResult) ModelDescription() ModelDescription {
+	description := r.Description
+	if description.ProviderID == "" {
+		description.ProviderID = r.ProviderID
+	}
+	if description.ModelName == "" {
+		description.ModelName = r.ModelName
+	}
+	if len(description.Capabilities) == 0 {
+		description.Capabilities = append([]string(nil), r.Capabilities...)
+	}
+	if description.ContextWindowTokens == 0 {
+		description.ContextWindowTokens = r.ContextWindowTokens
+	}
+	if description.MaxOutputTokens == 0 {
+		description.MaxOutputTokens = r.MaxOutputTokens
+	}
+	if description.Temperature == 0 {
+		description.Temperature = r.Temperature
+	}
+	if description.Protocol == "" {
+		description.Protocol = r.Protocol
+	}
+	if description.Protocol == "" {
+		description.Protocol = ModelProtocolUnknown
+	}
+	return description
 }
 
 // ModelBuilder resolves an Provider and model for one execution. Keeping

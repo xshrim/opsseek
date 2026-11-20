@@ -71,6 +71,7 @@ type policyRequest struct {
 	TargetResourceIDs    []string                       `json:"target_resource_ids"`
 	TargetApplicationIDs []string                       `json:"target_application_ids"`
 	PersonaID            string                         `json:"persona_id"`
+	ExpertGroupID        string                         `json:"expert_group_id"`
 	TargetLabels         map[string]string              `json:"target_labels"`
 	TimeoutSeconds       int                            `json:"timeout_seconds"`
 	Retries              int                            `json:"retries"`
@@ -171,7 +172,7 @@ func (h inspectionHandler) createPolicy(w http.ResponseWriter, r *http.Request) 
 	if !decodeRequest(w, r, &body) {
 		return
 	}
-	item, err := h.service.CreatePolicy(r.Context(), inspection.Policy{ScopeID: body.ScopeID, Name: body.Name, Cron: body.Cron, Timezone: body.Timezone, Status: inspection.PolicyActive, TargetResourceIDs: body.TargetResourceIDs, TargetApplicationIDs: body.TargetApplicationIDs, TargetLabels: body.TargetLabels, PersonaID: body.PersonaID, Timeout: time.Duration(body.TimeoutSeconds) * time.Second, Retries: body.Retries, MaxConcurrent: body.MaxConcurrent, MaxToolCalls: body.MaxToolCalls, MaxTokens: body.MaxTokens, Maintenance: body.Maintenance}, currentUser(r).ID)
+	item, err := h.service.CreatePolicy(r.Context(), inspection.Policy{ScopeID: body.ScopeID, Name: body.Name, Cron: body.Cron, Timezone: body.Timezone, Status: inspection.PolicyActive, TargetResourceIDs: body.TargetResourceIDs, TargetApplicationIDs: body.TargetApplicationIDs, TargetLabels: body.TargetLabels, PersonaID: body.PersonaID, ExpertGroupID: body.ExpertGroupID, Timeout: time.Duration(body.TimeoutSeconds) * time.Second, Retries: body.Retries, MaxConcurrent: body.MaxConcurrent, MaxToolCalls: body.MaxToolCalls, MaxTokens: body.MaxTokens, Maintenance: body.Maintenance}, currentUser(r).ID)
 	if err != nil {
 		writeInspectionError(w, r, err)
 		return

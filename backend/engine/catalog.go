@@ -38,24 +38,36 @@ type CatalogEngine struct {
 	Icon        string         `json:"icon"`
 	Config      map[string]any `json:"config"`
 	Status      string         `json:"status"`
-	Tags        []string       `json:"tags,omitempty"`
+	// RuntimeKind/RuntimeVersion/Experimental record which runtime adapter
+	// drives this engine (I008 C1-4, FR-008). runtime_kind defaults to "adk";
+	// "pi" engines are experimental and flag-gated at execution time.
+	RuntimeKind    string   `json:"runtime_kind"`
+	RuntimeVersion string   `json:"runtime_version,omitempty"`
+	Experimental   bool     `json:"experimental"`
+	Tags           []string `json:"tags,omitempty"`
 }
 
 type EngineInput struct {
-	ScopeID     string
-	Name        string
-	Description string
-	Icon        string
-	Config      map[string]any
-	Status      string
+	ScopeID        string
+	Name           string
+	Description    string
+	Icon           string
+	Config         map[string]any
+	Status         string
+	RuntimeKind    string
+	RuntimeVersion string
+	Experimental   bool
 }
 
 type EnginePatch struct {
-	Name        *string
-	Description *string
-	Icon        *string
-	Config      *map[string]any
-	Status      *string
+	Name           *string
+	Description    *string
+	Icon           *string
+	Config         *map[string]any
+	Status         *string
+	RuntimeKind    *string
+	RuntimeVersion *string
+	Experimental   *bool
 }
 
 type Binding struct {
@@ -95,6 +107,7 @@ WITH RECURSIVE chain(id, depth) AS (
  FROM engine_scope_bindings b JOIN chain c ON c.id = b.scope_id
 )
 SELECT v.id::text, v.scope_id::text, v.name, v.description, v.icon, v.config, v.status,
+       v.runtime_kind, v.runtime_version, v.experimental,
        COALESCE((SELECT jsonb_agg(t.tag ORDER BY t.tag) FROM effective_tags t WHERE t.engine_id = v.id AND t.rank = 1), '[]'::jsonb)
 FROM visible v ORDER BY v.name`
 	rows, err := s.pool.Query(ctx, query, scopeID)
@@ -106,7 +119,7 @@ FROM visible v ORDER BY v.name`
 	for rows.Next() {
 		var item CatalogEngine
 		var config, tags []byte
-		if err := rows.Scan(&item.ID, &item.ScopeID, &item.Name, &item.Description, &item.Icon, &config, &item.Status, &tags); err != nil {
+		if err := rows.Scan(&item.ID, &item.ScopeID, &item.Name, &item.Description, &item.Icon, &config, &item.Status, &item.RuntimeKind, &item.RuntimeVersion, &item.Experimental, &tags); err != nil {
 			return nil, fmt.Errorf("scan engine: %w", err)
 		}
 		if err := json.Unmarshal(config, &item.Config); err != nil {
@@ -123,7 +136,7 @@ FROM visible v ORDER BY v.name`
 func (s *CatalogStore) Get(ctx context.Context, id string) (CatalogEngine, error) {
 	var item CatalogEngine
 	var config []byte
-	err := s.pool.QueryRow(ctx, `SELECT id::text, scope_id::text, name, description, icon, config, status FROM engines WHERE id = $1::uuid AND deleted_at IS NULL`, id).Scan(&item.ID, &item.ScopeID, &item.Name, &item.Description, &item.Icon, &config, &item.Status)
+	err := s.pool.QueryRow(ctx, `SELECT id::text, scope_id::text, name, description, icon, config, status, runtime_kind, COALESCE(runtime_version, ''), experimental FROM engines WHERE id = $1::uuid AND deleted_at IS NULL`, id).Scan(&item.ID, &item.ScopeID, &item.Name, &item.Description, &item.Icon, &config, &item.Status, &item.RuntimeKind, &item.RuntimeVersion, &item.Experimental)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return CatalogEngine{}, errors.New("engine not found")
 	}
@@ -142,7 +155,7 @@ func (s *CatalogStore) Create(ctx context.Context, input EngineInput) (CatalogEn
 		return CatalogEngine{}, err
 	}
 	var id string
-	err = s.pool.QueryRow(ctx, `INSERT INTO engines (scope_id, name, description, icon, config, status) VALUES ($1::uuid,$2,$3,$4,$5,$6) RETURNING id::text`, input.ScopeID, input.Name, input.Description, input.Icon, config, input.Status).Scan(&id)
+	err = s.pool.QueryRow(ctx, `INSERT INTO engines (scope_id, name, description, icon, config, status, runtime_kind, runtime_version, experimental) VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,NULLIF($8,''),$9) RETURNING id::text`, input.ScopeID, input.Name, input.Description, input.Icon, config, input.Status, normalizeRuntimeKind(input.RuntimeKind), strings.TrimSpace(input.RuntimeVersion), input.Experimental).Scan(&id)
 	if err != nil {
 		return CatalogEngine{}, mapCatalogError(err)
 	}
@@ -169,11 +182,20 @@ func (s *CatalogStore) Update(ctx context.Context, id string, patch EnginePatch)
 	if patch.Status != nil {
 		current.Status = strings.TrimSpace(*patch.Status)
 	}
+	if patch.RuntimeKind != nil {
+		current.RuntimeKind = normalizeRuntimeKind(*patch.RuntimeKind)
+	}
+	if patch.RuntimeVersion != nil {
+		current.RuntimeVersion = strings.TrimSpace(*patch.RuntimeVersion)
+	}
+	if patch.Experimental != nil {
+		current.Experimental = *patch.Experimental
+	}
 	config, err := json.Marshal(current.Config)
 	if err != nil {
 		return CatalogEngine{}, err
 	}
-	_, err = s.pool.Exec(ctx, `UPDATE engines SET name=$2, description=$3, icon=$4, config=$5, status=$6, updated_at=now() WHERE id=$1::uuid AND deleted_at IS NULL`, id, current.Name, current.Description, current.Icon, config, current.Status)
+	_, err = s.pool.Exec(ctx, `UPDATE engines SET name=$2, description=$3, icon=$4, config=$5, status=$6, runtime_kind=$7, runtime_version=NULLIF($8,''), experimental=$9, updated_at=now() WHERE id=$1::uuid AND deleted_at IS NULL`, id, current.Name, current.Description, current.Icon, config, current.Status, current.RuntimeKind, current.RuntimeVersion, current.Experimental)
 	if err != nil {
 		return CatalogEngine{}, mapCatalogError(err)
 	}
@@ -345,6 +367,18 @@ func allowsExactScope(ctx context.Context, scopeID string) bool {
 	filter, restricted := authorization.ScopeFilterFromContext(ctx)
 	return !restricted || filter.Allows(scopeID)
 }
+
+// normalizeRuntimeKind maps empty or unknown runtime kinds onto the default
+// ADK runtime (I008 FR-008: unknown kinds never widen execution).
+func normalizeRuntimeKind(kind string) string {
+	switch strings.TrimSpace(kind) {
+	case PiAdapterID:
+		return PiAdapterID
+	default:
+		return ADKAdapterID
+	}
+}
+
 func mapCatalogError(err error) error {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && (pgErr.Code == "23505" || pgErr.Code == "23514" || pgErr.Code == "23503") {

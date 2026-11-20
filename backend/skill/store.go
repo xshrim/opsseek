@@ -13,6 +13,9 @@ import (
 
 type Store interface {
 	CreateVersion(context.Context, CreateVersionInput) (Version, error)
+	ImportVersion(context.Context, CreateVersionInput) (Version, bool, error)
+	FindSkillByIdentifier(context.Context, string, string) (Skill, error)
+	CreateSkill(context.Context, Skill) (Skill, error)
 	GetVersion(context.Context, string) (Version, error)
 	ListVersions(context.Context, string) ([]Version, error)
 	PublishVersion(context.Context, string, string) (Version, error)
@@ -78,18 +81,7 @@ func (s *store) CreateVersion(ctx context.Context, input CreateVersionInput) (Ve
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, input.SkillID); err != nil {
 		return Version{}, fmt.Errorf("lock Skill versions: %w", err)
 	}
-	manifest, _ := json.Marshal(input.Manifest)
-	tools, _ := json.Marshal(input.Tools)
-	var id string
-	err = tx.QueryRow(ctx, `
-		INSERT INTO skill_versions (skill_id, version, manifest, input_schema, output_schema, tools, risk_level, created_by)
-		SELECT $1::uuid, COALESCE(max(version), 0) + 1, $2, $3, $4, $5, $6, NULLIF($7, '')::uuid
-		  FROM skill_versions WHERE skill_id = $1::uuid
-		RETURNING id::text`, input.SkillID, manifest, input.InputSchema, input.OutputSchema, tools, input.RiskLevel, input.CreatedBy).Scan(&id)
-	if err != nil {
-		return Version{}, mapStoreError(err)
-	}
-	item, err := getVersion(ctx, tx, id)
+	item, err := insertVersion(ctx, tx, input)
 	if err != nil {
 		return Version{}, err
 	}
@@ -101,6 +93,99 @@ func (s *store) CreateVersion(ctx context.Context, input CreateVersionInput) (Ve
 
 func (s *store) GetVersion(ctx context.Context, id string) (Version, error) {
 	return getVersion(ctx, s.pool, id)
+}
+
+// ImportVersion creates a version under the Skill's advisory lock and enforces
+// the import invariants inside the same transaction: same source_digest
+// returns the already imported version (created=false, idempotent) and an
+// identical manifest version string is rejected outright (R001 §3.2.3/§3.3).
+func (s *store) ImportVersion(ctx context.Context, input CreateVersionInput) (Version, bool, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Version{}, false, fmt.Errorf("begin Skill import transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, input.SkillID); err != nil {
+		return Version{}, false, fmt.Errorf("lock Skill versions: %w", err)
+	}
+	var existingID string
+	err = tx.QueryRow(ctx, `SELECT id::text FROM skill_versions WHERE skill_id = $1::uuid AND source_digest = $2 LIMIT 1`, input.SkillID, input.SourceDigest).Scan(&existingID)
+	if err == nil {
+		item, getErr := getVersion(ctx, tx, existingID)
+		if getErr != nil {
+			return Version{}, false, getErr
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return Version{}, false, fmt.Errorf("commit Skill import lookup: %w", err)
+		}
+		return item, false, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return Version{}, false, fmt.Errorf("lookup imported Skill digest: %w", err)
+	}
+	if input.Manifest.Version != "" {
+		var dupID string
+		err = tx.QueryRow(ctx, `SELECT id::text FROM skill_versions WHERE skill_id = $1::uuid AND manifest ->> 'version' = $2 LIMIT 1`, input.SkillID, input.Manifest.Version).Scan(&dupID)
+		if err == nil {
+			return Version{}, false, ErrConflict
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return Version{}, false, fmt.Errorf("lookup imported Skill version: %w", err)
+		}
+	}
+	item, err := insertVersion(ctx, tx, input)
+	if err != nil {
+		return Version{}, false, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Version{}, false, fmt.Errorf("commit Skill import: %w", err)
+	}
+	return item, true, nil
+}
+
+func (s *store) FindSkillByIdentifier(ctx context.Context, scopeID, identifier string) (Skill, error) {
+	var item Skill
+	var tags []byte
+	err := s.pool.QueryRow(ctx, `SELECT id::text, scope_id::text, name, identifier, category, tags, maintainer, status, created_at, updated_at FROM skills WHERE scope_id = $1::uuid AND identifier = $2 AND deleted_at IS NULL`, scopeID, identifier).Scan(&item.ID, &item.ScopeID, &item.Name, &item.Identifier, &item.Category, &tags, &item.Maintainer, &item.Status, &item.CreatedAt, &item.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Skill{}, ErrNotFound
+	}
+	if err != nil {
+		return Skill{}, fmt.Errorf("find skill by identifier: %w", err)
+	}
+	if err := json.Unmarshal(tags, &item.Tags); err != nil {
+		return Skill{}, fmt.Errorf("decode skill tags: %w", err)
+	}
+	return item, nil
+}
+
+func (s *store) CreateSkill(ctx context.Context, item Skill) (Skill, error) {
+	tags, _ := json.Marshal(item.Tags)
+	err := s.pool.QueryRow(ctx, `
+		INSERT INTO skills (id, scope_id, name, identifier, category, tags, maintainer, status)
+		VALUES (gen_random_uuid(), $1::uuid, $2, $3, $4, $5, $6, 'active')
+		RETURNING id::text, created_at, updated_at`,
+		item.ScopeID, item.Name, item.Identifier, item.Category, tags, item.Maintainer).Scan(&item.ID, &item.CreatedAt, &item.UpdatedAt)
+	if err != nil {
+		return Skill{}, mapStoreError(err)
+	}
+	item.Status = "active"
+	return item, nil
+}
+
+func insertVersion(ctx context.Context, tx pgx.Tx, input CreateVersionInput) (Version, error) {
+	manifest, _ := json.Marshal(input.Manifest)
+	tools, _ := json.Marshal(input.Tools)
+	var id string
+	err := tx.QueryRow(ctx, `
+		INSERT INTO skill_versions (skill_id, version, manifest, input_schema, output_schema, tools, risk_level, created_by, source_type, source_digest)
+		SELECT $1::uuid, COALESCE(max(version), 0) + 1, $2, $3, $4, $5, $6, NULLIF($7, '')::uuid, COALESCE(NULLIF($8, ''), 'manual'), NULLIF($9, '')
+		  FROM skill_versions WHERE skill_id = $1::uuid
+		RETURNING id::text`, input.SkillID, manifest, input.InputSchema, input.OutputSchema, tools, input.RiskLevel, input.CreatedBy, input.SourceType, input.SourceDigest).Scan(&id)
+	if err != nil {
+		return Version{}, mapStoreError(err)
+	}
+	return getVersion(ctx, tx, id)
 }
 
 func (s *store) ListVersions(ctx context.Context, skillID string) ([]Version, error) {
@@ -191,7 +276,7 @@ func (s *store) ResolveDefault(ctx context.Context, scopeID string) (Default, er
 	return item, nil
 }
 
-const versionSelect = `SELECT id::text, skill_id::text, version, manifest, input_schema, output_schema, tools, risk_level, status, created_by::text, created_at, published_at FROM skill_versions`
+const versionSelect = `SELECT id::text, skill_id::text, version, manifest, input_schema, output_schema, tools, risk_level, status, source_type, source_digest, created_by::text, created_at, published_at FROM skill_versions`
 
 type rowScanner interface{ Scan(...any) error }
 
@@ -204,7 +289,7 @@ func getVersion(ctx context.Context, queryer interface {
 func scanVersion(row rowScanner) (Version, error) {
 	var item Version
 	var manifest, tools []byte
-	if err := row.Scan(&item.ID, &item.SkillID, &item.Version, &manifest, &item.InputSchema, &item.OutputSchema, &tools, &item.RiskLevel, &item.Status, &item.CreatedBy, &item.CreatedAt, &item.PublishedAt); err != nil {
+	if err := row.Scan(&item.ID, &item.SkillID, &item.Version, &manifest, &item.InputSchema, &item.OutputSchema, &tools, &item.RiskLevel, &item.Status, &item.SourceType, &item.SourceDigest, &item.CreatedBy, &item.CreatedAt, &item.PublishedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Version{}, ErrNotFound
 		}

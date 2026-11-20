@@ -11,6 +11,7 @@ import (
 
 	"opsseek/backend/application"
 	"opsseek/backend/authorization"
+	"opsseek/backend/expertgroup"
 	"opsseek/backend/notification"
 	"opsseek/backend/persona"
 	"opsseek/backend/resource"
@@ -25,6 +26,14 @@ type PersonaReader interface {
 	GetPersona(context.Context, string) (persona.Persona, error)
 }
 
+// ExpertGroupSource validates and resolves expert groups for inspection
+// policies. Implemented by the expertgroup package.
+type ExpertGroupSource interface {
+	GetGroup(context.Context, string) (expertgroup.Group, error)
+	ResolveGroup(context.Context, string, string, string) (expertgroup.ResolvedGroup, error)
+	ResolveEffective(context.Context, string, string, string, string) (expertgroup.ResolvedGroup, bool, error)
+}
+
 type Service struct {
 	store        policyStore
 	resources    ResourceReader
@@ -33,10 +42,11 @@ type Service struct {
 		DiagnosticContext(context.Context, string, string) (application.DiagnosticContext, error)
 		DiagnosticCandidates(context.Context, string) ([]application.Application, error)
 	}
-	personas  PersonaReader
-	cipher    secret.Cipher
-	providers notification.ProviderRegistry
-	tester    NotificationTester
+	personas     PersonaReader
+	expertGroups ExpertGroupSource
+	cipher       secret.Cipher
+	providers    notification.ProviderRegistry
+	tester       NotificationTester
 }
 
 func (s *Service) WithApplications(reader interface {
@@ -90,6 +100,11 @@ func NewService(store policyStore, resources ResourceReader, personas ...Persona
 	return service
 }
 
+func (s *Service) WithExpertGroups(source ExpertGroupSource) *Service {
+	s.expertGroups = source
+	return s
+}
+
 func (s *Service) WithNotificationSecurity(cipher secret.Cipher, providers notification.ProviderRegistry) *Service {
 	s.cipher = cipher
 	s.providers = providers
@@ -126,6 +141,21 @@ func (s *Service) CreatePolicy(ctx context.Context, input Policy, actorID string
 			if err := validator.ValidateApplicationTarget(ctx, policy.ScopeID, appID); err != nil {
 				return Policy{}, err
 			}
+		}
+	}
+	if policy.ExpertGroupID != "" {
+		if s.expertGroups == nil {
+			return Policy{}, invalid("expert group targets are unavailable")
+		}
+		group, groupErr := s.expertGroups.GetGroup(ctx, policy.ExpertGroupID)
+		if groupErr != nil {
+			return Policy{}, groupErr
+		}
+		if group.Status != "active" {
+			return Policy{}, invalid("expert group is disabled")
+		}
+		if !allowsScope(ctx, group.ScopeID) {
+			return Policy{}, authorization.ErrForbidden
 		}
 	}
 	if policy.PersonaID != "" {

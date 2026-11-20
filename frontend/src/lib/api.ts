@@ -371,6 +371,9 @@ export interface EngineCatalogItem {
   icon: string;
   config: Record<string, unknown>;
   status: string;
+  runtime_kind: string;
+  runtime_version?: string;
+  experimental?: boolean;
   tags?: string[];
 }
 
@@ -396,6 +399,42 @@ export interface PersonaCatalogItem {
   status: string;
 }
 
+export interface ExpertGroupMember {
+  id?: string;
+  persona_id: string;
+  seat: 'lead' | 'assistant' | 'oncall';
+  scene_tags: string[];
+  priority: number;
+}
+
+export interface ExpertGroup {
+  id: string;
+  scope_id: string;
+  identifier: string;
+  name: string;
+  description: string;
+  status: string;
+  members?: ExpertGroupMember[];
+}
+
+export interface ExpertGroupBinding {
+  scope_id: string;
+  scene_tag: string;
+  group_id: string;
+  application_id?: string;
+}
+
+export interface EffectiveExpertGroup {
+  found: boolean;
+  group: {
+    group_id?: string;
+    name?: string;
+    lead?: { persona_id: string; role: string; version: number };
+    assistants?: Array<{ persona_id: string; role: string; version: number }>;
+    warnings?: Array<{ kind: string; detail?: string }>;
+  };
+}
+
 export interface SkillVersion {
   id: string;
   skill_id: string;
@@ -404,6 +443,7 @@ export interface SkillVersion {
     name: string;
     description: string;
     instruction: string;
+    version?: string;
   };
   input_schema: Record<string, unknown>;
   output_schema: Record<string, unknown>;
@@ -414,8 +454,20 @@ export interface SkillVersion {
   }>;
   risk_level: string;
   status: string;
+  source_type?: string;
+  source_digest?: string;
   created_at: string;
   published_at?: string;
+}
+
+export interface SkillImportItem {
+  status: 'imported' | 'skipped' | 'failed';
+  identifier: string;
+  skill_id?: string;
+  version_id?: string;
+  source_digest?: string;
+  warnings?: string[];
+  error?: string;
 }
 
 export interface PersonaVersion {
@@ -1336,6 +1388,13 @@ export const api = {
   }) => request<AIConnectionResult>('api/v1/providers/test-draft', json(body)),
   skillVersions: (skillId: string) =>
     request<SkillVersion[]>(`api/v1/skills/${skillId}/versions`),
+  importSkills: (body: {
+    scope_id: string;
+    format: string;
+    category?: string;
+    content_base64: string;
+  }) =>
+    request<{ items: SkillImportItem[] }>('api/v1/skills/import', json(body)),
   createSkillVersion: (skillId: string, body: Record<string, unknown>) =>
     request<SkillVersion>(`api/v1/skills/${skillId}/versions`, json(body)),
   publishSkillVersion: (skillId: string, versionId: string) =>
@@ -1387,6 +1446,9 @@ export const api = {
     icon?: string;
     config?: Record<string, unknown>;
     status?: string;
+    runtime_kind?: string;
+    runtime_version?: string;
+    experimental?: boolean;
   }) =>
     request<EngineCatalogItem>('api/v1/engines', {
       method: 'POST',
@@ -1400,6 +1462,9 @@ export const api = {
       icon?: string;
       config?: Record<string, unknown>;
       status?: string;
+      runtime_kind?: string;
+      runtime_version?: string;
+      experimental?: boolean;
     }
   ) =>
     request<EngineCatalogItem>(`api/v1/engines/${encodeURIComponent(id)}`, {
@@ -1431,6 +1496,78 @@ export const api = {
     request<{ items: SkillCatalogItem[] }>(
       `api/v1/skills?scope_id=${encodeURIComponent(scopeId)}`
     ),
+  expertGroups: (scopeId: string) =>
+    request<{ items: ExpertGroup[] }>(
+      `api/v1/expert-groups?scope_id=${encodeURIComponent(scopeId)}`
+    ),
+  createExpertGroup: (body: {
+    scope_id: string;
+    identifier: string;
+    name: string;
+    description?: string;
+  }) => request<ExpertGroup>('api/v1/expert-groups', json(body)),
+  updateExpertGroup: (
+    groupId: string,
+    body: { name?: string; description?: string; status?: string }
+  ) =>
+    request<ExpertGroup>(`api/v1/expert-groups/${encodeURIComponent(groupId)}`, {
+      ...json(body),
+      method: 'PATCH'
+    }),
+  expertGroupMembers: (groupId: string) =>
+    request<{ items: ExpertGroupMember[] }>(
+      `api/v1/expert-groups/${encodeURIComponent(groupId)}/members`
+    ),
+  replaceExpertGroupMembers: (
+    groupId: string,
+    members: ExpertGroupMember[]
+  ) =>
+    request<{ items: ExpertGroupMember[] }>(
+      `api/v1/expert-groups/${encodeURIComponent(groupId)}/members`,
+      json({ members })
+    ),
+  expertGroupBindings: (scopeId: string) =>
+    request<{ items: ExpertGroupBinding[] }>(
+      `api/v1/scopes/${encodeURIComponent(scopeId)}/expert-group-bindings`
+    ),
+  setExpertGroupBinding: (
+    scopeId: string,
+    body: { scene_tag: string; group_id: string; application_id?: string }
+  ) =>
+    request<ExpertGroupBinding>(
+      `api/v1/scopes/${encodeURIComponent(scopeId)}/expert-group-bindings`,
+      json(body)
+    ),
+  removeExpertGroupBinding: (
+    scopeId: string,
+    sceneTag: string,
+    groupId: string,
+    applicationId?: string
+  ) => {
+    const params = new URLSearchParams({
+      scene_tag: sceneTag,
+      group_id: groupId
+    });
+    if (applicationId) params.set('application_id', applicationId);
+    return request<void>(
+      `api/v1/scopes/${encodeURIComponent(scopeId)}/expert-group-bindings?${params}`,
+      { method: 'DELETE' }
+    );
+  },
+  effectiveExpertGroup: (
+    scopeId: string,
+    applicationId?: string,
+    sceneTag = 'diagnosis'
+  ) => {
+    const params = new URLSearchParams({
+      scope_id: scopeId,
+      scene_tag: sceneTag
+    });
+    if (applicationId) params.set('application_id', applicationId);
+    return request<EffectiveExpertGroup>(
+      `api/v1/applications/${encodeURIComponent(applicationId ?? '')}/effective-expert-group?${params}`
+    );
+  },
   personas: (scopeId: string) =>
     request<{ items: PersonaCatalogItem[] }>(
       `api/v1/personas?scope_id=${encodeURIComponent(scopeId)}`

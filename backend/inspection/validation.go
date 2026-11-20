@@ -23,6 +23,13 @@ func normalizePolicy(input Policy) (Policy, error) {
 	if input.Status != PolicyActive && input.Status != PolicyDisabled {
 		return Policy{}, invalid("policy status must be active or disabled")
 	}
+	input.PersonaID = strings.TrimSpace(input.PersonaID)
+	input.ExpertGroupID = strings.TrimSpace(input.ExpertGroupID)
+	// Q3 ruling: persona and expert group are mutually exclusive; a silent
+	// precedence would be unauditable for unattended inspection runs.
+	if input.PersonaID != "" && input.ExpertGroupID != "" {
+		return Policy{}, invalid("policy persona_id and expert_group_id are mutually exclusive")
+	}
 	input.TargetResourceIDs = distinctIDs(input.TargetResourceIDs)
 	input.TargetApplicationIDs = distinctIDs(input.TargetApplicationIDs)
 	if len(input.TargetResourceIDs) == 0 && len(input.TargetApplicationIDs) == 0 && len(input.TargetLabels) == 0 {

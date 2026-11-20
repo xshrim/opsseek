@@ -36,6 +36,7 @@ type Store interface {
 	MarkLLMStatus(context.Context, string, string) error
 	RecordExplanation(context.Context, string, string) error
 	SetPolicyStatus(context.Context, string, string, string) error
+	SaveRunExpertGroupSnapshot(context.Context, string, json.RawMessage) error
 }
 
 type Job struct {
@@ -62,7 +63,7 @@ func (s *store) CreatePolicy(ctx context.Context, input Policy, actorID string) 
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	var id string
-	err = tx.QueryRow(ctx, `INSERT INTO inspection_policies (scope_id,name,cron,timezone,status,target_labels,persona_id,timeout_seconds,retries,max_concurrent,max_tool_calls,max_tokens,maintenance_windows,created_by) VALUES ($1::uuid,$2,$3,$4,$5,$6,NULLIF($7,'')::uuid,$8,$9,$10,$11,$12,$13,NULLIF($14,'')::uuid) RETURNING id::text`, input.ScopeID, input.Name, input.Cron, input.Timezone, input.Status, labels, input.PersonaID, int(input.Timeout.Seconds()), input.Retries, input.MaxConcurrent, input.MaxToolCalls, input.MaxTokens, windows, actorID).Scan(&id)
+	err = tx.QueryRow(ctx, `INSERT INTO inspection_policies (scope_id,name,cron,timezone,status,target_labels,persona_id,expert_group_id,timeout_seconds,retries,max_concurrent,max_tool_calls,max_tokens,maintenance_windows,created_by) VALUES ($1::uuid,$2,$3,$4,$5,$6,NULLIF($7,'')::uuid,NULLIF($8,'')::uuid,$9,$10,$11,$12,$13,$14,$15,NULLIF($16,'')::uuid) RETURNING id::text`, input.ScopeID, input.Name, input.Cron, input.Timezone, input.Status, labels, input.PersonaID, input.ExpertGroupID, int(input.Timeout.Seconds()), input.Retries, input.MaxConcurrent, input.MaxToolCalls, input.MaxTokens, windows, actorID).Scan(&id)
 	if err != nil {
 		return Policy{}, mapError(err)
 	}
@@ -84,7 +85,7 @@ func (s *store) CreatePolicy(ctx context.Context, input Policy, actorID string) 
 }
 
 func (s *store) ListPolicies(ctx context.Context, scopeID string) ([]Policy, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id::text,scope_id::text,name,cron,timezone,status,target_labels,COALESCE(persona_id::text,''),timeout_seconds,retries,max_concurrent,max_tool_calls,max_tokens,maintenance_windows FROM inspection_policies WHERE scope_id=$1::uuid AND deleted_at IS NULL ORDER BY created_at DESC`, scopeID)
+	rows, err := s.pool.Query(ctx, `SELECT id::text,scope_id::text,name,cron,timezone,status,target_labels,COALESCE(persona_id::text,''),COALESCE(expert_group_id::text,''),timeout_seconds,retries,max_concurrent,max_tool_calls,max_tokens,maintenance_windows FROM inspection_policies WHERE scope_id=$1::uuid AND deleted_at IS NULL ORDER BY created_at DESC`, scopeID)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -94,7 +95,7 @@ func (s *store) ListPolicies(ctx context.Context, scopeID string) ([]Policy, err
 		var item Policy
 		var labels, windows []byte
 		var seconds int
-		if err := rows.Scan(&item.ID, &item.ScopeID, &item.Name, &item.Cron, &item.Timezone, &item.Status, &labels, &item.PersonaID, &seconds, &item.Retries, &item.MaxConcurrent, &item.MaxToolCalls, &item.MaxTokens, &windows); err != nil {
+		if err := rows.Scan(&item.ID, &item.ScopeID, &item.Name, &item.Cron, &item.Timezone, &item.Status, &labels, &item.PersonaID, &item.ExpertGroupID, &seconds, &item.Retries, &item.MaxConcurrent, &item.MaxToolCalls, &item.MaxTokens, &windows); err != nil {
 			return nil, err
 		}
 		item.Timeout = time.Duration(seconds) * time.Second
@@ -198,7 +199,7 @@ func (s *store) ScheduleDue(ctx context.Context, now time.Time) (int, error) {
 		// returned to the pool immediately after this function exits.
 		_, _ = conn.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, lockID)
 	}()
-	rows, err := conn.Query(ctx, `SELECT id::text,scope_id::text,name,cron,timezone,status,target_labels,COALESCE(persona_id::text,''),timeout_seconds,retries,max_concurrent,max_tool_calls,max_tokens,maintenance_windows FROM inspection_policies WHERE status='active' AND deleted_at IS NULL`)
+	rows, err := conn.Query(ctx, `SELECT id::text,scope_id::text,name,cron,timezone,status,target_labels,COALESCE(persona_id::text,''),COALESCE(expert_group_id::text,''),timeout_seconds,retries,max_concurrent,max_tool_calls,max_tokens,maintenance_windows FROM inspection_policies WHERE status='active' AND deleted_at IS NULL`)
 	if err != nil {
 		return 0, mapError(err)
 	}
@@ -255,7 +256,7 @@ func scanPolicy(row policyScanner) (Policy, error) {
 	var item Policy
 	var labels, windows []byte
 	var seconds int
-	if err := row.Scan(&item.ID, &item.ScopeID, &item.Name, &item.Cron, &item.Timezone, &item.Status, &labels, &item.PersonaID, &seconds, &item.Retries, &item.MaxConcurrent, &item.MaxToolCalls, &item.MaxTokens, &windows); err != nil {
+	if err := row.Scan(&item.ID, &item.ScopeID, &item.Name, &item.Cron, &item.Timezone, &item.Status, &labels, &item.PersonaID, &item.ExpertGroupID, &seconds, &item.Retries, &item.MaxConcurrent, &item.MaxToolCalls, &item.MaxTokens, &windows); err != nil {
 		return Policy{}, err
 	}
 	item.Timeout = time.Duration(seconds) * time.Second
@@ -925,6 +926,20 @@ func (s *store) RecordExplanation(ctx context.Context, runID, detail string) err
 		INSERT INTO inspection_run_steps(run_id,sequence,kind,status,detail,started_at,completed_at)
 		VALUES ($1::uuid,COALESCE((SELECT max(sequence)+1 FROM inspection_run_steps WHERE run_id=$1::uuid),1),'ai_explanation','succeeded',$2,now(),now())`, runID, detail)
 	return mapError(err)
+}
+
+func (s *store) SaveRunExpertGroupSnapshot(ctx context.Context, runID string, snapshot json.RawMessage) error {
+	if len(snapshot) == 0 {
+		snapshot = json.RawMessage(`{}`)
+	}
+	tag, err := s.pool.Exec(ctx, `UPDATE inspection_runs SET expert_group_snapshot = $2::jsonb WHERE id = $1::uuid`, runID, snapshot)
+	if err != nil {
+		return mapError(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (s *store) SetPolicyStatus(ctx context.Context, id, scopeID, status string) error {

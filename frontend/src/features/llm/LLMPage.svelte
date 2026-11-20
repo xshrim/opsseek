@@ -179,6 +179,13 @@
     const tags = model.tags?.length ? model.tags : (model.capabilities ?? []);
     return tags.filter((tag) => tag !== 'structured_output');
   }
+  function engineRuntimeLabel(engine: EngineCatalogItem) {
+    const kind = engine.runtime_kind || 'adk';
+    const version = engine.runtime_version ? ` · ${engine.runtime_version}` : '';
+    return engine.experimental
+      ? `${kind}${version} · 实验性`
+      : `${kind}${version}`;
+  }
   function engineCapabilities(engine: EngineCatalogItem) {
     return Array.isArray(engine.config?.capabilities)
       ? engine.config.capabilities.map(String).filter(Boolean)
@@ -976,6 +983,8 @@
               ><strong>{engine.name}</strong><small
                 >{engine.description || '未填写引擎说明'}</small
               ></span
+            ><span class="engine-runtime"
+              >{engineRuntimeLabel(engine)}</span
             ><span class="engine-state"
               >{engine.status === 'active' ? '运行中' : '已停用'}</span
             >
@@ -2118,6 +2127,11 @@
     font-size: 10px;
     line-height: 1.4;
     text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .engine-runtime {
+    color: var(--theme-fg-muted);
+    font-size: 10px;
     white-space: nowrap;
   }
   .engine-state {

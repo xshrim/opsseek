@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -52,6 +53,7 @@ type skillService interface {
 	Disable(context.Context, string, string) (skill.Version, error)
 	SetDefault(context.Context, string, string, string, string) (skill.Default, error)
 	Resolve(context.Context, string, string, string) (skill.Version, error)
+	Import(context.Context, skill.ImportInput) ([]skill.ImportItemResult, error)
 }
 
 type personaService interface {
@@ -218,6 +220,7 @@ func registerAIRoutes(router chi.Router, llms llmService, skills skillService, p
 	}
 	if skills != nil {
 		router.With(guard(authorization.SkillManage)).Post("/skills/{skillID}/versions", h.createVersion)
+		router.With(guard(authorization.SkillManage)).Post("/skills/import", h.importSkills)
 		router.With(guard(authorization.SkillRead)).Get("/skills/{skillID}/versions", h.listVersions)
 		router.With(guard(authorization.SkillManage)).Post("/skills/{skillID}/versions/{versionID}/publish", h.publishVersion)
 		router.With(guard(authorization.SkillManage)).Post("/skills/{skillID}/versions/{versionID}/disable", h.disableVersion)
@@ -407,6 +410,83 @@ func safeAIConnectionError(err error) string {
 }
 
 var aiSensitiveValuePattern = regexp.MustCompile(`(?i)(authorization|api[- ]?key|token|secret|password|bearer)(\s*(?:[:=]|\s)\s*)[^\s,;\)\]}]+`)
+
+type importSkillsRequest struct {
+	ScopeID  string `json:"scope_id"`
+	Format   string `json:"format"`
+	Category string `json:"category"`
+	// ContentBase64 carries the raw import payload: an opsseek.skill/v1
+	// document (json/yaml/markdown), a pasted SKILL.md (skillmd) or an Agent
+	// Skills zip package (zip). Base64 in JSON keeps the transport consistent
+	// with every other OpsSeek API endpoint.
+	ContentBase64 string `json:"content_base64"`
+}
+
+type importSkillsResponse struct {
+	Items []skill.ImportItemResult `json:"items"`
+}
+
+func (h aiHandler) importSkills(w http.ResponseWriter, r *http.Request) {
+	var body importSkillsRequest
+	if !decodeRequest(w, r, &body) {
+		return
+	}
+	if strings.TrimSpace(body.ContentBase64) == "" {
+		writeError(w, r, http.StatusBadRequest, "invalid_request", "content_base64 is required")
+		return
+	}
+	raw, err := base64.StdEncoding.DecodeString(body.ContentBase64)
+	if err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid_request", "content_base64 is not valid base64")
+		return
+	}
+	items, err := h.skills.Import(r.Context(), skill.ImportInput{
+		ScopeID:  body.ScopeID,
+		Format:   body.Format,
+		Category: body.Category,
+		Data:     raw,
+		ActorID:  currentUser(r).ID,
+	})
+	if err != nil {
+		writeAIError(w, r, err)
+		return
+	}
+	imported, failed := 0, 0
+	for _, item := range items {
+		if item.Status == skill.ImportStatusFailed {
+			failed++
+		} else {
+			imported++
+		}
+	}
+	h.auditImport(r, body.ScopeID, items)
+	if failed > 0 && imported == 0 {
+		writeJSON(w, http.StatusBadRequest, importSkillsResponse{Items: items})
+		return
+	}
+	writeJSON(w, http.StatusOK, importSkillsResponse{Items: items})
+}
+
+func (h aiHandler) auditImport(r *http.Request, scopeID string, items []skill.ImportItemResult) {
+	if h.auditor == nil {
+		return
+	}
+	outcomes := make([]string, 0, len(items))
+	for _, item := range items {
+		outcomes = append(outcomes, item.Identifier+":"+item.Status)
+	}
+	_ = h.auditor.Record(r.Context(), audit.Event{
+		ActorUserID: currentUser(r).ID,
+		Action:      "skill.import",
+		TargetType:  "scope",
+		TargetID:    scopeID,
+		ScopeID:     scopeID,
+		Result:      "success",
+		Details:     map[string]any{"items": outcomes},
+		RequestID:   middleware.GetReqID(r.Context()),
+		ClientIP:    requestClientIP(r),
+	})
+}
 
 func (h aiHandler) createVersion(w http.ResponseWriter, r *http.Request) {
 	var body createSkillVersionRequest

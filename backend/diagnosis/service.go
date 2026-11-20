@@ -10,6 +10,7 @@ import (
 
 	"opsseek/backend/application"
 	"opsseek/backend/authorization"
+	"opsseek/backend/expertgroup"
 	"opsseek/backend/resource"
 )
 
@@ -23,11 +24,20 @@ type ApplicationReader interface {
 	DiagnosticContext(context.Context, string, string) (application.DiagnosticContext, error)
 }
 
+// ExpertGroupSource resolves and freezes expert groups for diagnosis callers.
+// The application-level binding resolution lives here (B3 ruling); the Engine
+// runtime only receives the resolved group ID.
+type ExpertGroupSource interface {
+	ResolveEffective(ctx context.Context, scopeID, applicationID, applicationScopeID, scene string) (expertgroup.ResolvedGroup, bool, error)
+	ResolveGroup(ctx context.Context, scopeID, groupID, scene string) (expertgroup.ResolvedGroup, error)
+}
+
 type Service struct {
 	defaultCollaboration int
 	store                Store
 	resources            ResourceReader
 	applications         ApplicationReader
+	expertGroups         ExpertGroupSource
 	eventMu              sync.Mutex
 	subMu                sync.Mutex
 	subscribers          map[string]map[chan struct{}]struct{}
@@ -35,6 +45,11 @@ type Service struct {
 
 func NewService(store Store, resources ResourceReader, applications ApplicationReader) *Service {
 	return &Service{store: store, resources: resources, applications: applications, subscribers: make(map[string]map[chan struct{}]struct{})}
+}
+
+func (s *Service) WithExpertGroups(source ExpertGroupSource) *Service {
+	s.expertGroups = source
+	return s
 }
 
 func (s *Service) WithDefaultCollaboration(value int) *Service {
@@ -86,6 +101,7 @@ func (s *Service) Start(ctx context.Context, input StartInput) (Session, error) 
 	input.ModelName = strings.TrimSpace(input.ModelName)
 	input.SkillID = strings.TrimSpace(input.SkillID)
 	input.PersonaID = strings.TrimSpace(input.PersonaID)
+	input.ExpertGroupID = strings.TrimSpace(input.ExpertGroupID)
 	input.Links = distinctStrings(input.Links)
 	if len(input.Attachments) > 10 || len(input.Links) > 10 {
 		return Session{}, invalid("a message may include at most 10 links or attachments")
@@ -182,7 +198,63 @@ func (s *Service) Start(ctx context.Context, input StartInput) (Session, error) 
 	if input.Title == "" {
 		input.Title = titleFromQuestion(input.Question)
 	}
-	return s.store.Start(ctx, input)
+	// Expert group resolution (B3): the caller resolves the four-level binding
+	// priority before the session is persisted; explicit persona keeps the
+	// single-persona behavior unchanged when no group is configured.
+	if s.expertGroups != nil && input.ExpertGroupID == "" && input.PersonaID == "" {
+		applicationScopeID := input.ScopeID
+		if len(input.ApplicationIDs) > 0 && s.applications != nil {
+			if app, appErr := s.applications.Get(ctx, input.ApplicationIDs[0]); appErr == nil && app.ProjectScopeID != "" {
+				applicationScopeID = app.ProjectScopeID
+			}
+		}
+		resolved, found, resolveErr := s.expertGroups.ResolveEffective(ctx, input.ScopeID, input.ApplicationID, applicationScopeID, "diagnosis")
+		if resolveErr != nil {
+			return Session{}, resolveErr
+		}
+		if found {
+			input.ExpertGroupID = resolved.GroupID
+		}
+	}
+	session, err := s.store.Start(ctx, input)
+	if err != nil {
+		return Session{}, err
+	}
+	if session.ExpertGroupID != "" {
+		if frozen, freezeErr := s.freezeExpertGroup(ctx, session); freezeErr != nil {
+			return Session{}, freezeErr
+		} else if frozen.ID != "" {
+			session = frozen
+		}
+	}
+	return session, nil
+}
+
+// freezeExpertGroup resolves the session's expert group once and persists the
+// frozen member snapshot (persona ids, seats, resolved versions). Later turns
+// reuse the snapshot, so mid-session group edits never affect a running
+// conversation (M4).
+func (s *Service) freezeExpertGroup(ctx context.Context, session Session) (Session, error) {
+	if s.expertGroups == nil || session.ExpertGroupID == "" {
+		return Session{}, nil
+	}
+	resolved, err := s.expertGroups.ResolveGroup(ctx, session.ScopeID, session.ExpertGroupID, "diagnosis")
+	if err != nil {
+		return Session{}, err
+	}
+	encoded, err := json.Marshal(resolved.Snapshot)
+	if err != nil {
+		return Session{}, invalid("expert group snapshot is not serializable")
+	}
+	if err := s.store.SetExpertGroupSnapshot(ctx, session.ID, session.ExpertGroupID, encoded); err != nil {
+		return Session{}, err
+	}
+	_ = s.appendEvent(ctx, session.ID, CreateEventInput{Type: "expert_group.resolved", Payload: map[string]any{
+		"expert_group_id": resolved.GroupID, "snapshot": resolved.Snapshot,
+		"warnings": resolved.Warnings, "ignored_worker_persona_ids": resolved.IgnoredWorkerPersonaIDs,
+	}})
+	session.ExpertGroupSnapshot = encoded
+	return session, nil
 }
 
 func (s *Service) Get(ctx context.Context, sessionID string) (Snapshot, error) {
@@ -332,6 +404,7 @@ func (s *Service) AskMessage(ctx context.Context, sessionID string, input Append
 	input.Content = strings.TrimSpace(input.Content)
 	input.SkillID = strings.TrimSpace(input.SkillID)
 	input.PersonaID = strings.TrimSpace(input.PersonaID)
+	input.ExpertGroupID = strings.TrimSpace(input.ExpertGroupID)
 	input.Links = distinctStrings(input.Links)
 	if len(input.Attachments) > 10 || len(input.Links) > 10 {
 		return Message{}, invalid("a message may include at most 10 links or attachments")
@@ -341,6 +414,17 @@ func (s *Service) AskMessage(ctx context.Context, sessionID string, input Append
 	}
 	if input.Content == "" || len([]rune(input.Content)) > 16000 {
 		return Message{}, invalid("message must contain 1 to 16000 characters")
+	}
+	if input.ExpertGroupID != "" && session.ExpertGroupID != "" && input.ExpertGroupID != session.ExpertGroupID {
+		return Message{}, invalid("session expert group is frozen")
+	}
+	if input.ExpertGroupID != "" && session.ExpertGroupID == "" {
+		session.ExpertGroupID = input.ExpertGroupID
+		if frozen, freezeErr := s.freezeExpertGroup(ctx, session); freezeErr != nil {
+			return Message{}, freezeErr
+		} else if frozen.ID != "" {
+			session = frozen
+		}
 	}
 	input.Role = "user"
 	item, err := s.store.AppendMessage(ctx, session.ID, input)

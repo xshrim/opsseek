@@ -23,6 +23,7 @@ import (
 	"opsseek/backend/database"
 	"opsseek/backend/diagnosis"
 	"opsseek/backend/engine"
+	"opsseek/backend/expertgroup"
 	"opsseek/backend/health"
 	"opsseek/backend/httpapi"
 	"opsseek/backend/identity"
@@ -190,7 +191,8 @@ func run(logger *slog.Logger, cfg config.Config) error {
 	personaCatalog := persona.NewPersonaCatalog(pool)
 	personaService := persona.NewService(personaVersions, personaCatalog)
 	personaResolver := persona.NewResolver(personaCatalog, personaVersions)
-	inspectionService := inspection.NewService(inspection.NewStore(pool), resourceService, personaCatalog).WithApplications(applicationService).WithNotificationSecurity(credentialEncryptor, notification.DefaultProviderRegistry())
+	expertGroupService := expertgroup.NewService(expertgroup.NewStore(pool), personaResolver)
+	inspectionService := inspection.NewService(inspection.NewStore(pool), resourceService, personaCatalog).WithApplications(applicationService).WithExpertGroups(expertGroupService).WithNotificationSecurity(credentialEncryptor, notification.DefaultProviderRegistry())
 	mcpService := mcp.NewServiceWithSecurity(resourceService, mcp.NewStore(pool), cfg.MCPEnhancedSecurity)
 	connectorProvider := connectorService.EngineProvider()
 	mcpProvider := mcpService.EngineProvider()
@@ -227,11 +229,19 @@ func run(logger *slog.Logger, cfg config.Config) error {
 		}
 		return engine.ModelBuildResult{Client: client, ProviderID: resolved.Provider.ID, ModelName: resolved.Model.Name, Capabilities: resolved.Model.Capabilities, ContextWindowTokens: resolved.Model.ContextWindowTokens, MaxOutputTokens: resolved.Model.MaxOutputTokens, Temperature: resolved.Model.Temperature}, nil
 	}
-	engineRuntime := engine.NewWithContextAndStore(engine.NewAgentRunner(modelBuilder), contextTooling.Resolver, contextTooling.Gateway, aiStore).
+	adapterRegistry, registryErr := engine.DefaultAdapterRegistry(modelBuilder)
+	if registryErr != nil {
+		return errors.Join(errors.New("register engine runtime adapters"), registryErr)
+	}
+	engineRunner, runtimeAdapter, runtimeFallbackNote := engine.ResolveEngineRunner(adapterRegistry, cfg.EngineRuntimeKind, modelBuilder)
+	if runtimeFallbackNote != "" {
+		logger.Warn("engine runtime configuration fell back to default", "kind", "configuration", "requested", cfg.EngineRuntimeKind, "runtime", runtimeAdapter.ID(), "detail", runtimeFallbackNote)
+	}
+	engineRuntime := engine.NewWithContextAndStore(engineRunner, contextTooling.Resolver, contextTooling.Gateway, aiStore).
 		WithPersonaResolver(personaResolver).
 		WithPlanResolver(skillService)
 	engineCatalog := engine.NewCatalogService(engine.NewCatalogStore(pool))
-	diagnosisService := diagnosis.NewOrchestrator(diagnosis.NewService(diagnosis.NewStore(pool), resourceService, applicationService).WithDefaultCollaboration(cfg.DiagnosisCollaboration), engineRuntime, 0).
+	diagnosisService := diagnosis.NewOrchestrator(diagnosis.NewService(diagnosis.NewStore(pool), resourceService, applicationService).WithDefaultCollaboration(cfg.DiagnosisCollaboration).WithExpertGroups(expertGroupService), engineRuntime, 0).
 		WithSubagentLimits(cfg.DiagnosisMaxSubagents, cfg.DiagnosisSubagentConcurrency)
 	diagnosisService.StartRecoveryWorker(ctx)
 	workflowService := engine.NewWorkflowService(workflowRunStore, engineRuntime, contextTooling.Gateway, workflowRetriever, aiStore)
@@ -253,6 +263,7 @@ func run(logger *slog.Logger, cfg config.Config) error {
 			LLMs:                     llmService,
 			Skills:                   skillService,
 			Personas:                 personaService,
+			ExpertGroups:             expertGroupService,
 			Engine:                   engineRuntime,
 			EngineCatalog:            engineCatalog,
 			EngineEvents:             aiStore,

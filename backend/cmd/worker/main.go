@@ -18,6 +18,7 @@ import (
 	"opsseek/backend/connector"
 	"opsseek/backend/database"
 	"opsseek/backend/engine"
+	"opsseek/backend/expertgroup"
 	"opsseek/backend/inspection"
 	"opsseek/backend/llm"
 	"opsseek/backend/logging"
@@ -92,6 +93,7 @@ func main() {
 	skillService := skill.NewService(skill.NewStore(pool), skill.NewCatalog(pool), resourceService)
 	personaVersions := persona.NewVersionStore(pool)
 	personaResolver := persona.NewResolver(persona.NewPersonaCatalog(pool), personaVersions)
+	expertGroupService := expertgroup.NewService(expertgroup.NewStore(pool), personaResolver)
 	contextTooling := engine.NewContextTooling(engine.ResourceServiceReader{Reader: resourceService}, connectorProvider, mcpProvider)
 	aiStore := engine.NewPostgresStore(pool)
 	contextTooling.Gateway.AuditStore = aiStore
@@ -102,10 +104,19 @@ func main() {
 		}
 		return engine.ModelBuildResult{Client: client, ProviderID: resolved.Provider.ID, ModelName: resolved.Model.Name, Capabilities: resolved.Model.Capabilities, ContextWindowTokens: resolved.Model.ContextWindowTokens, MaxOutputTokens: resolved.Model.MaxOutputTokens, Temperature: resolved.Model.Temperature}, nil
 	}
-	engineRuntime := engine.NewWithContextAndStore(engine.NewAgentRunner(modelBuilder), contextTooling.Resolver, contextTooling.Gateway, aiStore).
+	adapterRegistry, registryErr := engine.DefaultAdapterRegistry(modelBuilder)
+	if registryErr != nil {
+		logger.Error("register engine runtime adapters", "kind", "error", "error_type", "engine-runtime", "error", registryErr)
+		os.Exit(1)
+	}
+	engineRunner, runtimeAdapter, runtimeFallbackNote := engine.ResolveEngineRunner(adapterRegistry, cfg.EngineRuntimeKind, modelBuilder)
+	if runtimeFallbackNote != "" {
+		logger.Warn("engine runtime configuration fell back to default", "kind", "configuration", "requested", cfg.EngineRuntimeKind, "runtime", runtimeAdapter.ID(), "detail", runtimeFallbackNote)
+	}
+	engineRuntime := engine.NewWithContextAndStore(engineRunner, contextTooling.Resolver, contextTooling.Gateway, aiStore).
 		WithPersonaResolver(personaResolver).
 		WithPlanResolver(skillService)
-	worker := inspection.NewWorker(store, connectorChecker{resources: resourceService, service: connectors}, inspectionExplainer{engine: engineRuntime, store: store, applications: applicationService}, serviceName+":"+hostname(), cfg.InspectionLeaseDuration)
+	worker := inspection.NewWorker(store, connectorChecker{resources: resourceService, service: connectors}, inspectionExplainer{engine: engineRuntime, store: store, applications: applicationService, expertGroups: expertGroupService}, serviceName+":"+hostname(), cfg.InspectionLeaseDuration)
 	notifier := inspection.NotificationWorker{Store: store, Cipher: encryptor, Owner: serviceName + ":notification:" + hostname(), LeaseDuration: cfg.InspectionLeaseDuration}
 	inspectionTicker := time.NewTicker(cfg.InspectionWorkerPollInterval)
 	notificationTicker := time.NewTicker(cfg.NotificationQueuePollInterval)
@@ -311,6 +322,13 @@ type inspectionExplainer struct {
 	engine engine.Engine
 	store  interface {
 		RecordExplanation(context.Context, string, string) error
+		SaveRunExpertGroupSnapshot(context.Context, string, json.RawMessage) error
+	}
+	// expertGroups resolves an inspection policy's expert group and freezes the
+	// run audit snapshot. Nil keeps the legacy single-persona behavior.
+	expertGroups interface {
+		ResolveGroup(context.Context, string, string, string) (expertgroup.ResolvedGroup, error)
+		ResolveEffective(context.Context, string, string, string, string) (expertgroup.ResolvedGroup, bool, error)
 	}
 	applications interface {
 		Get(context.Context, string) (application.Application, error)
@@ -321,6 +339,37 @@ type inspectionExplainer struct {
 func (e inspectionExplainer) Explain(ctx context.Context, run inspection.Run, policy inspection.Policy, findings []inspection.Finding) error {
 	if e.engine == nil {
 		return nil
+	}
+	// Expert group execution (S3): resolve the policy group (or the scope
+	// inspection binding when unset), freeze the member snapshot on the run for
+	// audit and route the engine request through the group's lead persona.
+	var groupID string
+	var leadPersonaID string
+	if e.expertGroups != nil {
+		var resolved expertgroup.ResolvedGroup
+		if policy.ExpertGroupID != "" {
+			item, resolveErr := e.expertGroups.ResolveGroup(ctx, policy.ScopeID, policy.ExpertGroupID, "inspection")
+			if resolveErr != nil {
+				return resolveErr
+			}
+			resolved = item
+		} else if item, found, resolveErr := e.expertGroups.ResolveEffective(ctx, policy.ScopeID, "", "", "inspection"); resolveErr != nil {
+			return resolveErr
+		} else if found {
+			resolved = item
+		}
+		if resolved.GroupID != "" {
+			if policy.PersonaID != "" {
+				// Q3: mutually exclusive; validation should have caught this.
+				return fmt.Errorf("inspection policy declares both persona and expert group")
+			}
+			groupID = resolved.GroupID
+			leadPersonaID = resolved.Lead.PersonaID
+			encoded, marshalErr := json.Marshal(resolved.Snapshot)
+			if marshalErr == nil {
+				_ = e.store.SaveRunExpertGroupSnapshot(ctx, run.ID, encoded)
+			}
+		}
 	}
 	targets := map[string][]inspection.Finding{}
 	for _, finding := range findings {
@@ -341,8 +390,12 @@ func (e inspectionExplainer) Explain(ctx context.Context, run inspection.Run, po
 			}
 			return
 		}
+		personaID := policy.PersonaID
+		if personaID == "" {
+			personaID = leadPersonaID
+		}
 		result, executeErr := e.engine.Execute(ctx, engine.Request{
-			ScopeID: policy.ScopeID, Profile: engine.ProfileInspection, PersonaID: policy.PersonaID,
+			ScopeID: policy.ScopeID, Profile: engine.ProfileInspection, PersonaID: personaID, ExpertGroupID: groupID,
 			ResolvedPersona: inspectionPersona(policy),
 			Instruction:     "仅基于确定性巡检 Finding 和所给应用拓扑解释异常。需要时按实例运行时逐个检查，并检查关联资源；存在代码仓库时可按应用绑定目录读取源码验证。区分事实与推断，不执行写操作。",
 			Input:           input, Context: engine.ContextRequest{ResourceIDs: resourceIDs, ResourceBindings: bindings},

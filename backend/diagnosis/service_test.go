@@ -9,6 +9,7 @@ import (
 
 	appdomain "opsseek/backend/application"
 	"opsseek/backend/authorization"
+	"opsseek/backend/expertgroup"
 	"opsseek/backend/resource"
 )
 
@@ -292,7 +293,7 @@ func testActor(id string) *string { return &id }
 
 func (m *memoryStore) Start(_ context.Context, input StartInput) (Session, error) {
 	m.started = input
-	m.session = Session{ID: "session-1", ScopeID: input.ScopeID, ActorUserID: testActor(input.ActorUserID), ScopeShared: input.ScopeShared, Status: StatusQueued}
+	m.session = Session{ID: "session-1", ScopeID: input.ScopeID, ActorUserID: testActor(input.ActorUserID), ScopeShared: input.ScopeShared, Status: StatusQueued, ExpertGroupID: input.ExpertGroupID}
 	return m.session, nil
 }
 func (m *memoryStore) Get(context.Context, string) (Session, error) { return m.session, nil }
@@ -307,6 +308,10 @@ func (m *memoryStore) SetScopeShared(_ context.Context, _ string, shared bool) (
 func (m *memoryStore) SetCollaboration(_ context.Context, _ string, value int) (Session, error) {
 	m.session.Collaboration = value
 	return m.session, nil
+}
+
+func (*memoryStore) SetExpertGroupSnapshot(context.Context, string, string, json.RawMessage) error {
+	return nil
 }
 func (*memoryStore) Delete(context.Context, string) error                      { return nil }
 func (m *memoryStore) Targets(context.Context, string) ([]Target, error)       { return m.targets, nil }
@@ -367,4 +372,63 @@ func (m *memoryStore) Reopen(context.Context, string) (Session, error) {
 }
 func (*memoryStore) Finish(context.Context, string, Status, string, string) (Session, error) {
 	return Session{}, nil
+}
+
+type fakeExpertGroups struct {
+	resolved expertgroup.ResolvedGroup
+	found    bool
+	groupErr error
+}
+
+func (f fakeExpertGroups) ResolveEffective(context.Context, string, string, string, string) (expertgroup.ResolvedGroup, bool, error) {
+	return f.resolved, f.found, nil
+}
+func (f fakeExpertGroups) ResolveGroup(context.Context, string, string, string) (expertgroup.ResolvedGroup, error) {
+	if f.groupErr != nil {
+		return expertgroup.ResolvedGroup{}, f.groupErr
+	}
+	return f.resolved, nil
+}
+
+func TestStartFreezesExpertGroupSnapshot(t *testing.T) {
+	store := &memoryStore{}
+	service := NewService(store, nil, nil).WithExpertGroups(fakeExpertGroups{
+		found: true,
+		resolved: expertgroup.ResolvedGroup{Snapshot: expertgroup.Snapshot{
+			GroupID: "group-1", Scene: "diagnosis",
+			Lead:       expertgroup.MemberSnapshot{PersonaID: "manager-1", Seat: "lead", Role: "manager", Version: 3},
+			Assistants: []expertgroup.MemberSnapshot{{PersonaID: "worker-1", Seat: "assistant", Role: "worker", Version: 2}},
+		}},
+	})
+	session, err := service.Start(context.Background(), StartInput{ScopeID: "scope-1", ActorUserID: "actor-1", Question: "why is it slow"})
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if session.ExpertGroupID != "group-1" {
+		t.Fatalf("expert_group_id = %q", session.ExpertGroupID)
+	}
+	var frozen expertgroup.Snapshot
+	if err := json.Unmarshal(session.ExpertGroupSnapshot, &frozen); err != nil {
+		t.Fatal(err)
+	}
+	if frozen.Lead.PersonaID != "manager-1" || frozen.Lead.Version != 3 || len(frozen.Assistants) != 1 {
+		t.Fatalf("frozen snapshot = %+v", frozen)
+	}
+	// A later turn cannot switch the frozen group.
+	_, err = service.AskMessage(context.Background(), session.ID, AppendMessageInput{Content: "继续", ExpertGroupID: "group-2"})
+	if err == nil {
+		t.Fatal("switching the session expert group must be rejected")
+	}
+}
+
+func TestStartWithoutExpertGroupKeepsSinglePersonaBehavior(t *testing.T) {
+	store := &memoryStore{}
+	service := NewService(store, nil, nil).WithExpertGroups(fakeExpertGroups{found: false})
+	session, err := service.Start(context.Background(), StartInput{ScopeID: "scope-1", ActorUserID: "actor-1", Question: "hello"})
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if session.ExpertGroupID != "" || len(session.ExpertGroupSnapshot) != 0 {
+		t.Fatalf("session unexpectedly bound to an expert group: %+v", session)
+	}
 }

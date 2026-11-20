@@ -706,3 +706,55 @@
     width: 100% !important;
   }
 }
+
+/* Skill import wizard */
+.skill-import-select,
+.skill-import-file {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--border, #d0d5dd);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: inherit;
+  font-size: 13px;
+}
+.skill-import-file-name {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary, #667085);
+}
+.skill-import-results {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.skill-import-result {
+  border: 1px solid var(--border, #d0d5dd);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+.skill-import-result[data-status='failed'] {
+  border-color: #f04438;
+}
+.skill-import-result[data-status='imported'] {
+  border-color: #12b76a;
+}
+.skill-import-result header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.skill-import-error {
+  color: #f04438;
+  margin: 6px 0 0;
+}
+.skill-import-warnings {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: #b54708;
+}
+.skill-import-warnings li {
+  margin: 2px 0;
+}
